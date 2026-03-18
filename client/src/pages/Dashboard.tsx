@@ -103,12 +103,12 @@ function formatCurrency(value?: string | number): string {
 
 // ─── Sidebar ─────────────────────────────────────────────────────────────────
 function Sidebar({ activeDeals = 0, pendingDocs = 0 }: { activeDeals?: number; pendingDocs?: number }) {
-  const [, navigate] = useLocation();
+  const [location, navigate] = useLocation();
   const { logout, user } = useAuth();
 
   const navItems = [
     { label: "PRINCIPAL", items: [
-      { icon: LayoutDashboard, label: "Dashboard", href: "/dashboard", active: true },
+      { icon: LayoutDashboard, label: "Dashboard", href: "/dashboard" },
       { icon: Briefcase, label: "Negócios", href: "/dashboard/negocios", badge: activeDeals },
       { icon: Users, label: "Clientes", href: "/dashboard/clientes" },
       { icon: FileText, label: "Documentos", href: "/dashboard/documentos", badge: pendingDocs, badgeColor: "bg-red-500" },
@@ -146,15 +146,10 @@ function Sidebar({ activeDeals = 0, pendingDocs = 0 }: { activeDeals?: number; p
                   <Link href={item.href}>
                     <div
                       className={`flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-colors ${
-                        item.active
+                        (location === item.href || (item.href !== "/dashboard" && location.startsWith(item.href)))
                           ? "bg-sidebar-primary text-white"
                           : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground"
                       }`}
-                      onClick={() => {
-                        if (!item.active && item.href !== "/dashboard") {
-                          toast.info("Funcionalidade em breve");
-                        }
-                      }}
                     >
                       <item.icon className="w-4 h-4 flex-shrink-0" />
                       <span className="text-sm flex-1">{item.label}</span>

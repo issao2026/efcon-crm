@@ -56,3 +56,17 @@
 - [ ] Financial reports with charts
 - [ ] Client management module with history
 - [ ] Real-time push notifications
+
+## Bug Fixes & Missing Pages (Round 2)
+- [x] Fix Dashboard.tsx duplicate useState import error (was stale Vite cache, not real error)
+- [x] Fix all 404 routes (dashboard/negocios, dashboard/clientes, etc.)
+- [x] Build Negócios page (list with filters, status badges, progress)
+- [x] Build Clientes page (list with search, client cards)
+- [x] Build Documentos page (global documents list with OCR status)
+- [x] Build Contratos page (contracts list with download links)
+- [x] Build Financeiro page (financial summary with charts)
+- [x] Build Relatórios page (reports and analytics)
+- [x] Build Deal Documents page (deal-level with OCR panel + legal checklist)
+- [x] Build Configurações page
+- [x] Wire all routes in App.tsx
+- [x] Fix sidebar navigation links in Dashboard (removed toast.info blocker, added location-based active state)
