@@ -18,12 +18,14 @@ import Relatorios from "./pages/Relatorios";
 import Configuracoes from "./pages/Configuracoes";
 import DocumentGroups from "./pages/DocumentGroups";
 import NegocioDetalhe from "./pages/NegocioDetalhe";
+import OnboardingUpload from "./pages/OnboardingUpload";
 
 function Router() {
   return (
     <Switch>
       {/* Public */}
       <Route path={"/"} component={Home} />
+      <Route path={"/comecar"} component={OnboardingUpload} />
 
       {/* Dashboard main */}
       <Route path={"/dashboard"} component={Dashboard} />

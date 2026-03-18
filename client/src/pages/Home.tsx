@@ -15,8 +15,10 @@ export default function Home() {
 
   const handleCTA = () => {
     if (isAuthenticated) {
-      window.location.href = "/dashboard";
+      window.location.href = "/comecar";
     } else {
+      // Store the intended destination so after OAuth we redirect there
+      sessionStorage.setItem("efcon_post_login", "/comecar");
       window.location.href = getLoginUrl();
     }
   };

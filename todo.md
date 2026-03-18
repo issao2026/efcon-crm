@@ -88,3 +88,8 @@
 - [x] Build NegocioDetalhe page (deal detail with tabs: Resumo, Participantes, Documentos, Contrato, Histórico)
 - [x] Enable all deal links in Negocios.tsx table rows (clickable rows navigate to deal detail)
 - [x] Enable all deal card links in Dashboard Kanban (added Kanban view to Negocios.tsx with clickable cards)
+
+## Round 5 — Onboarding Upload Page
+- [x] Create OnboardingUpload page (/comecar) matching mockup: drag-and-drop, Pular, Continuar sem arquivos
+- [x] Wire "Começar grátis" and "Criar conta" CTAs on Home to /comecar (after OAuth login)
+- [x] After upload (or skip), redirect to /dashboard
