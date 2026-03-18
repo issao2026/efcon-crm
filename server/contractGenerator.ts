@@ -253,10 +253,27 @@ export async function generateContractPdf(fields: ContractFields): Promise<Buffe
 
   writeFileSync(htmlPath, fullHtml, 'utf-8');
 
-  execSync(`weasyprint "${htmlPath}" "${contentPdfPath}"`, {
-    stdio: 'pipe',
-    timeout: 60000,
-  });
+  // Try weasyprint; if not found, install it first then retry
+  try {
+    execSync(`weasyprint "${htmlPath}" "${contentPdfPath}"`, {
+      stdio: 'pipe',
+      timeout: 60000,
+    });
+  } catch (err: any) {
+    if (err.message?.includes('not found') || err.status === 127) {
+      // Install weasyprint and dependencies, then retry
+      execSync('pip3 install weasyprint pillow numpy --quiet 2>/dev/null || pip install weasyprint pillow numpy --quiet 2>/dev/null', {
+        stdio: 'pipe',
+        timeout: 120000,
+      });
+      execSync(`weasyprint "${htmlPath}" "${contentPdfPath}"`, {
+        stdio: 'pipe',
+        timeout: 60000,
+      });
+    } else {
+      throw err;
+    }
+  }
 
   // Step 5: Composite mascara over content pages using Python + Pillow
   // Rasterize content PDF, paste mascara header/watermark/footer on each page, reassemble

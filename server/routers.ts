@@ -219,6 +219,7 @@ export const appRouter = router({
       buyerId: z.number().optional(),
       sellerId: z.number().optional(),
       brokerId: z.number().optional(),
+      propertyId: z.number().optional(),
     })).mutation(async ({ ctx, input }) => {
       const prefix = input.type === 'venda' ? 'VND' : input.type === 'locacao' ? 'LOC' : input.type === 'permuta' ? 'PRM' : 'FIN';
       const code = `${prefix}-${nanoid(6).toUpperCase()}`;
@@ -235,6 +236,7 @@ export const appRouter = router({
         buyerId: input.buyerId,
         sellerId: input.sellerId,
         brokerId: input.brokerId,
+        propertyId: input.propertyId,
       });
       await createActivity({ userId: ctx.user.id, type: 'deal', title: `Novo negócio cadastrado: ${code}`, description: input.propertyDescription });
       await notifyOwner({ title: `Novo negócio: ${code}`, content: `Tipo: ${input.type}, Valor: ${input.totalValue || input.monthlyValue || 'N/A'}` });

@@ -9,6 +9,7 @@ import {
   Plus, Briefcase, Search, Filter,
   CheckCircle2, AlertTriangle, FileOutput, Eye,
   Building2, User, DollarSign, LayoutGrid, List,
+  MapPin, Hash, FileText, Ruler,
 } from "lucide-react";
 import {
   Select,
@@ -69,16 +70,33 @@ export default function Negocios() {
     buyerId: "",
     sellerId: "",
     brokerId: "",
+    // Property detail fields
+    selectedPropertyId: "",
+    propertyType: "",
+    street: "",
+    number: "",
+    complement: "",
+    neighborhood: "",
+    city: "",
+    state: "",
+    zipCode: "",
+    registration: "",
+    registryOffice: "",
+    area: "",
+    items: "",
+    showPropertyDetails: false,
   });
 
   const { data: deals = [], isLoading, refetch } = trpc.deals.list.useQuery();
   const { data: clients = [] } = trpc.clients.list.useQuery();
+  const { data: savedProperties = [] } = trpc.properties.list.useQuery();
+  const createProperty = trpc.properties.create.useMutation();
 
   const createDeal = trpc.deals.create.useMutation({
     onSuccess: () => {
       toast.success("Negócio criado com sucesso!");
       setShowNewDeal(false);
-      setNewDeal({ type: "venda", propertyDescription: "", buyerName: "", totalValue: "", monthlyValue: "", buyerId: "", sellerId: "", brokerId: "" });
+      setNewDeal({ type: "venda", propertyDescription: "", buyerName: "", totalValue: "", monthlyValue: "", buyerId: "", sellerId: "", brokerId: "", selectedPropertyId: "", propertyType: "", street: "", number: "", complement: "", neighborhood: "", city: "", state: "", zipCode: "", registration: "", registryOffice: "", area: "", items: "", showPropertyDetails: false });
       refetch();
     },
     onError: () => toast.error("Erro ao criar negócio"),
@@ -109,17 +127,47 @@ export default function Negocios() {
     return map;
   }, [deals]);
 
-  const handleCreate = () => {
-    if (!newDeal.propertyDescription) { toast.error("Informe o imóvel"); return; }
+  const handleCreate = async () => {
+    const propDesc = newDeal.propertyDescription || (newDeal.street ? `${newDeal.street}, ${newDeal.number}${newDeal.complement ? ` ${newDeal.complement}` : ''}${newDeal.neighborhood ? `, ${newDeal.neighborhood}` : ''}` : '');
+    if (!propDesc && !newDeal.selectedPropertyId) { toast.error("Informe o imóvel"); return; }
+
+    let propertyId: number | undefined;
+
+    // If user filled in property details manually, create a new property record
+    if (!newDeal.selectedPropertyId && (newDeal.street || newDeal.propertyType)) {
+      try {
+        const created = await createProperty.mutateAsync({
+          description: newDeal.propertyDescription || undefined,
+          propertyType: newDeal.propertyType || undefined,
+          street: newDeal.street || undefined,
+          number: newDeal.number || undefined,
+          complement: newDeal.complement || undefined,
+          neighborhood: newDeal.neighborhood || undefined,
+          city: newDeal.city || undefined,
+          state: newDeal.state || undefined,
+          zipCode: newDeal.zipCode || undefined,
+          registration: newDeal.registration || undefined,
+          registryOffice: newDeal.registryOffice || undefined,
+          area: newDeal.area || undefined,
+          totalValue: newDeal.totalValue || undefined,
+          items: newDeal.items || undefined,
+        });
+        propertyId = (created as any)?.insertId ?? undefined;
+      } catch { /* non-critical */ }
+    } else if (newDeal.selectedPropertyId && newDeal.selectedPropertyId !== 'manual') {
+      propertyId = parseInt(newDeal.selectedPropertyId);
+    }
+
     createDeal.mutate({
       type: newDeal.type,
-      propertyDescription: newDeal.propertyDescription || undefined,
+      propertyDescription: propDesc || newDeal.propertyDescription || undefined,
       buyerName: newDeal.buyerName || undefined,
       totalValue: newDeal.totalValue || undefined,
       monthlyValue: newDeal.monthlyValue || undefined,
       buyerId: newDeal.buyerId && newDeal.buyerId !== "manual" && newDeal.buyerId !== "none" ? parseInt(newDeal.buyerId) : undefined,
       sellerId: newDeal.sellerId && newDeal.sellerId !== "none" ? parseInt(newDeal.sellerId) : undefined,
       brokerId: newDeal.brokerId && newDeal.brokerId !== "none" ? parseInt(newDeal.brokerId) : undefined,
+      propertyId,
     });
   };
 
@@ -378,15 +426,219 @@ export default function Negocios() {
               </div>
 
               {/* Property */}
-              <div>
-                <label className="text-xs font-semibold text-gray-600 uppercase tracking-wide block mb-1">Imóvel *</label>
-                <div className="relative">
-                  <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <input type="text" placeholder="Ex: Rua das Palmeiras, 340"
-                    value={newDeal.propertyDescription}
-                    onChange={(e) => setNewDeal({ ...newDeal, propertyDescription: e.target.value })}
-                    className="w-full pl-9 pr-4 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
-                </div>
+              <div className="space-y-3">
+                <label className="text-xs font-semibold text-gray-600 uppercase tracking-wide block">Imóvel *</label>
+
+                {/* Select saved property */}
+                <Select
+                  value={newDeal.selectedPropertyId}
+                  onValueChange={(v) => {
+                    if (v === 'manual') {
+                      setNewDeal({ ...newDeal, selectedPropertyId: 'manual', showPropertyDetails: true });
+                    } else if (v !== 'none') {
+                      const prop = (savedProperties as any[]).find((p: any) => p.id.toString() === v);
+                      if (prop) {
+                        const addr = [prop.street, prop.number, prop.complement].filter(Boolean).join(', ');
+                        const fullAddr = [addr, prop.neighborhood, prop.city, prop.state].filter(Boolean).join(', ');
+                        setNewDeal({
+                          ...newDeal,
+                          selectedPropertyId: v,
+                          propertyDescription: fullAddr || prop.description || '',
+                          propertyType: prop.propertyType || '',
+                          street: prop.street || '',
+                          number: prop.number || '',
+                          complement: prop.complement || '',
+                          neighborhood: prop.neighborhood || '',
+                          city: prop.city || '',
+                          state: prop.state || '',
+                          zipCode: prop.zipCode || '',
+                          registration: prop.registration || '',
+                          registryOffice: prop.registryOffice || '',
+                          area: prop.area || '',
+                          items: prop.items || '',
+                          totalValue: prop.totalValue || newDeal.totalValue,
+                          showPropertyDetails: true,
+                        });
+                      }
+                    } else {
+                      setNewDeal({ ...newDeal, selectedPropertyId: '', showPropertyDetails: false });
+                    }
+                  }}
+                >
+                  <SelectTrigger className="h-10 text-sm">
+                    <SelectValue placeholder="Selecionar imóvel cadastrado..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Nenhum (preencher manualmente)</SelectItem>
+                    <SelectItem value="manual">Cadastrar novo imóvel</SelectItem>
+                    {(savedProperties as any[]).map((p: any) => (
+                      <SelectItem key={p.id} value={p.id.toString()}>
+                        {p.street ? `${p.street}, ${p.number || ''}${p.neighborhood ? ` – ${p.neighborhood}` : ''}` : p.description || `Imóvel #${p.id}`}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                {/* Quick description if no property selected */}
+                {!newDeal.showPropertyDetails && (
+                  <div className="relative">
+                    <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <input type="text" placeholder="Ex: Rua das Palmeiras, 340"
+                      value={newDeal.propertyDescription}
+                      onChange={(e) => setNewDeal({ ...newDeal, propertyDescription: e.target.value })}
+                      className="w-full pl-9 pr-4 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+                  </div>
+                )}
+
+                {/* Expanded property details */}
+                {newDeal.showPropertyDetails && (
+                  <div className="bg-gray-50 rounded-xl p-4 space-y-3 border border-gray-200">
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Detalhes do Imóvel</p>
+
+                    {/* Type */}
+                    <div>
+                      <label className="text-xs text-gray-500 block mb-1">Tipo do imóvel</label>
+                      <Select value={newDeal.propertyType} onValueChange={(v) => setNewDeal({ ...newDeal, propertyType: v })}>
+                        <SelectTrigger className="h-9 text-sm bg-white">
+                          <SelectValue placeholder="Selecionar tipo..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {['Apartamento', 'Casa', 'Terreno', 'Sala Comercial', 'Galpão', 'Chácara', 'Fazenda', 'Kitnet', 'Studio', 'Cobertura', 'Outro'].map(t => (
+                            <SelectItem key={t} value={t}>{t}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Description */}
+                    <div>
+                      <label className="text-xs text-gray-500 block mb-1">Descrição do imóvel</label>
+                      <textarea rows={2} placeholder="Ex: Apartamento com 3 dormitórios, 1 suíte, 2 vagas..."
+                        value={newDeal.propertyDescription}
+                        onChange={(e) => setNewDeal({ ...newDeal, propertyDescription: e.target.value })}
+                        className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 bg-white resize-none" />
+                    </div>
+
+                    {/* Address row 1 */}
+                    <div className="grid grid-cols-3 gap-2">
+                      <div className="col-span-2">
+                        <label className="text-xs text-gray-500 block mb-1">Rua / Logradouro</label>
+                        <div className="relative">
+                          <MapPin className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                          <input type="text" placeholder="Rua das Acácias"
+                            value={newDeal.street}
+                            onChange={(e) => setNewDeal({ ...newDeal, street: e.target.value })}
+                            className="w-full pl-8 pr-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 bg-white" />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="text-xs text-gray-500 block mb-1">Número</label>
+                        <input type="text" placeholder="450"
+                          value={newDeal.number}
+                          onChange={(e) => setNewDeal({ ...newDeal, number: e.target.value })}
+                          className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 bg-white" />
+                      </div>
+                    </div>
+
+                    {/* Address row 2 */}
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-xs text-gray-500 block mb-1">Complemento</label>
+                        <input type="text" placeholder="Apto 302, Bloco B"
+                          value={newDeal.complement}
+                          onChange={(e) => setNewDeal({ ...newDeal, complement: e.target.value })}
+                          className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 bg-white" />
+                      </div>
+                      <div>
+                        <label className="text-xs text-gray-500 block mb-1">Bairro</label>
+                        <input type="text" placeholder="Jardim Europa"
+                          value={newDeal.neighborhood}
+                          onChange={(e) => setNewDeal({ ...newDeal, neighborhood: e.target.value })}
+                          className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 bg-white" />
+                      </div>
+                    </div>
+
+                    {/* Address row 3 */}
+                    <div className="grid grid-cols-3 gap-2">
+                      <div className="col-span-1">
+                        <label className="text-xs text-gray-500 block mb-1">Cidade</label>
+                        <input type="text" placeholder="Jundiaí"
+                          value={newDeal.city}
+                          onChange={(e) => setNewDeal({ ...newDeal, city: e.target.value })}
+                          className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 bg-white" />
+                      </div>
+                      <div>
+                        <label className="text-xs text-gray-500 block mb-1">UF</label>
+                        <input type="text" placeholder="SP" maxLength={2}
+                          value={newDeal.state}
+                          onChange={(e) => setNewDeal({ ...newDeal, state: e.target.value.toUpperCase() })}
+                          className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 bg-white" />
+                      </div>
+                      <div>
+                        <label className="text-xs text-gray-500 block mb-1">CEP</label>
+                        <input type="text" placeholder="13212-118"
+                          value={newDeal.zipCode}
+                          onChange={(e) => setNewDeal({ ...newDeal, zipCode: e.target.value })}
+                          className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 bg-white" />
+                      </div>
+                    </div>
+
+                    {/* Registry */}
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-xs text-gray-500 block mb-1">Matrícula</label>
+                        <div className="relative">
+                          <Hash className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                          <input type="text" placeholder="45.678"
+                            value={newDeal.registration}
+                            onChange={(e) => setNewDeal({ ...newDeal, registration: e.target.value })}
+                            className="w-full pl-8 pr-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 bg-white" />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="text-xs text-gray-500 block mb-1">Área total (m²)</label>
+                        <div className="relative">
+                          <Ruler className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                          <input type="text" placeholder="98,50"
+                            value={newDeal.area}
+                            onChange={(e) => setNewDeal({ ...newDeal, area: e.target.value })}
+                            className="w-full pl-8 pr-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 bg-white" />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Registry office */}
+                    <div>
+                      <label className="text-xs text-gray-500 block mb-1">Cartório de Registro</label>
+                      <div className="relative">
+                        <FileText className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                        <input type="text" placeholder="2º Cartório de Registro de Imóveis"
+                          value={newDeal.registryOffice}
+                          onChange={(e) => setNewDeal({ ...newDeal, registryOffice: e.target.value })}
+                          className="w-full pl-8 pr-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 bg-white" />
+                      </div>
+                    </div>
+
+                    {/* Items */}
+                    <div>
+                      <label className="text-xs text-gray-500 block mb-1">Itens que permanecem no imóvel</label>
+                      <textarea rows={2} placeholder="Ex: Armários embutidos, cozinha planejada, ar-condicionado..."
+                        value={newDeal.items}
+                        onChange={(e) => setNewDeal({ ...newDeal, items: e.target.value })}
+                        className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 bg-white resize-none" />
+                    </div>
+                  </div>
+                )}
+
+                {/* Toggle details button */}
+                {!newDeal.selectedPropertyId && (
+                  <button
+                    type="button"
+                    onClick={() => setNewDeal({ ...newDeal, showPropertyDetails: !newDeal.showPropertyDetails })}
+                    className="text-xs text-blue-600 hover:text-blue-700 font-medium">
+                    {newDeal.showPropertyDetails ? '▲ Ocultar detalhes' : '▼ Adicionar detalhes do imóvel'}
+                  </button>
+                )}
               </div>
 
               {/* Buyer */}
