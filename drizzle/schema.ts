@@ -166,6 +166,29 @@ export const contracts = mysqlTable("contracts", {
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
 
+export const documentGroups = mysqlTable("document_groups", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  dealId: int("dealId"),
+  personName: varchar("personName", { length: 255 }).notNull(),
+  personRole: mysqlEnum("personRole", ["comprador", "vendedor", "locador", "locatario", "fiador", "corretor", "imovel", "outro"]).default("outro"),
+  cpf: varchar("cpf", { length: 20 }),
+  notes: text("notes"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export const documentGroupItems = mysqlTable("document_group_items", {
+  id: int("id").autoincrement().primaryKey(),
+  groupId: int("groupId").notNull(),
+  documentId: int("documentId"),
+  docType: mysqlEnum("docType", ["rg", "cpf", "cnh", "comprovante_residencia", "matricula", "iptu", "certidao", "escritura", "contrato", "outro"]).default("outro"),
+  label: varchar("label", { length: 100 }),
+  status: mysqlEnum("status", ["pendente", "enviado", "validado", "rejeitado"]).default("pendente"),
+  ocrFields: json("ocrFields"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
 export const activities = mysqlTable("activities", {
   id: int("id").autoincrement().primaryKey(),
   userId: int("userId").notNull(),
@@ -190,3 +213,7 @@ export type Contract = typeof contracts.$inferSelect;
 export type InsertContract = typeof contracts.$inferInsert;
 export type Activity = typeof activities.$inferSelect;
 export type InsertActivity = typeof activities.$inferInsert;
+export type DocumentGroup = typeof documentGroups.$inferSelect;
+export type InsertDocumentGroup = typeof documentGroups.$inferInsert;
+export type DocumentGroupItem = typeof documentGroupItems.$inferSelect;
+export type InsertDocumentGroupItem = typeof documentGroupItems.$inferInsert;

@@ -126,12 +126,14 @@ function Sidebar({ activeDeals = 0, pendingDocs = 0 }: { activeDeals?: number; p
   return (
     <aside className="w-56 flex-shrink-0 bg-sidebar text-sidebar-foreground flex flex-col h-screen sticky top-0">
       {/* Logo */}
-      <div className="flex items-center gap-2 px-4 py-4 border-b border-sidebar-border">
-        <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-          <Zap className="w-4 h-4 text-white" />
+      <Link href="/">
+        <div className="flex items-center gap-2 px-4 py-4 border-b border-sidebar-border hover:bg-white/5 transition-colors cursor-pointer">
+          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+            <Zap className="w-4 h-4 text-white" />
+          </div>
+          <span className="text-white font-bold text-base">Efcon</span>
         </div>
-        <span className="text-white font-bold text-base">Efcon</span>
-      </div>
+      </Link>
 
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto py-4 px-3">

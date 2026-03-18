@@ -94,6 +94,7 @@ export default function Upload() {
 
   const uploadMutation = trpc.documents.upload.useMutation();
   const ocrMutation = trpc.documents.processOcr.useMutation();
+  const autoGroupMutation = trpc.documentGroups.autoGroupFromOcr.useMutation();
 
   const addFiles = useCallback((newFiles: FileList | File[]) => {
     const arr = Array.from(newFiles);
@@ -172,6 +173,23 @@ export default function Upload() {
         ocrFields: ocrResult.fields as Record<string, string>,
         ocrConfidence: ocrResult.confidence,
       });
+      // Auto-group by person after OCR
+      if (ocrResult.fields && Object.keys(ocrResult.fields).length > 0) {
+        try {
+          const grouped = await autoGroupMutation.mutateAsync({
+            documentId: 0,
+            ocrFields: ocrResult.fields as Record<string, string>,
+            docType: uploadedFile.docType as any,
+          });
+          if (grouped.isNew) {
+            toast.success(`Grupo criado: ${grouped.personName}`);
+          } else {
+            toast.info(`Documento adicionado ao grupo: ${grouped.personName}`);
+          }
+        } catch {
+          // non-blocking
+        }
+      }
     } catch (error: any) {
       updateFile(uploadedFile.id, { status: "error", error: error.message || "Erro no processamento" });
     }
@@ -216,12 +234,14 @@ export default function Upload() {
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <header className="bg-gray-900 border-b border-white/10 px-6 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-            <Zap className="w-4 h-4 text-white" />
+        <Link href="/">
+          <div className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity">
+            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+              <Zap className="w-4 h-4 text-white" />
+            </div>
+            <span className="text-white font-bold">Efcon</span>
           </div>
-          <span className="text-white font-bold">Efcon</span>
-        </div>
+        </Link>
         <Link href="/dashboard">
           <button className="text-white/60 hover:text-white text-sm flex items-center gap-2 transition-colors">
             Pular <ArrowRight className="w-4 h-4" />
@@ -436,12 +456,21 @@ export default function Upload() {
             )}
 
             {allDone && (
-              <Button
-                onClick={() => navigate("/dashboard/contrato")}
-                className="bg-blue-600 hover:bg-blue-700 text-white gap-2"
-              >
-                Gerar contrato <ArrowRight className="w-4 h-4" />
-              </Button>
+              <>
+                <Button
+                  variant="outline"
+                  onClick={() => navigate("/dashboard/grupos")}
+                  className="gap-2 border-blue-200 text-blue-700 hover:bg-blue-50"
+                >
+                  Ver grupos de docs
+                </Button>
+                <Button
+                  onClick={() => navigate("/dashboard/contrato")}
+                  className="bg-blue-600 hover:bg-blue-700 text-white gap-2"
+                >
+                  Gerar contrato <ArrowRight className="w-4 h-4" />
+                </Button>
+              </>
             )}
 
             <Button variant="outline" className="gap-2" onClick={() => navigate("/dashboard/contrato")}>

@@ -70,3 +70,12 @@
 - [x] Build Configurações page
 - [x] Wire all routes in App.tsx
 - [x] Fix sidebar navigation links in Dashboard (removed toast.info blocker, added location-based active state)
+
+## Round 3 — Home Link + Document Groups
+- [ ] Add link to Home (/) on dashboard logo (DashboardShell + Dashboard sidebar + Upload header)
+- [ ] Create document_groups table in schema (id, dealId, personName, personRole, createdAt)
+- [ ] Create document_group_items table (groupId, documentId, docType: rg|cpf|cnh|escritura|comprovante|outro)
+- [ ] Add documents.createGroup and documents.listGroups tRPC procedures
+- [ ] Build DocumentGroups component — group cards showing person name, role, and document checklist per type
+- [ ] Integrate group creation after OCR scan in NegocioDocumentos page
+- [ ] Show grouped view in Documentos page with expand/collapse per group

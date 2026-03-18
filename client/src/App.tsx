@@ -16,6 +16,7 @@ import Contratos from "./pages/Contratos";
 import Financeiro from "./pages/Financeiro";
 import Relatorios from "./pages/Relatorios";
 import Configuracoes from "./pages/Configuracoes";
+import DocumentGroups from "./pages/DocumentGroups";
 
 function Router() {
   return (
@@ -38,6 +39,8 @@ function Router() {
 
       {/* Deal-level pages */}
       <Route path={"/dashboard/negocios/:id/documentos"} component={NegocioDocumentos} />
+      <Route path={"/dashboard/grupos"} component={DocumentGroups} />
+      <Route path={"/dashboard/grupos/:dealId"} component={DocumentGroups} />
 
       {/* Workflow pages */}
       <Route path={"/dashboard/upload"} component={Upload} />

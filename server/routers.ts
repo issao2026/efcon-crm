@@ -7,6 +7,7 @@ import { invokeLLM } from "./_core/llm";
 import { storagePut } from "./storage";
 import { notifyOwner } from "./_core/notification";
 import {
+  getDb,
   getClients, getClientById, createClient, updateClient,
   getProperties, createProperty,
   getDeals, getDealById, createDeal, updateDeal, deleteDeal, getDashboardStats,
@@ -416,6 +417,163 @@ Retorne confidence (0-100) indicando a qualidade da extração.`,
         await updateDocument(input.documentId, { ocrStatus: 'failed' });
         throw error;
       }
+    }),
+  }),
+
+  // ─── Document Groups ────────────────────────────────────────────────────────
+  documentGroups: router({
+    list: protectedProcedure.input(z.object({ dealId: z.number().optional() })).query(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) return [];
+      const { documentGroups, documentGroupItems, documents } = await import('../drizzle/schema');
+      const { eq, and } = await import('drizzle-orm');
+      const where = input.dealId
+        ? and(eq(documentGroups.userId, ctx.user.id), eq(documentGroups.dealId, input.dealId))
+        : eq(documentGroups.userId, ctx.user.id);
+      const groups = await db.select().from(documentGroups).where(where).orderBy(documentGroups.createdAt);
+      // Fetch items for each group
+      const result = await Promise.all(groups.map(async (group) => {
+        const items = await db.select({
+          id: documentGroupItems.id,
+          groupId: documentGroupItems.groupId,
+          documentId: documentGroupItems.documentId,
+          docType: documentGroupItems.docType,
+          label: documentGroupItems.label,
+          status: documentGroupItems.status,
+          ocrFields: documentGroupItems.ocrFields,
+          createdAt: documentGroupItems.createdAt,
+          fileUrl: documents.fileUrl,
+          fileName: documents.name,
+          ocrConfidence: documents.ocrConfidence,
+        })
+        .from(documentGroupItems)
+        .leftJoin(documents, eq(documentGroupItems.documentId, documents.id))
+        .where(eq(documentGroupItems.groupId, group.id));
+        return { ...group, items };
+      }));
+      return result;
+    }),
+
+    create: protectedProcedure.input(z.object({
+      dealId: z.number().optional(),
+      personName: z.string().min(1),
+      personRole: z.enum(['comprador', 'vendedor', 'locador', 'locatario', 'fiador', 'corretor', 'imovel', 'outro']).default('outro'),
+      cpf: z.string().optional(),
+      notes: z.string().optional(),
+      items: z.array(z.object({
+        docType: z.enum(['rg', 'cpf', 'cnh', 'comprovante_residencia', 'matricula', 'iptu', 'certidao', 'escritura', 'contrato', 'outro']),
+        label: z.string().optional(),
+        documentId: z.number().optional(),
+        ocrFields: z.record(z.string(), z.unknown()).optional(),
+      })).default([]),
+    })).mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new Error('DB unavailable');
+      const { documentGroups, documentGroupItems } = await import('../drizzle/schema');
+      const [result] = await db.insert(documentGroups).values({
+        userId: ctx.user.id,
+        dealId: input.dealId,
+        personName: input.personName,
+        personRole: input.personRole,
+        cpf: input.cpf,
+        notes: input.notes,
+      });
+      const groupId = (result as any).insertId as number;
+      // Insert items
+      if (input.items.length > 0) {
+        await db.insert(documentGroupItems).values(
+          input.items.map(item => ({
+            groupId,
+            documentId: item.documentId,
+            docType: item.docType,
+            label: item.label || item.docType,
+            status: item.documentId ? 'enviado' as const : 'pendente' as const,
+            ocrFields: item.ocrFields as any,
+          }))
+        );
+      }
+      await createActivity({ userId: ctx.user.id, dealId: input.dealId, type: 'group', title: `Grupo criado: ${input.personName}` });
+      return { groupId };
+    }),
+
+    addItem: protectedProcedure.input(z.object({
+      groupId: z.number(),
+      docType: z.enum(['rg', 'cpf', 'cnh', 'comprovante_residencia', 'matricula', 'iptu', 'certidao', 'escritura', 'contrato', 'outro']),
+      label: z.string().optional(),
+      documentId: z.number().optional(),
+      ocrFields: z.record(z.string(), z.unknown()).optional(),
+    })).mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error('DB unavailable');
+      const { documentGroupItems } = await import('../drizzle/schema');
+      await db.insert(documentGroupItems).values({
+        groupId: input.groupId,
+        documentId: input.documentId,
+        docType: input.docType,
+        label: input.label || input.docType,
+        status: input.documentId ? 'enviado' : 'pendente',
+        ocrFields: input.ocrFields as any,
+      });
+      return { success: true };
+    }),
+
+    updateItemStatus: protectedProcedure.input(z.object({
+      itemId: z.number(),
+      status: z.enum(['pendente', 'enviado', 'validado', 'rejeitado']),
+    })).mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error('DB unavailable');
+      const { documentGroupItems } = await import('../drizzle/schema');
+      const { eq } = await import('drizzle-orm');
+      await db.update(documentGroupItems).set({ status: input.status }).where(eq(documentGroupItems.id, input.itemId));
+      return { success: true };
+    }),
+
+    autoGroupFromOcr: protectedProcedure.input(z.object({
+      documentId: z.number(),
+      dealId: z.number().optional(),
+      ocrFields: z.record(z.string(), z.unknown()),
+      docType: z.enum(['rg', 'cpf', 'cnh', 'comprovante_residencia', 'matricula', 'iptu', 'certidao', 'escritura', 'contrato', 'outro']),
+    })).mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new Error('DB unavailable');
+      const { documentGroups, documentGroupItems } = await import('../drizzle/schema');
+      const { eq, and } = await import('drizzle-orm');
+      // Extract person name from OCR fields
+      const fields = input.ocrFields as Record<string, string>;
+      const personName = fields.nome || 'Pessoa desconhecida';
+      const cpf = fields.cpf || undefined;
+      // Try to find existing group with same name or CPF for this deal
+      const existingGroups = await db.select().from(documentGroups)
+        .where(and(eq(documentGroups.userId, ctx.user.id), input.dealId ? eq(documentGroups.dealId, input.dealId) : eq(documentGroups.userId, ctx.user.id)))
+        .limit(20);
+      let groupId: number;
+      const matchingGroup = existingGroups.find(g =>
+        (cpf && g.cpf === cpf) ||
+        g.personName.toLowerCase() === personName.toLowerCase()
+      );
+      if (matchingGroup) {
+        groupId = matchingGroup.id;
+      } else {
+        const [result] = await db.insert(documentGroups).values({
+          userId: ctx.user.id,
+          dealId: input.dealId,
+          personName,
+          cpf,
+          personRole: 'outro',
+        });
+        groupId = (result as any).insertId as number;
+      }
+      // Add item to group
+      await db.insert(documentGroupItems).values({
+        groupId,
+        documentId: input.documentId,
+        docType: input.docType,
+        label: input.docType,
+        status: 'enviado',
+        ocrFields: input.ocrFields as any,
+      });
+      return { groupId, personName, isNew: !matchingGroup };
     }),
   }),
 
