@@ -5,8 +5,9 @@ import { DashboardShell } from "@/components/DashboardShell";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import {
-  Plus, Users, Search, Phone, Mail, FileText, Building2,
+  Plus, Users, Search, Phone, Mail, FileText, Building2, Loader2,
 } from "lucide-react";
+import { useCep } from "@/hooks/useCep";
 
 const CLIENT_ROLE_LABELS: Record<string, string> = {
   comprador: "Comprador", vendedor: "Vendedor", locatario: "Locatário",
@@ -24,20 +25,39 @@ const CLIENT_ROLE_COLORS: Record<string, string> = {
 
 type ClientRole = "comprador" | "vendedor" | "locatario" | "locador" | "fiador" | "corretor";
 
+interface NewClientForm {
+  name: string;
+  cpfCnpj: string;
+  email: string;
+  phone: string;
+  clientRole: ClientRole;
+  zipCode: string;
+  street: string;
+  number: string;
+  complement: string;
+  neighborhood: string;
+  city: string;
+  state: string;
+}
+
+const EMPTY_FORM: NewClientForm = {
+  name: "", cpfCnpj: "", email: "", phone: "", clientRole: "comprador",
+  zipCode: "", street: "", number: "", complement: "", neighborhood: "", city: "", state: "",
+};
+
 export default function Clientes() {
   const [, navigate] = useLocation();
   const [searchQuery, setSearchQuery] = useState("");
   const [showNewClient, setShowNewClient] = useState(false);
-  const [newClient, setNewClient] = useState({
-    name: "", cpfCnpj: "", email: "", phone: "", clientRole: "comprador" as ClientRole,
-  });
+  const [newClient, setNewClient] = useState<NewClientForm>(EMPTY_FORM);
+  const { lookup: lookupCep, loading: cepLoading } = useCep();
 
   const { data: clients = [], isLoading, refetch } = trpc.clients.list.useQuery();
   const createClient = trpc.clients.create.useMutation({
     onSuccess: () => {
       toast.success("Cliente cadastrado com sucesso!");
       setShowNewClient(false);
-      setNewClient({ name: "", cpfCnpj: "", email: "", phone: "", clientRole: "comprador" });
+      setNewClient(EMPTY_FORM);
       refetch();
     },
     onError: () => toast.error("Erro ao cadastrar cliente"),
@@ -48,6 +68,34 @@ export default function Clientes() {
     const q = searchQuery.toLowerCase();
     return c.name?.toLowerCase().includes(q) || c.email?.toLowerCase().includes(q) || c.cpfCnpj?.includes(q);
   });
+
+  const handleCepBlur = () => {
+    lookupCep(newClient.zipCode, (data) => {
+      setNewClient((prev) => ({
+        ...prev,
+        street: data.logradouro || prev.street,
+        neighborhood: data.bairro || prev.neighborhood,
+        city: data.localidade || prev.city,
+        state: data.uf || prev.state,
+      }));
+    });
+  };
+
+  const handleCreate = () => {
+    if (!newClient.name) { toast.error("Informe o nome"); return; }
+    // Build address string from parts
+    const addressParts = [
+      newClient.street,
+      newClient.number ? `nº ${newClient.number}` : "",
+      newClient.complement,
+      newClient.neighborhood,
+      newClient.city,
+      newClient.state,
+      newClient.zipCode,
+    ].filter(Boolean);
+    const address = addressParts.length > 0 ? addressParts.join(", ") : undefined;
+    createClient.mutate({ ...newClient, address });
+  };
 
   return (
     <DashboardShell
@@ -143,9 +191,10 @@ export default function Clientes() {
       {/* New Client Modal */}
       {showNewClient && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto">
             <h2 className="text-lg font-bold text-gray-900 mb-4">Novo Cliente</h2>
             <div className="space-y-4">
+              {/* Role */}
               <div>
                 <label className="text-xs font-semibold text-gray-600 uppercase tracking-wide block mb-1">Tipo *</label>
                 <div className="grid grid-cols-3 gap-2">
@@ -162,6 +211,8 @@ export default function Clientes() {
                   ))}
                 </div>
               </div>
+
+              {/* Name */}
               <div>
                 <label className="text-xs font-semibold text-gray-600 uppercase tracking-wide block mb-1">Nome completo *</label>
                 <input
@@ -172,6 +223,8 @@ export default function Clientes() {
                   className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                 />
               </div>
+
+              {/* CPF/CNPJ */}
               <div>
                 <label className="text-xs font-semibold text-gray-600 uppercase tracking-wide block mb-1">CPF / CNPJ</label>
                 <input
@@ -182,6 +235,8 @@ export default function Clientes() {
                   className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                 />
               </div>
+
+              {/* Email + Phone */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs font-semibold text-gray-600 uppercase tracking-wide block mb-1">E-mail</label>
@@ -204,15 +259,91 @@ export default function Clientes() {
                   />
                 </div>
               </div>
+
+              {/* Address section */}
+              <div>
+                <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Endereço</p>
+                <div className="grid grid-cols-3 gap-3 mb-3">
+                  <div className="relative">
+                    <label className="text-xs font-semibold text-gray-600 uppercase tracking-wide block mb-1">CEP</label>
+                    <input
+                      type="text"
+                      placeholder="00000-000"
+                      maxLength={9}
+                      value={newClient.zipCode}
+                      onChange={(e) => setNewClient({ ...newClient, zipCode: e.target.value })}
+                      onBlur={handleCepBlur}
+                      className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                    />
+                    {cepLoading && (
+                      <div className="absolute right-3 top-8">
+                        <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
+                      </div>
+                    )}
+                  </div>
+                  <div className="col-span-2">
+                    <label className="text-xs font-semibold text-gray-600 uppercase tracking-wide block mb-1">Logradouro</label>
+                    <input
+                      type="text"
+                      placeholder="Rua, Av., etc."
+                      value={newClient.street}
+                      onChange={(e) => setNewClient({ ...newClient, street: e.target.value })}
+                      className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-4 gap-3">
+                  <div>
+                    <label className="text-xs font-semibold text-gray-600 uppercase tracking-wide block mb-1">Nº</label>
+                    <input
+                      type="text"
+                      placeholder="Nº"
+                      value={newClient.number}
+                      onChange={(e) => setNewClient({ ...newClient, number: e.target.value })}
+                      className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-gray-600 uppercase tracking-wide block mb-1">Compl.</label>
+                    <input
+                      type="text"
+                      placeholder="Apto"
+                      value={newClient.complement}
+                      onChange={(e) => setNewClient({ ...newClient, complement: e.target.value })}
+                      className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-gray-600 uppercase tracking-wide block mb-1">Bairro</label>
+                    <input
+                      type="text"
+                      placeholder="Bairro"
+                      value={newClient.neighborhood}
+                      onChange={(e) => setNewClient({ ...newClient, neighborhood: e.target.value })}
+                      className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-gray-600 uppercase tracking-wide block mb-1">Cidade</label>
+                    <input
+                      type="text"
+                      placeholder="Cidade"
+                      value={newClient.city}
+                      onChange={(e) => setNewClient({ ...newClient, city: e.target.value })}
+                      className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                    />
+                  </div>
+                </div>
+              </div>
             </div>
+
             <div className="flex gap-3 mt-6">
-              <Button variant="outline" className="flex-1" onClick={() => setShowNewClient(false)}>Cancelar</Button>
+              <Button variant="outline" className="flex-1" onClick={() => { setShowNewClient(false); setNewClient(EMPTY_FORM); }}>
+                Cancelar
+              </Button>
               <Button
                 className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
-                onClick={() => {
-                  if (!newClient.name) { toast.error("Informe o nome"); return; }
-                  createClient.mutate(newClient);
-                }}
+                onClick={handleCreate}
                 disabled={createClient.isPending}
               >
                 {createClient.isPending ? "Cadastrando..." : "Cadastrar"}

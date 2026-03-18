@@ -113,6 +113,31 @@ export type ContractFields = {
   descricao_imovel_permuta?: string;
   valor_imovel_permuta?: string;
   complemento_permuta?: string;
+  ajuste_financeiro_permuta?: string;
+
+  // Cláusulas contratuais
+  prazo_entrega_posse?: string;
+  condicao_entrega_posse?: string;
+  prazo_escritura?: string;
+  prazo_restituicao_valores?: string;
+  prazo_certidao_objeto_pe?: string;
+  quantidade_exercicios_iptu?: string;
+  responsavel_despesas?: string;
+  percentual_multa?: string;
+  condicoes_distrato?: string;
+  percentual_comissao?: string;
+  valor_comissao?: string;
+
+  // Imobiliária / Intermediária
+  razao_social_imobiliaria?: string;
+  cnpj_imobiliaria?: string;
+  creci_imobiliaria?: string;
+  endereco_imobiliaria?: string;
+  assinatura_imobiliaria?: string;
+
+  // Assinatura e foro
+  plataforma_assinatura?: string;
+  foro_eleito?: string;
 
   cidade_assinatura?: string;
   data_assinatura?: string;
@@ -121,6 +146,10 @@ export type ContractFields = {
   cpf_testemunha_1?: string;
   nome_testemunha_2?: string;
   cpf_testemunha_2?: string;
+
+  // Financiamento extra
+  valor_financiamento?: string;
+  valor_entrada_financiamento_extra?: string;
 };
 
 const DEFAULTS: Record<string, string> = {
@@ -168,6 +197,31 @@ const DEFAULTS: Record<string, string> = {
   descricao_imovel_permuta: 'N/A',
   valor_imovel_permuta: 'N/A',
   complemento_permuta: 'N/A',
+  ajuste_financeiro_permuta: 'N/A',
+
+  // Cláusulas contratuais
+  prazo_entrega_posse: '30 dias após a assinatura',
+  condicao_entrega_posse: 'livre e desembaraçado de quaisquer ônus',
+  prazo_escritura: '60 dias após a quitação',
+  prazo_restituicao_valores: '30 dias',
+  prazo_certidao_objeto_pe: '30 dias',
+  quantidade_exercicios_iptu: '1',
+  responsavel_despesas: 'comprador',
+  percentual_multa: '10%',
+  condicoes_distrato: 'conforme lei 13.786/2018',
+  percentual_comissao: '6%',
+  valor_comissao: 'conforme contrato de intermediação',
+
+  // Imobiliária
+  razao_social_imobiliaria: 'Marcello & Oliveira Negócios Imobiliários',
+  cnpj_imobiliaria: '12.345.678/0001-99',
+  creci_imobiliaria: '28.867 J',
+  endereco_imobiliaria: 'CRECI 28.867 J – Brasília, DF',
+  assinatura_imobiliaria: 'Marcello & Oliveira Negócios Imobiliários',
+
+  // Assinatura
+  plataforma_assinatura: 'Clicksign',
+  foro_eleito: 'Brasília, Distrito Federal',
 
   cidade_assinatura: '___________________________',
   data_assinatura: '___________________________',

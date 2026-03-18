@@ -21,15 +21,22 @@ import {
 } from "@/components/ui/sidebar";
 import { getLoginUrl } from "@/const";
 import { useIsMobile } from "@/hooks/useMobile";
-import { LayoutDashboard, LogOut, PanelLeft, Users } from "lucide-react";
+import { LayoutDashboard, LogOut, PanelLeft, Users, Briefcase, FileText, Home, DollarSign, BarChart2, Settings, FolderOpen, FileSignature } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { DashboardLayoutSkeleton } from './DashboardLayoutSkeleton';
 import { Button } from "./ui/button";
 
 const menuItems = [
-  { icon: LayoutDashboard, label: "Page 1", path: "/" },
-  { icon: Users, label: "Page 2", path: "/some-path" },
+  { icon: LayoutDashboard, label: "Dashboard", path: "/dashboard" },
+  { icon: Briefcase, label: "Negócios", path: "/dashboard/negocios" },
+  { icon: Users, label: "Clientes", path: "/dashboard/clientes" },
+  { icon: Home, label: "Imóveis", path: "/dashboard/imoveis" },
+  { icon: FolderOpen, label: "Documentos", path: "/dashboard/documentos" },
+  { icon: FileSignature, label: "Contratos", path: "/dashboard/contratos" },
+  { icon: DollarSign, label: "Financeiro", path: "/dashboard/financeiro" },
+  { icon: BarChart2, label: "Relatórios", path: "/dashboard/relatorios" },
+  { icon: Settings, label: "Configurações", path: "/dashboard/configuracoes" },
 ];
 
 const SIDEBAR_WIDTH_KEY = "sidebar-width";
@@ -112,7 +119,7 @@ function DashboardLayoutContent({
   const isCollapsed = state === "collapsed";
   const [isResizing, setIsResizing] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
-  const activeMenuItem = menuItems.find(item => item.path === location);
+  const activeMenuItem = menuItems.find(item => item.path === location || (item.path !== '/dashboard' && location.startsWith(item.path)));
   const isMobile = useIsMobile();
 
   useEffect(() => {
@@ -170,8 +177,8 @@ function DashboardLayoutContent({
               </button>
               {!isCollapsed ? (
                 <div className="flex items-center gap-2 min-w-0">
-                  <span className="font-semibold tracking-tight truncate">
-                    Navigation
+                  <span className="font-semibold tracking-tight truncate text-blue-700">
+                    Efcon CRM
                   </span>
                 </div>
               ) : null}
@@ -181,7 +188,7 @@ function DashboardLayoutContent({
           <SidebarContent className="gap-0">
             <SidebarMenu className="px-2 py-1">
               {menuItems.map(item => {
-                const isActive = location === item.path;
+                const isActive = item.path === '/dashboard' ? location === item.path : location.startsWith(item.path);
                 return (
                   <SidebarMenuItem key={item.path}>
                     <SidebarMenuButton

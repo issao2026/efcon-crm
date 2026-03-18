@@ -801,6 +801,39 @@ Retorne um JSON com sugestões para campos vazios ou incompletos.`,
     })).mutation(async ({ ctx, input }) => {
       return createProperty({ ...input, userId: ctx.user.id });
     }),
+    update: protectedProcedure.input(z.object({
+      id: z.number(),
+      description: z.string().optional(),
+      propertyType: z.string().optional(),
+      street: z.string().optional(),
+      number: z.string().optional(),
+      complement: z.string().optional(),
+      neighborhood: z.string().optional(),
+      city: z.string().optional(),
+      state: z.string().optional(),
+      zipCode: z.string().optional(),
+      registration: z.string().optional(),
+      registryOffice: z.string().optional(),
+      area: z.string().optional(),
+      totalValue: z.string().optional(),
+      items: z.string().optional(),
+    })).mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new Error('DB not available');
+      const { properties: propsTable } = await import('../drizzle/schema');
+      const { eq, and } = await import('drizzle-orm');
+      const { id, ...data } = input;
+      await db.update(propsTable).set(data).where(and(eq(propsTable.id, id), eq(propsTable.userId, ctx.user.id)));
+      return { success: true };
+    }),
+    delete: protectedProcedure.input(z.object({ id: z.number() })).mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new Error('DB not available');
+      const { properties: propsTable } = await import('../drizzle/schema');
+      const { eq, and } = await import('drizzle-orm');
+      await db.delete(propsTable).where(and(eq(propsTable.id, input.id), eq(propsTable.userId, ctx.user.id)));
+      return { success: true };
+    }),
   }),
 });
 

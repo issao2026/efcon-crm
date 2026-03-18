@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import {
   Zap, ArrowLeft, ArrowRight, FileOutput, Download, Eye,
   Loader2, CheckCircle2, User, Home, DollarSign, Users,
-  ChevronDown, ChevronUp, RefreshCw, FileText
+  ChevronDown, ChevronUp, RefreshCw, FileText, Scale, Building2, Repeat2
 } from "lucide-react";
 import { getLoginUrl } from "@/const";
 
@@ -52,6 +52,26 @@ interface ContractFormData {
   testemunha1Cpf: string;
   testemunha2Nome: string;
   testemunha2Cpf: string;
+  // Cláusulas contratuais
+  prazoEntregaPosse: string;
+  condicaoEntregaPosse: string;
+  prazoEscritura: string;
+  percentualMulta: string;
+  prazoRestituicaoValores: string;
+  prazoCertidaoObjetoPe: string;
+  quantidadeExerciciosIptu: string;
+  responsavelDespesas: string;
+  condicoesDistrato: string;
+  foro: string;
+  plataformaAssinatura: string;
+  // Permuta
+  descricaoImovelPermuta: string;
+  valorImovelPermuta: string;
+  ajusteFinanceiroPermuta: string;
+  // Imobiliária
+  imobiliariaNome: string;
+  imobiliariaCnpj: string;
+  imobiliariaEndereco: string;
   // Misc
   localAssinatura: string;
   dataAssinatura: string;
@@ -68,6 +88,15 @@ const INITIAL_FORM: ContractFormData = {
   imovelDescricao: "", imovelEndereco: "", imovelMatricula: "", imovelCartorio: "", imovelAreaTotal: "", imovelItens: "",
   valorTotal: "", valorSinal: "", valorFinanciamento: "", formaPagamento: "À vista",
   dataVencimento: "", testemunha1Nome: "", testemunha1Cpf: "", testemunha2Nome: "", testemunha2Cpf: "",
+  prazoEntregaPosse: "30 dias após assinatura", condicaoEntregaPosse: "livre e desembaraçado de quaisquer ônus",
+  prazoEscritura: "60 dias após quitação", percentualMulta: "10",
+  prazoRestituicaoValores: "30 dias", prazoCertidaoObjetoPe: "30 dias",
+  quantidadeExerciciosIptu: "1", responsavelDespesas: "comprador",
+  condicoesDistrato: "conforme lei 13.786/2018", foro: "Brasília, Distrito Federal",
+  plataformaAssinatura: "Clicksign",
+  descricaoImovelPermuta: "", valorImovelPermuta: "", ajusteFinanceiroPermuta: "",
+  imobiliariaNome: "Marcello & Oliveira Imóveis", imobiliariaCnpj: "12.345.678/0001-99",
+  imobiliariaEndereco: "CRECI 28.867 J – Brasília, DF",
   localAssinatura: "Brasília, DF", dataAssinatura: new Date().toLocaleDateString("pt-BR"),
   corretorNome: "Marcello & Oliveira", corretorCreci: "28.867 J",
 };
@@ -81,16 +110,17 @@ const CONTRACT_TYPE_OPTIONS = [
 
 // ─── Field component ─────────────────────────────────────────────────────────
 function Field({
-  label, name, value, onChange, type = "text", required, placeholder, options
+  label, name, value, onChange, type = "text", required, placeholder, options, className
 }: {
   label: string; name: keyof ContractFormData; value: string;
   onChange: (name: keyof ContractFormData, value: string) => void;
   type?: string; required?: boolean; placeholder?: string;
   options?: { value: string; label: string }[];
+  className?: string;
 }) {
   if (options) {
     return (
-      <div>
+      <div className={className}>
         <label className="block text-xs font-semibold text-gray-600 mb-1">
           {label}{required && <span className="text-red-500 ml-0.5">*</span>}
         </label>
@@ -105,7 +135,7 @@ function Field({
     );
   }
   return (
-    <div>
+    <div className={className}>
       <label className="block text-xs font-semibold text-gray-600 mb-1">
         {label}{required && <span className="text-red-500 ml-0.5">*</span>}
       </label>
@@ -439,26 +469,26 @@ export default function Contract() {
         data_pagamento_avista: form.dataVencimento || 'na assinatura',
         valor_financiamento: form.valorFinanciamento ? `R$ ${form.valorFinanciamento}` : 'N/A',
         instituicao_financeira: 'a definir',
-        descricao_imovel_permuta: 'N/A',
-        valor_imovel_permuta: 'N/A',
-        ajuste_financeiro_permuta: 'N/A',
-        prazo_entrega_posse: '30 dias após assinatura',
-        condicao_entrega_posse: 'livre e desembaraçado',
-        prazo_escritura: '60 dias',
-        responsavel_despesas: 'comprador',
-        quantidade_exercicios_iptu: '1',
-        prazo_certidao_objeto_pe: '30 dias',
-        prazo_restituicao_valores: '30 dias',
+        descricao_imovel_permuta: form.descricaoImovelPermuta || 'N/A',
+        valor_imovel_permuta: form.valorImovelPermuta ? `R$ ${form.valorImovelPermuta}` : 'N/A',
+        ajuste_financeiro_permuta: form.ajusteFinanceiroPermuta || 'N/A',
+        prazo_entrega_posse: form.prazoEntregaPosse,
+        condicao_entrega_posse: form.condicaoEntregaPosse,
+        prazo_escritura: form.prazoEscritura,
+        responsavel_despesas: form.responsavelDespesas,
+        quantidade_exercicios_iptu: form.quantidadeExerciciosIptu,
+        prazo_certidao_objeto_pe: form.prazoCertidaoObjetoPe,
+        prazo_restituicao_valores: form.prazoRestituicaoValores,
         percentual_comissao: '6%',
         valor_comissao: 'conforme contrato de intermediação',
-        percentual_multa: '10%',
-        condicoes_distrato: 'conforme lei 13.786/2018',
-        plataforma_assinatura: 'Clicksign',
-        razao_social_imobiliaria: form.corretorNome,
-        cnpj_imobiliaria: '12.345.678/0001-99',
+        percentual_multa: `${form.percentualMulta}%`,
+        condicoes_distrato: form.condicoesDistrato,
+        plataforma_assinatura: form.plataformaAssinatura,
+        razao_social_imobiliaria: form.imobiliariaNome,
+        cnpj_imobiliaria: form.imobiliariaCnpj,
         creci_imobiliaria: form.corretorCreci,
-        endereco_imobiliaria: 'Rua Elias José Cavalcanti, 1698 – Jardim Ermida I, Jundiaí-SP',
-        foro_eleito: form.localAssinatura || 'Jundiaí, Estado de São Paulo',
+        endereco_imobiliaria: form.imobiliariaEndereco,
+        foro_eleito: form.foro,
         cidade_assinatura: form.localAssinatura,
         data_assinatura: form.dataAssinatura,
         nome_testemunha_1: form.testemunha1Nome,
@@ -735,7 +765,44 @@ export default function Contract() {
               <Field label="Data de assinatura" name="dataAssinatura" value={form.dataAssinatura} onChange={setField} />
               <Field label="Nome do corretor" name="corretorNome" value={form.corretorNome} onChange={setField} />
               <Field label="CRECI" name="corretorCreci" value={form.corretorCreci} onChange={setField} />
+              <Field label="Plataforma de assinatura" name="plataformaAssinatura" value={form.plataformaAssinatura} onChange={setField}
+                options={[
+                  { value: "Clicksign", label: "Clicksign" },
+                  { value: "DocuSign", label: "DocuSign" },
+                  { value: "Assinatura física", label: "Assinatura física" },
+                ]}
+              />
             </Section>
+            <Section title="Imobiliária" icon={Building2} defaultOpen={false}>
+              <Field label="Razão social" name="imobiliariaNome" value={form.imobiliariaNome} onChange={setField} />
+              <Field label="CNPJ" name="imobiliariaCnpj" value={form.imobiliariaCnpj} onChange={setField} placeholder="00.000.000/0001-00" />
+              <Field label="Endereço da imobiliária" name="imobiliariaEndereco" value={form.imobiliariaEndereco} onChange={setField} className="md:col-span-2" />
+            </Section>
+            <Section title="Cláusulas Contratuais" icon={Scale} defaultOpen={false}>
+              <Field label="Prazo de entrega da posse" name="prazoEntregaPosse" value={form.prazoEntregaPosse} onChange={setField} placeholder="Ex: 30 dias após assinatura" />
+              <Field label="Condição de entrega" name="condicaoEntregaPosse" value={form.condicaoEntregaPosse} onChange={setField} placeholder="Ex: livre e desembaraçado" />
+              <Field label="Prazo para escritura" name="prazoEscritura" value={form.prazoEscritura} onChange={setField} placeholder="Ex: 60 dias após quitação" />
+              <Field label="Prazo de restituíção (distrato)" name="prazoRestituicaoValores" value={form.prazoRestituicaoValores} onChange={setField} placeholder="Ex: 30 dias" />
+              <Field label="Prazo certidão objeto e pé" name="prazoCertidaoObjetoPe" value={form.prazoCertidaoObjetoPe} onChange={setField} placeholder="Ex: 30 dias" />
+              <Field label="Qtd. exercícios IPTU" name="quantidadeExerciciosIptu" value={form.quantidadeExerciciosIptu} onChange={setField} placeholder="Ex: 1" />
+              <Field label="Responsável pelas despesas" name="responsavelDespesas" value={form.responsavelDespesas} onChange={setField}
+                options={[
+                  { value: "comprador", label: "Comprador" },
+                  { value: "vendedor", label: "Vendedor" },
+                  { value: "ambos", label: "Ambos" },
+                ]}
+              />
+              <Field label="Percentual de multa (%)" name="percentualMulta" value={form.percentualMulta} onChange={setField} placeholder="Ex: 10" />
+              <Field label="Condições de distrato" name="condicoesDistrato" value={form.condicoesDistrato} onChange={setField} className="md:col-span-2" />
+              <Field label="Foro eleito" name="foro" value={form.foro} onChange={setField} placeholder="Ex: Brasília, Distrito Federal" className="md:col-span-2" />
+            </Section>
+            {form.contractType === "permuta" && (
+              <Section title="Dados da Permuta" icon={Repeat2} defaultOpen={true}>
+                <Field label="Descrição do imóvel permutado" name="descricaoImovelPermuta" value={form.descricaoImovelPermuta} onChange={setField} className="md:col-span-2" />
+                <Field label="Valor do imóvel permutado (R$)" name="valorImovelPermuta" value={form.valorImovelPermuta} onChange={setField} placeholder="Ex: 300000" />
+                <Field label="Ajuste financeiro" name="ajusteFinanceiroPermuta" value={form.ajusteFinanceiroPermuta} onChange={setField} placeholder="Ex: R$ 50.000 a pagar" />
+              </Section>
+            )}
 
             {/* Generate button */}
             <div className="flex items-center gap-4 mt-6">

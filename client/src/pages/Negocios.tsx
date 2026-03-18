@@ -9,8 +9,9 @@ import {
   Plus, Briefcase, Search, Filter,
   CheckCircle2, AlertTriangle, FileOutput, Eye,
   Building2, User, DollarSign, LayoutGrid, List,
-  MapPin, Hash, FileText, Ruler,
+  MapPin, Hash, FileText, Ruler, Loader2,
 } from "lucide-react";
+import { useCep } from "@/hooks/useCep";
 import {
   Select,
   SelectContent,
@@ -60,6 +61,7 @@ export default function Negocios() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showNewDeal, setShowNewDeal] = useState(false);
   const [viewMode, setViewMode] = useState<"list" | "kanban">("list");
+  const { lookup: lookupCep, loading: cepLoading } = useCep();
 
   const [newDeal, setNewDeal] = useState({
     type: "venda" as DealType,
@@ -574,12 +576,26 @@ export default function Negocios() {
                           onChange={(e) => setNewDeal({ ...newDeal, state: e.target.value.toUpperCase() })}
                           className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 bg-white" />
                       </div>
-                      <div>
+                      <div className="relative">
                         <label className="text-xs text-gray-500 block mb-1">CEP</label>
                         <input type="text" placeholder="13212-118"
                           value={newDeal.zipCode}
                           onChange={(e) => setNewDeal({ ...newDeal, zipCode: e.target.value })}
+                          onBlur={() => lookupCep(newDeal.zipCode, (data) => {
+                            setNewDeal((prev) => ({
+                              ...prev,
+                              street: data.logradouro || prev.street,
+                              neighborhood: data.bairro || prev.neighborhood,
+                              city: data.localidade || prev.city,
+                              state: data.uf || prev.state,
+                            }));
+                          })}
                           className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 bg-white" />
+                        {cepLoading && (
+                          <div className="absolute right-2 top-7">
+                            <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
+                          </div>
+                        )}
                       </div>
                     </div>
 

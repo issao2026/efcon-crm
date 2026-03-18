@@ -19,6 +19,7 @@ import Configuracoes from "./pages/Configuracoes";
 import DocumentGroups from "./pages/DocumentGroups";
 import NegocioDetalhe from "./pages/NegocioDetalhe";
 import ClienteDetalhe from "./pages/ClienteDetalhe";
+import Imoveis from "./pages/Imoveis";
 import OnboardingUpload from "./pages/OnboardingUpload";
 
 function Router() {
@@ -36,6 +37,7 @@ function Router() {
       <Route path={"/dashboard/negocios/:id"} component={NegocioDetalhe} />
       <Route path={"/dashboard/clientes"} component={Clientes} />
       <Route path={"/dashboard/clientes/:id"} component={ClienteDetalhe} />
+      <Route path={"/dashboard/imoveis"} component={Imoveis} />
       <Route path={"/dashboard/documentos"} component={Documentos} />
       <Route path={"/dashboard/documentos/:id"} component={NegocioDocumentos} />
       <Route path={"/dashboard/contratos"} component={Contratos} />

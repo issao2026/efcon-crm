@@ -134,3 +134,14 @@
 - [ ] Fix Relatórios chart: render real data in "Negócios por mês" chart
 - [ ] Fix Clientes cards: show email, phone and role (comprador/vendedor)
 - [ ] Wrap Contract generation page inside DashboardLayout (add sidebar)
+
+## Phase 9 — Improvements (Mar 2026)
+- [x] Add missing contract fields (prazo de posse, prazo de escritura, percentual de multa, foro eleito, plataforma de assinatura, dados da imobiliária)
+- [x] Update contractGenerator.ts with new ContractFields and DEFAULTS
+- [x] Create /dashboard/imoveis page with full CRUD (list, create, edit, delete)
+- [x] Add properties.update and properties.delete procedures to server router
+- [x] Update DashboardLayout with proper CRM navigation (9 items + Efcon branding)
+- [x] Implement CEP auto-fill via ViaCEP API (useCep hook shared across pages)
+- [x] Add CEP lookup to Clientes.tsx new client form (with address fields)
+- [x] Add CEP lookup to Negocios.tsx property address form
+- [x] Add CEP lookup to Imoveis.tsx property modal
