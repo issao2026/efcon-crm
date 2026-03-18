@@ -273,7 +273,8 @@ export const appRouter = router({
       fatherName: z.string().optional(),
       clientRole: z.enum(['comprador', 'vendedor', 'locador', 'locatario', 'fiador', 'corretor']).optional(),
     })).mutation(async ({ ctx, input }) => {
-      return createClient({ ...input, userId: ctx.user.id });
+      const result = await createClient({ ...input, userId: ctx.user.id });
+      return { id: result.insertId, success: true };
     }),
     update: protectedProcedure.input(z.object({
       id: z.number(),

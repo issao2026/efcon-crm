@@ -98,3 +98,9 @@
 - [ ] Fix OCR stuck on "Processando..." — investigate backend processOcr procedure
 - [ ] Trigger OCR automatically when document modal opens (not just on button click)
 - [ ] Show OCR results immediately after processing completes
+
+## Round 7 — Vincular a cliente melhorado
+
+- [x] Backend: procedure clients.createFromOcr to create client from OCR fields with clientRole
+- [x] DocumentDetailModal: show link to existing client profile when one is selected
+- [x] DocumentDetailModal: "Novo cliente" option shows inline form with role selector (Comprador/Vendedor/Corretor) and creates client from OCR data

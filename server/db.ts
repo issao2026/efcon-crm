@@ -75,7 +75,7 @@ export async function createClient(data: InsertClient) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
   const result = await db.insert(clients).values(data);
-  return result;
+  return { ...result, insertId: (result as any).insertId as number };
 }
 
 export async function updateClient(id: number, data: Partial<InsertClient>) {

@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { Link } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -31,7 +32,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import {
   FileText, Trash2, Save, X, ZoomIn, ZoomOut, RotateCw,
-  CheckCircle2, AlertTriangle, Clock, Loader2, Eye, Download
+  CheckCircle2, AlertTriangle, Clock, Loader2, Eye, Download,
+  UserPlus, ExternalLink, User
 } from "lucide-react";
 
 // ─── OCR field labels ────────────────────────────────────────────────────────
@@ -96,6 +98,9 @@ export function DocumentDetailModal({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [imageZoom, setImageZoom] = useState(100);
   const [imageRotation, setImageRotation] = useState(0);
+  // New client creation state
+  const [showNewClientForm, setShowNewClientForm] = useState(false);
+  const [newClientRole, setNewClientRole] = useState<'comprador' | 'vendedor' | 'corretor'>('comprador');
 
   const utils = trpc.useUtils();
   const [autoOcrTriggered, setAutoOcrTriggered] = useState(false);
@@ -144,6 +149,41 @@ export function DocumentDetailModal({
     },
     onError: (err) => toast.error(`Erro no OCR: ${err.message}`),
   });
+
+  const createClientMutation = trpc.clients.create.useMutation({
+    onSuccess: async (result) => {
+      toast.success('Cliente criado com sucesso!');
+      utils.clients.list.invalidate();
+      // Link the document to the newly created client
+      if (documentId && result.id) {
+        await updateMutation.mutateAsync({
+          id: documentId,
+          ocrFields: editedFields,
+          clientId: result.id,
+        });
+      }
+      setShowNewClientForm(false);
+    },
+    onError: (err) => toast.error(`Erro ao criar cliente: ${err.message}`),
+  });
+
+  const handleCreateNewClient = () => {
+    const name = editedFields.nome || '';
+    if (!name) {
+      toast.error('Nome é obrigatório. Preencha o campo "Nome completo" no OCR primeiro.');
+      return;
+    }
+    createClientMutation.mutate({
+      name,
+      cpfCnpj: editedFields.cpf || undefined,
+      rg: editedFields.rg || undefined,
+      birthDate: editedFields.data_nascimento || undefined,
+      motherName: editedFields.nome_mae || undefined,
+      fatherName: editedFields.nome_pai || undefined,
+      address: editedFields.endereco || undefined,
+      clientRole: newClientRole,
+    });
+  };
 
   // Auto-trigger OCR when document opens with pending status
   useEffect(() => {
@@ -401,33 +441,126 @@ export function DocumentDetailModal({
                   )}
 
                   {/* Assign to client */}
-                  <div className="pt-2 border-t border-border/50">
+                  <div className="pt-2 border-t border-border/50 space-y-2">
                     <Label className="text-xs text-muted-foreground mb-1 block">
                       Vincular a cliente
                     </Label>
-                    <Select
-                      value={doc.clientId?.toString() || ""}
-                      onValueChange={(v) => {
-                        if (!documentId) return;
-                        updateMutation.mutate({
-                          id: documentId,
-                          ocrFields: editedFields,
-                          clientId: v ? parseInt(v) : undefined,
-                        });
-                      }}
-                    >
-                      <SelectTrigger className="h-8 text-sm">
-                        <SelectValue placeholder="Selecionar cliente..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="0">Nenhum</SelectItem>
-                        {clients?.map((c: any) => (
-                          <SelectItem key={c.id} value={c.id.toString()}>
-                            {c.name}
+                    <div className="flex items-center gap-2">
+                      <Select
+                        value={doc.clientId?.toString() || ""}
+                        onValueChange={(v) => {
+                          if (!documentId) return;
+                          if (v === "__novo__") {
+                            setShowNewClientForm(true);
+                            return;
+                          }
+                          setShowNewClientForm(false);
+                          updateMutation.mutate({
+                            id: documentId,
+                            ocrFields: editedFields,
+                            clientId: v && v !== "0" ? parseInt(v) : undefined,
+                          });
+                        }}
+                      >
+                        <SelectTrigger className="h-8 text-sm flex-1">
+                          <SelectValue placeholder="Selecionar cliente..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="0">Nenhum</SelectItem>
+                          {clients?.map((c: any) => (
+                            <SelectItem key={c.id} value={c.id.toString()}>
+                              <span className="flex items-center gap-1.5">
+                                <User className="w-3 h-3 text-muted-foreground" />
+                                {c.name}
+                                {c.clientRole && (
+                                  <span className="text-xs text-muted-foreground ml-1 capitalize">({c.clientRole})</span>
+                                )}
+                              </span>
+                            </SelectItem>
+                          ))}
+                          <SelectItem value="__novo__">
+                            <span className="flex items-center gap-1.5 text-blue-600">
+                              <UserPlus className="w-3 h-3" />
+                              Criar novo cliente...
+                            </span>
                           </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                        </SelectContent>
+                      </Select>
+                      {/* Link to existing client profile */}
+                      {doc.clientId && doc.clientId > 0 && (() => {
+                        const linkedClient = clients?.find((c: any) => c.id === doc.clientId);
+                        return (
+                          <Link
+                            href={`/dashboard/clientes`}
+                            className="p-1.5 rounded hover:bg-gray-100 text-blue-600 flex-shrink-0"
+                            title={linkedClient ? `Ver ${linkedClient.name} em Clientes` : 'Ver em Clientes'}
+                            onClick={onClose}
+                          >
+                            <ExternalLink className="w-4 h-4" />
+                          </Link>
+                        );
+                      })()}
+                    </div>
+
+                    {/* New client creation inline form */}
+                    {showNewClientForm && (
+                      <div className="rounded-lg border border-blue-200 bg-blue-50/50 p-3 space-y-2">
+                        <p className="text-xs font-medium text-blue-800 flex items-center gap-1">
+                          <UserPlus className="w-3 h-3" />
+                          Criar novo cliente com dados do OCR
+                        </p>
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Categoria</Label>
+                          <div className="flex gap-2 mt-1">
+                            {(['comprador', 'vendedor', 'corretor'] as const).map((role) => (
+                              <button
+                                key={role}
+                                onClick={() => setNewClientRole(role)}
+                                className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
+                                  newClientRole === role
+                                    ? 'bg-blue-600 text-white border-blue-600'
+                                    : 'bg-white text-gray-600 border-gray-200 hover:border-blue-300'
+                                }`}
+                              >
+                                {role.charAt(0).toUpperCase() + role.slice(1)}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                        {editedFields.nome ? (
+                          <p className="text-xs text-gray-600">
+                            Nome: <span className="font-medium">{editedFields.nome}</span>
+                          </p>
+                        ) : (
+                          <p className="text-xs text-amber-600">
+                            Preencha o campo "Nome completo" no OCR antes de criar.
+                          </p>
+                        )}
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            className="h-7 text-xs bg-blue-600 hover:bg-blue-700 text-white"
+                            onClick={handleCreateNewClient}
+                            disabled={createClientMutation.isPending || !editedFields.nome}
+                          >
+                            {createClientMutation.isPending ? (
+                              <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                            ) : (
+                              <UserPlus className="w-3 h-3 mr-1" />
+                            )}
+                            Criar e vincular
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 text-xs"
+                            onClick={() => setShowNewClientForm(false)}
+                          >
+                            Cancelar
+                          </Button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
