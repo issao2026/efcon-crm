@@ -10,8 +10,11 @@ import { toast } from "sonner";
 import {
   ArrowLeft, User, Mail, Phone, MapPin, FileText, Building2,
   Edit2, Save, X, Loader2, Calendar, Briefcase, Users,
-  CreditCard, Hash, Heart, Globe, ChevronRight,
+  CreditCard, Hash, Heart, Globe, ChevronRight, Plus, Link2,
 } from "lucide-react";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 import { DocumentDetailModal } from "@/components/DocumentDetailModal";
 
 const ROLE_LABELS: Record<string, string> = {
@@ -64,11 +67,30 @@ export default function ClienteDetalhe() {
   const [isEditing, setIsEditing] = useState(false);
   const [editFields, setEditFields] = useState<EditableFields | null>(null);
   const [selectedDocId, setSelectedDocId] = useState<number | null>(null);
+  const [showLinkDeal, setShowLinkDeal] = useState(false);
+  const [linkDealId, setLinkDealId] = useState<string>("");
+  const [linkDealRole, setLinkDealRole] = useState<"buyer" | "seller" | "broker">("buyer");
 
   const { data: client, isLoading, refetch } = trpc.clients.getById.useQuery(
     { id: clientId },
     { enabled: clientId > 0 }
   );
+
+  const { data: allDeals = [] } = trpc.deals.list.useQuery();
+  const linkDealMutation = trpc.deals.linkClient.useMutation({
+    onSuccess: () => {
+      toast.success("Negócio vinculado com sucesso!");
+      setShowLinkDeal(false);
+      setLinkDealId("");
+      refetch();
+    },
+    onError: () => toast.error("Erro ao vincular negócio"),
+  });
+
+  const handleLinkDeal = () => {
+    if (!linkDealId) return toast.error("Selecione um negócio");
+    linkDealMutation.mutate({ dealId: parseInt(linkDealId), clientId, role: linkDealRole });
+  };
 
   const updateMutation = trpc.clients.update.useMutation({
     onSuccess: () => {
@@ -385,14 +407,76 @@ export default function ClienteDetalhe() {
 
       {/* Tab: Negócios */}
       {activeTab === "negocios" && (
-        <div className="bg-white rounded-2xl border border-border p-6">
+        <div className="bg-white rounded-2xl border border-border p-6 space-y-4">
+          {/* Header with link button */}
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-gray-700">Negócios vinculados</h3>
+            <Button
+              size="sm"
+              variant="outline"
+              className="gap-1.5 text-xs"
+              onClick={() => setShowLinkDeal((v) => !v)}
+            >
+              <Link2 className="w-3.5 h-3.5" />
+              Vincular negócio
+            </Button>
+          </div>
+
+          {/* Link deal form */}
+          {showLinkDeal && (
+            <div className="rounded-xl border border-blue-200 bg-blue-50/50 p-4 space-y-3">
+              <p className="text-xs font-semibold text-blue-800 flex items-center gap-1.5">
+                <Link2 className="w-3.5 h-3.5" /> Vincular este cliente a um negócio existente
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1 block">Negócio</label>
+                  <Select value={linkDealId} onValueChange={setLinkDealId}>
+                    <SelectTrigger className="h-8 text-sm">
+                      <SelectValue placeholder="Selecionar negócio..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(allDeals as any[]).map((d: any) => (
+                        <SelectItem key={d.id} value={d.id.toString()}>
+                          {d.code} — {d.type}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1 block">Papel no negócio</label>
+                  <Select value={linkDealRole} onValueChange={(v) => setLinkDealRole(v as any)}>
+                    <SelectTrigger className="h-8 text-sm">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="buyer">Comprador</SelectItem>
+                      <SelectItem value="seller">Vendedor</SelectItem>
+                      <SelectItem value="broker">Corretor</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  className="gap-1.5 text-xs"
+                  onClick={handleLinkDeal}
+                  disabled={linkDealMutation.isPending || !linkDealId}
+                >
+                  {linkDealMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
+                  Vincular
+                </Button>
+                <Button size="sm" variant="outline" className="text-xs" onClick={() => setShowLinkDeal(false)}>Cancelar</Button>
+              </div>
+            </div>
+          )}
+
           {deals.length === 0 ? (
-            <div className="text-center py-12">
+            <div className="text-center py-8">
               <Building2 className="w-10 h-10 text-gray-200 mx-auto mb-3" />
               <p className="text-sm text-muted-foreground">Nenhum negócio vinculado a este cliente.</p>
-              <Button size="sm" variant="outline" className="mt-3" onClick={() => navigate("/dashboard/negocios")}>
-                Ir para Negócios
-              </Button>
             </div>
           ) : (
             <div className="space-y-2">
@@ -410,6 +494,7 @@ export default function ClienteDetalhe() {
                   <Badge className={`text-xs flex-shrink-0 ${DEAL_STATUS_COLORS[deal.status] || "bg-gray-100 text-gray-600"}`}>
                     {DEAL_STATUS_LABELS[deal.status] || deal.status}
                   </Badge>
+                  <ChevronRight className="w-4 h-4 text-gray-300 flex-shrink-0" />
                 </div>
               ))}
             </div>

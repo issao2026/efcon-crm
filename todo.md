@@ -112,3 +112,13 @@
 - [x] Make client names clickable in Clientes page to navigate to detail
 - [x] Update DocumentDetailModal ExternalLink to navigate to /dashboard/clientes/:id
 - [x] Improve contract generation in NegocioDetalhe: pre-fill buyer/seller/broker from deal participants
+
+## Round 9 — Modal Width Fix
+- [x] Increase DocumentDetailModal width (max-w-5xl → max-w-6xl or wider) so OCR fields and new-client form are not truncated
+- [x] Fix new-client category buttons to fit on one line (Comprador / Vendedor / Corretor)
+- [x] Reduce OCR input font size slightly to show full text without truncation
+
+## Round 10 — Vincular Negócio ao Cliente
+- [x] Add "Vincular negócio" button in ClienteDetalhe Negócios tab
+- [x] Dropdown to select an existing deal and link it to the client (as buyer/seller/broker)
+- [x] Backend: procedure to link a client to a deal (update deal's buyerId/sellerId/brokerId)

@@ -251,6 +251,15 @@ export const appRouter = router({
       await deleteDeal(input.id);
       return { success: true };
     }),
+    linkClient: protectedProcedure.input(z.object({
+      dealId: z.number(),
+      clientId: z.number(),
+      role: z.enum(['buyer', 'seller', 'broker']),
+    })).mutation(async ({ input }) => {
+      const field = input.role === 'buyer' ? { buyerId: input.clientId } : input.role === 'seller' ? { sellerId: input.clientId } : { brokerId: input.clientId };
+      await updateDeal(input.dealId, field);
+      return { success: true };
+    }),
   }),
 
   // ─── Clients ───────────────────────────────────────────────────────────────
