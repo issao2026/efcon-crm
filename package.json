@@ -69,6 +69,7 @@
     "node-fetch": "3",
     "pdf-lib": "^1.17.1",
     "pizzip": "^3.2.0",
+    "puppeteer-core": "^24.39.1",
     "react": "^19.2.1",
     "react-day-picker": "^9.11.1",
     "react-dom": "^19.2.1",
