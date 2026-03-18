@@ -330,10 +330,10 @@ export const appRouter = router({
         docStatus: 'pendente',
       });
 
+      const documentId = (result as any).insertId as number;
       await createActivity({ userId: ctx.user.id, dealId: input.dealId, type: 'upload', title: `Documento enviado: ${input.name}` });
       await notifyOwner({ title: 'Novo documento enviado', content: `${input.name} (${input.docType}) para negócio ${input.dealId || 'N/A'}` });
-
-      return { fileUrl, fileKey };
+      return { fileUrl, fileKey, documentId };
     }),
     processOcr: protectedProcedure.input(z.object({
       documentId: z.number(),

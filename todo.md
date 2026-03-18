@@ -93,3 +93,8 @@
 - [x] Create OnboardingUpload page (/comecar) matching mockup: drag-and-drop, Pular, Continuar sem arquivos
 - [x] Wire "Começar grátis" and "Criar conta" CTAs on Home to /comecar (after OAuth login)
 - [x] After upload (or skip), redirect to /dashboard
+
+## Round 6 — OCR Auto-processing Fix
+- [ ] Fix OCR stuck on "Processando..." — investigate backend processOcr procedure
+- [ ] Trigger OCR automatically when document modal opens (not just on button click)
+- [ ] Show OCR results immediately after processing completes

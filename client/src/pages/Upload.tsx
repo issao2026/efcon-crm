@@ -158,11 +158,12 @@ export default function Upload() {
         fileSize: uploadedFile.file.size,
       });
 
-      updateFile(uploadedFile.id, { progress: 70, fileUrl: result.fileUrl, status: "processing_ocr" });
+      const docId = (result as any).documentId || 0;
+      updateFile(uploadedFile.id, { progress: 70, fileUrl: result.fileUrl, documentId: docId, status: "processing_ocr" });
 
-      // Process OCR
+      // Process OCR automatically with the real document ID
       const ocrResult = await ocrMutation.mutateAsync({
-        documentId: 0, // will be updated
+        documentId: docId,
         fileUrl: result.fileUrl,
         docType: uploadedFile.docType,
       });
@@ -177,7 +178,7 @@ export default function Upload() {
       if (ocrResult.fields && Object.keys(ocrResult.fields).length > 0) {
         try {
           const grouped = await autoGroupMutation.mutateAsync({
-            documentId: 0,
+            documentId: docId,
             ocrFields: ocrResult.fields as Record<string, string>,
             docType: uploadedFile.docType as any,
           });

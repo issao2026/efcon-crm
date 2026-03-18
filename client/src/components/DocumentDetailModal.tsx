@@ -98,10 +98,18 @@ export function DocumentDetailModal({
   const [imageRotation, setImageRotation] = useState(0);
 
   const utils = trpc.useUtils();
+  const [autoOcrTriggered, setAutoOcrTriggered] = useState(false);
 
   const { data: doc, isLoading } = trpc.documents.getById.useQuery(
     { id: documentId! },
-    { enabled: !!documentId && open }
+    {
+      enabled: !!documentId && open,
+      // Poll every 2s while OCR is processing so UI updates automatically
+      refetchInterval: (query) => {
+        const status = (query.state.data as any)?.ocrStatus;
+        return status === 'processing' ? 2000 : false;
+      },
+    }
   );
 
   const { data: clients } = trpc.clients.list.useQuery(undefined, { enabled: open });
@@ -136,6 +144,23 @@ export function DocumentDetailModal({
     },
     onError: (err) => toast.error(`Erro no OCR: ${err.message}`),
   });
+
+  // Auto-trigger OCR when document opens with pending status
+  useEffect(() => {
+    if (doc && open && doc.ocrStatus === 'pending' && doc.fileUrl && !autoOcrTriggered && !ocrMutation.isPending) {
+      setAutoOcrTriggered(true);
+      ocrMutation.mutate({
+        documentId: doc.id,
+        fileUrl: doc.fileUrl,
+        docType: doc.docType || 'outro',
+      });
+    }
+  }, [doc, open, autoOcrTriggered, ocrMutation]);
+
+  // Reset auto-trigger when modal closes
+  useEffect(() => {
+    if (!open) setAutoOcrTriggered(false);
+  }, [open]);
 
   // Sync fields when doc loads
   useEffect(() => {
