@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { DashboardShell } from "@/components/DashboardShell";
 import { Button } from "@/components/ui/button";
@@ -9,6 +10,7 @@ import {
 } from "lucide-react";
 
 export default function Clientes() {
+  const [, navigate] = useLocation();
   const [searchQuery, setSearchQuery] = useState("");
   const [showNewClient, setShowNewClient] = useState(false);
   const [newClient, setNewClient] = useState({
@@ -86,7 +88,7 @@ export default function Clientes() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filtered.map((client: any) => (
-            <div key={client.id} className="bg-white rounded-xl border border-border p-5 hover:shadow-md transition-shadow">
+            <div key={client.id} className="bg-white rounded-xl border border-border p-5 hover:shadow-md transition-shadow cursor-pointer" onClick={() => navigate(`/dashboard/clientes/${client.id}`)}>
               <div className="flex items-start justify-between mb-3">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-700 font-bold text-sm">

@@ -258,6 +258,15 @@ export const appRouter = router({
     list: protectedProcedure.query(async ({ ctx }) => {
       return getClients(ctx.user.id);
     }),
+    getById: protectedProcedure.input(z.object({ id: z.number() })).query(async ({ ctx, input }) => {
+      const client = await getClientById(input.id);
+      if (!client || client.userId !== ctx.user.id) throw new Error('Cliente n\u00e3o encontrado');
+      // Fetch linked documents and deals
+      const db = await import('./db').then(m => m.getDb ? m.getDb() : null);
+      const clientDocs = await import('./db').then(m => m.getDocuments(ctx.user.id)).then(docs => docs.filter((d: any) => d.clientId === input.id));
+      const clientDeals = await import('./db').then(m => m.getDeals(ctx.user.id)).then(ds => ds.filter((d: any) => d.buyerId === input.id || d.sellerId === input.id || d.brokerId === input.id));
+      return { ...client, documents: clientDocs, deals: clientDeals };
+    }),
     create: protectedProcedure.input(z.object({
       name: z.string().min(2),
       cpfCnpj: z.string().optional(),
@@ -291,6 +300,7 @@ export const appRouter = router({
         profession: z.string().optional(),
         motherName: z.string().optional(),
         fatherName: z.string().optional(),
+        clientRole: z.enum(['comprador', 'vendedor', 'locador', 'locatario', 'fiador', 'corretor']).optional(),
       }),
     })).mutation(async ({ input }) => {
       return updateClient(input.id, input.data);

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
@@ -283,6 +283,51 @@ export default function Contract() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedPdfUrl, setGeneratedPdfUrl] = useState<string | null>(null);
   const [isAiLoading, setIsAiLoading] = useState(false);
+  const [prefillDealId, setPrefillDealId] = useState<number | null>(null);
+
+  // Read dealId from URL query string
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const dealId = params.get('dealId');
+    if (dealId && !isNaN(parseInt(dealId))) setPrefillDealId(parseInt(dealId));
+  }, []);
+
+  // Fetch deal + clients for pre-fill
+  const { data: dealData } = trpc.deals.byId.useQuery(
+    { id: prefillDealId! },
+    { enabled: prefillDealId !== null }
+  );
+  const { data: clientsList = [] } = trpc.clients.list.useQuery();
+
+  // Pre-fill form when deal data loads
+  useEffect(() => {
+    if (!dealData) return;
+    const deal = dealData as any;
+    const clients = clientsList as any[];
+    const buyer = clients.find((c: any) => c.id === deal.buyerId);
+    const seller = clients.find((c: any) => c.id === deal.sellerId);
+    const broker = clients.find((c: any) => c.id === deal.brokerId);
+    setForm((prev) => ({
+      ...prev,
+      contractType: deal.type === 'locacao' ? 'locacao' : deal.type === 'permuta' ? 'permuta' : deal.type === 'financiamento' ? 'financiamento' : 'compra_venda',
+      compradorNome: buyer?.name || prev.compradorNome,
+      compradorCpf: buyer?.cpfCnpj || prev.compradorCpf,
+      compradorRg: buyer?.rg || prev.compradorRg,
+      compradorNacionalidade: buyer?.nationality || prev.compradorNacionalidade,
+      compradorEstadoCivil: buyer?.maritalStatus || prev.compradorEstadoCivil,
+      compradorProfissao: buyer?.profession || prev.compradorProfissao,
+      compradorEndereco: buyer?.address || prev.compradorEndereco,
+      vendedorNome: seller?.name || prev.vendedorNome,
+      vendedorCpf: seller?.cpfCnpj || prev.vendedorCpf,
+      vendedorRg: seller?.rg || prev.vendedorRg,
+      vendedorNacionalidade: seller?.nationality || prev.vendedorNacionalidade,
+      vendedorEstadoCivil: seller?.maritalStatus || prev.vendedorEstadoCivil,
+      vendedorProfissao: seller?.profession || prev.vendedorProfissao,
+      vendedorEndereco: seller?.address || prev.vendedorEndereco,
+      corretorNome: broker?.name || prev.corretorNome,
+      valorTotal: deal.totalValue || deal.monthlyValue || prev.valorTotal,
+    }));
+  }, [dealData, clientsList]);
 
   const generateMutation = trpc.contracts.generate.useMutation();
   const aiSuggestMutation = trpc.contracts.suggestFields.useMutation();
@@ -435,6 +480,12 @@ export default function Contract() {
           <div>
             <h1 className="text-2xl font-black text-gray-900">Gerar Contrato</h1>
             <p className="text-gray-500 text-sm mt-1">Preencha os dados para gerar o contrato padrão</p>
+            {prefillDealId && dealData && (
+              <div className="mt-2 flex items-center gap-2 text-xs text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-1.5">
+                <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0" />
+                Dados pré-preenchidos a partir do negócio <strong>{(dealData as any).code}</strong>. Revise e complete os campos antes de gerar.
+              </div>
+            )}
           </div>
           <div className="flex items-center gap-3">
             <Button

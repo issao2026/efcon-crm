@@ -491,7 +491,7 @@ export function DocumentDetailModal({
                         const linkedClient = clients?.find((c: any) => c.id === doc.clientId);
                         return (
                           <Link
-                            href={`/dashboard/clientes`}
+                            href={`/dashboard/clientes/${doc.clientId}`}
                             className="p-1.5 rounded hover:bg-gray-100 text-blue-600 flex-shrink-0"
                             title={linkedClient ? `Ver ${linkedClient.name} em Clientes` : 'Ver em Clientes'}
                             onClick={onClose}

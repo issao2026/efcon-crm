@@ -104,3 +104,11 @@
 - [x] Backend: procedure clients.createFromOcr to create client from OCR fields with clientRole
 - [x] DocumentDetailModal: show link to existing client profile when one is selected
 - [x] DocumentDetailModal: "Novo cliente" option shows inline form with role selector (Comprador/Vendedor/Corretor) and creates client from OCR data
+
+## Round 8 — Cliente Detalhe + Contrato
+
+- [x] Backend: clients.getById procedure returning client with documents and deals
+- [x] Create ClienteDetalhe page (/dashboard/clientes/:id) with editable profile, documents tab, deals tab
+- [x] Make client names clickable in Clientes page to navigate to detail
+- [x] Update DocumentDetailModal ExternalLink to navigate to /dashboard/clientes/:id
+- [x] Improve contract generation in NegocioDetalhe: pre-fill buyer/seller/broker from deal participants
