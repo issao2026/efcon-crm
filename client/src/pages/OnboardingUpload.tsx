@@ -38,21 +38,21 @@ function detectDocType(filename: string): DocType {
 
 export default function OnboardingUpload() {
   const [, setLocation] = useLocation();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, loading: authLoading } = useAuth();
   const [files, setFiles] = useState<UploadedFile[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
   const uploadMutation = trpc.documents.upload.useMutation();
-
-  // If not authenticated, redirect to login with /comecar as return destination
+  // Wait for auth to finish loading before deciding to redirect.
+  // Only redirect if we are certain the user is NOT authenticated.
   useEffect(() => {
+    if (authLoading) return; // still checking session — do nothing
     if (!isAuthenticated) {
       sessionStorage.setItem("efcon_post_login", "/comecar");
       window.location.href = getLoginUrl();
     }
-  }, [isAuthenticated]);
+  }, [authLoading, isAuthenticated]);
 
   const addFiles = useCallback((newFiles: FileList | File[]) => {
     const arr = Array.from(newFiles);
@@ -176,6 +176,25 @@ export default function OnboardingUpload() {
 
   const allDone = files.length > 0 && files.every((f) => f.status === "done");
   const hasUploading = files.some((f) => f.status === "uploading");
+
+  // While auth is loading, show a neutral skeleton so the page doesn't flash
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex flex-col">
+        <header className="bg-[#0f1b35] h-14 flex items-center px-6">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+              <Zap className="w-4 h-4 text-white" />
+            </div>
+            <span className="text-white font-bold text-lg tracking-tight">Efcon</span>
+          </div>
+        </header>
+        <main className="flex-1 flex items-center justify-center">
+          <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
