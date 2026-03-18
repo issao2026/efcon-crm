@@ -277,7 +277,7 @@ export function DocumentDetailModal({
           ) : doc ? (
             <div className="flex-1 overflow-hidden flex">
               {/* Left: Document Preview */}
-              <div className="w-[45%] border-r border-border/50 flex flex-col bg-gray-50">
+              <div className="w-[40%] border-r border-border/50 flex flex-col bg-gray-50">
                 {/* Toolbar */}
                 <div className="flex items-center gap-1 px-3 py-2 border-b border-border/50 bg-white">
                   <button
@@ -417,7 +417,7 @@ export function DocumentDetailModal({
                     </p>
                   )}
                 </div>
-                <div className="w-[55%] overflow-y-auto px-5 py-4 space-y-3">
+                <div className="w-[60%] overflow-y-auto px-5 py-4 space-y-3">
                   {fieldEntries.length === 0 ? (
                     <div className="text-center py-8 text-muted-foreground">
                       <FileText className="w-8 h-8 mx-auto mb-2 text-gray-200" />
@@ -511,7 +511,7 @@ export function DocumentDetailModal({
                         </p>
                         <div>
                           <Label className="text-xs text-muted-foreground">Categoria</Label>
-                          <div className="flex gap-2 mt-1">
+                          <div className="flex flex-wrap gap-2 mt-1">
                             {(['comprador', 'vendedor', 'corretor'] as const).map((role) => (
                               <button
                                 key={role}
