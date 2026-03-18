@@ -122,3 +122,7 @@
 - [x] Add "Vincular negócio" button in ClienteDetalhe Negócios tab
 - [x] Dropdown to select an existing deal and link it to the client (as buyer/seller/broker)
 - [x] Backend: procedure to link a client to a deal (update deal's buyerId/sellerId/brokerId)
+
+## Round 12 — Client Lookup in Contract Page
+- [ ] Add "Selecionar cliente cadastrado" dropdown at top of each section (Vendedor, Comprador, Corretor) in Contract.tsx
+- [ ] On selection, auto-fill all fields (nome, CPF, RG, endereço, estado civil, profissão, nacionalidade) from the registered client

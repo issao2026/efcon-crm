@@ -332,6 +332,25 @@ export default function Contract() {
   const generateMutation = trpc.contracts.generate.useMutation();
   const aiSuggestMutation = trpc.contracts.suggestFields.useMutation();
 
+  // Helper to fill a section from a client record
+  const fillFromClient = (client: any, prefix: 'vendedor' | 'comprador' | 'corretor') => {
+    if (!client) return;
+    if (prefix === 'corretor') {
+      setForm((prev) => ({ ...prev, corretorNome: client.name || prev.corretorNome }));
+      return;
+    }
+    setForm((prev) => ({
+      ...prev,
+      [`${prefix}Nome`]: client.name || prev[`${prefix}Nome` as keyof ContractFormData],
+      [`${prefix}Cpf`]: client.cpfCnpj || prev[`${prefix}Cpf` as keyof ContractFormData],
+      [`${prefix}Rg`]: client.rg || prev[`${prefix}Rg` as keyof ContractFormData],
+      [`${prefix}Nacionalidade`]: client.nationality || prev[`${prefix}Nacionalidade` as keyof ContractFormData],
+      [`${prefix}EstadoCivil`]: client.maritalStatus || prev[`${prefix}EstadoCivil` as keyof ContractFormData],
+      [`${prefix}Profissao`]: client.profession || prev[`${prefix}Profissao` as keyof ContractFormData],
+      [`${prefix}Endereco`]: client.address || prev[`${prefix}Endereco` as keyof ContractFormData],
+    }));
+  };
+
   const setField = (name: keyof ContractFormData, value: string) => {
     setForm((prev) => ({ ...prev, [name]: value }));
   };
@@ -536,6 +555,22 @@ export default function Contract() {
             </div>
 
             <Section title={form.contractType === "locacao" ? "Dados do Locador" : "Dados do Vendedor"} icon={User}>
+              <div className="md:col-span-2 mb-1">
+                <label className="block text-xs font-semibold text-gray-500 mb-1">Selecionar cliente cadastrado</label>
+                <select
+                  defaultValue=""
+                  onChange={(e) => {
+                    const c = (clientsList as any[]).find((x: any) => String(x.id) === e.target.value);
+                    if (c) fillFromClient(c, 'vendedor');
+                  }}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400"
+                >
+                  <option value="">— Buscar vendedor cadastrado —</option>
+                  {(clientsList as any[]).map((c: any) => (
+                    <option key={c.id} value={c.id}>{c.name} {c.clientRole ? `(${c.clientRole})` : ''}</option>
+                  ))}
+                </select>
+              </div>
               <Field label="Nome completo" name="vendedorNome" value={form.vendedorNome} onChange={setField} required placeholder="Nome completo" />
               <Field label="CPF" name="vendedorCpf" value={form.vendedorCpf} onChange={setField} required placeholder="000.000.000-00" />
               <Field label="RG" name="vendedorRg" value={form.vendedorRg} onChange={setField} placeholder="00.000.000-0" />
@@ -556,6 +591,22 @@ export default function Contract() {
             </Section>
 
             <Section title={form.contractType === "locacao" ? "Dados do Locatário" : "Dados do Comprador"} icon={User}>
+              <div className="md:col-span-2 mb-1">
+                <label className="block text-xs font-semibold text-gray-500 mb-1">Selecionar cliente cadastrado</label>
+                <select
+                  defaultValue=""
+                  onChange={(e) => {
+                    const c = (clientsList as any[]).find((x: any) => String(x.id) === e.target.value);
+                    if (c) fillFromClient(c, 'comprador');
+                  }}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400"
+                >
+                  <option value="">— Buscar comprador cadastrado —</option>
+                  {(clientsList as any[]).map((c: any) => (
+                    <option key={c.id} value={c.id}>{c.name} {c.clientRole ? `(${c.clientRole})` : ''}</option>
+                  ))}
+                </select>
+              </div>
               <Field label="Nome completo" name="compradorNome" value={form.compradorNome} onChange={setField} required placeholder="Nome completo" />
               <Field label="CPF" name="compradorCpf" value={form.compradorCpf} onChange={setField} required placeholder="000.000.000-00" />
               <Field label="RG" name="compradorRg" value={form.compradorRg} onChange={setField} placeholder="00.000.000-0" />
@@ -614,6 +665,29 @@ export default function Contract() {
             </Section>
 
             <Section title="Corretor & Assinatura" icon={FileText} defaultOpen={false}>
+              <div className="md:col-span-2 mb-1">
+                <label className="block text-xs font-semibold text-gray-500 mb-1">Selecionar corretor cadastrado</label>
+                <select
+                  defaultValue=""
+                  onChange={(e) => {
+                    const c = (clientsList as any[]).find((x: any) => String(x.id) === e.target.value);
+                    if (c) fillFromClient(c, 'corretor');
+                  }}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400"
+                >
+                  <option value="">— Buscar corretor cadastrado —</option>
+                  {(clientsList as any[]).filter((c: any) => c.clientRole === 'corretor').map((c: any) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                  {(clientsList as any[]).filter((c: any) => c.clientRole !== 'corretor').length > 0 && (
+                    <optgroup label="Outros clientes">
+                      {(clientsList as any[]).filter((c: any) => c.clientRole !== 'corretor').map((c: any) => (
+                        <option key={c.id} value={c.id}>{c.name} ({c.clientRole || 'sem categoria'})</option>
+                      ))}
+                    </optgroup>
+                  )}
+                </select>
+              </div>
               <Field label="Local de assinatura" name="localAssinatura" value={form.localAssinatura} onChange={setField} />
               <Field label="Data de assinatura" name="dataAssinatura" value={form.dataAssinatura} onChange={setField} />
               <Field label="Nome do corretor" name="corretorNome" value={form.corretorNome} onChange={setField} />
