@@ -510,9 +510,9 @@ export default function Contract() {
         <Button
           variant="ghost"
           className="text-white/60 hover:text-white gap-2"
-          onClick={() => navigate("/dashboard")}
+          onClick={() => navigate("/dashboard/contratos")}
         >
-          <ArrowLeft className="w-4 h-4" /> Voltar ao Dashboard
+          <ArrowLeft className="w-4 h-4" /> Voltar a Contratos
         </Button>
       </header>
 

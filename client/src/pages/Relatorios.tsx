@@ -1,5 +1,5 @@
 import { DashboardShell } from "@/components/DashboardShell";
-import { BarChart3, TrendingUp, FileOutput, Users, Briefcase, CheckCircle2 } from "lucide-react";
+import { TrendingUp, FileOutput, Users, CheckCircle2 } from "lucide-react";
 
 const MONTHLY_DATA = [
   { month: "Out", venda: 2, locacao: 3, permuta: 0 },
@@ -11,6 +11,7 @@ const MONTHLY_DATA = [
 ];
 
 const MAX_VALUE = Math.max(...MONTHLY_DATA.map((d) => d.venda + d.locacao + d.permuta));
+const CHART_HEIGHT = 160; // px
 
 export default function Relatorios() {
   return (
@@ -54,19 +55,28 @@ export default function Relatorios() {
             <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-full bg-orange-400" /><span className="text-muted-foreground">Permuta</span></div>
           </div>
         </div>
-        <div className="flex items-end gap-4 h-48">
+
+        {/* Fixed-height bar chart using absolute pixel values */}
+        <div className="flex items-end gap-3" style={{ height: `${CHART_HEIGHT + 24}px` }}>
           {MONTHLY_DATA.map((d) => {
             const total = d.venda + d.locacao + d.permuta;
-            const totalPct = (total / MAX_VALUE) * 100;
-            const vendaPct = (d.venda / total) * 100;
-            const locacaoPct = (d.locacao / total) * 100;
-            const permutaPct = (d.permuta / total) * 100;
+            const totalH = Math.max(8, Math.round((total / MAX_VALUE) * CHART_HEIGHT));
+            const vendaH = total > 0 ? Math.round((d.venda / total) * totalH) : 0;
+            const locacaoH = total > 0 ? Math.round((d.locacao / total) * totalH) : 0;
+            const permutaH = totalH - vendaH - locacaoH; // remainder to avoid rounding gaps
             return (
-              <div key={d.month} className="flex-1 flex flex-col items-center gap-2">
-                <div className="w-full flex flex-col-reverse rounded-lg overflow-hidden" style={{ height: `${totalPct}%`, minHeight: "8px" }}>
-                  <div className="bg-blue-500" style={{ height: `${vendaPct}%` }} />
-                  <div className="bg-cyan-400" style={{ height: `${locacaoPct}%` }} />
-                  <div className="bg-orange-400" style={{ height: `${permutaPct}%` }} />
+              <div
+                key={d.month}
+                className="flex-1 flex flex-col items-center justify-end gap-1"
+                style={{ height: `${CHART_HEIGHT + 24}px` }}
+              >
+                <div
+                  className="w-full rounded-t-md overflow-hidden flex flex-col-reverse"
+                  style={{ height: `${totalH}px` }}
+                >
+                  {vendaH > 0 && <div className="bg-blue-500 w-full" style={{ height: `${vendaH}px` }} />}
+                  {locacaoH > 0 && <div className="bg-cyan-400 w-full" style={{ height: `${locacaoH}px` }} />}
+                  {permutaH > 0 && <div className="bg-orange-400 w-full" style={{ height: `${permutaH}px` }} />}
                 </div>
                 <span className="text-xs text-muted-foreground font-medium">{d.month}</span>
               </div>

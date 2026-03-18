@@ -1,0 +1,506 @@
+{
+  "query": "SHOW COLUMNS FROM contracts;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway04.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 35WEPRGEy139WNo.root --database hqCW96Ftj9zcKD8QtxsDCe --execute SHOW COLUMNS FROM contracts;",
+  "rows": [
+    {
+      "Field": "id",
+      "Type": "int",
+      "Null": "NO",
+      "Key": "PRI",
+      "Default": "NULL",
+      "Extra": "auto_increment"
+    },
+    {
+      "Field": "userId",
+      "Type": "int",
+      "Null": "NO",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "dealId",
+      "Type": "int",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "code",
+      "Type": "varchar(30)",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "nomeVendedor",
+      "Type": "varchar(255)",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "nacionalidadeVendedor",
+      "Type": "varchar(50)",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "estadoCivilVendedor",
+      "Type": "varchar(30)",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "profissaoVendedor",
+      "Type": "varchar(100)",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "tipoDocumentoVendedor",
+      "Type": "varchar(10)",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "numeroDocumentoVendedor",
+      "Type": "varchar(50)",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "cpfCnpjVendedor",
+      "Type": "varchar(20)",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "enderecoVendedor",
+      "Type": "text",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "nomeComprador",
+      "Type": "varchar(255)",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "nacionalidadeComprador",
+      "Type": "varchar(50)",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "estadoCivilComprador",
+      "Type": "varchar(30)",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "profissaoComprador",
+      "Type": "varchar(100)",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "tipoDocumentoComprador",
+      "Type": "varchar(10)",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "numeroDocumentoComprador",
+      "Type": "varchar(50)",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "cpfCnpjComprador",
+      "Type": "varchar(20)",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "enderecoComprador",
+      "Type": "text",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "descricaoImovel",
+      "Type": "text",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "matriculaImovel",
+      "Type": "varchar(50)",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "cartorioRegistroImoveis",
+      "Type": "varchar(255)",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "itensImovel",
+      "Type": "text",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "valorTotalContrato",
+      "Type": "varchar(100)",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "modalidadePagamento",
+      "Type": "varchar(30)",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "valorPagamentoAvista",
+      "Type": "varchar(100)",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "formaPagamentoAvista",
+      "Type": "varchar(50)",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "dataPagamentoAvista",
+      "Type": "varchar(20)",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "valorFinanciamento",
+      "Type": "varchar(100)",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "instituicaoFinanceira",
+      "Type": "varchar(100)",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "descricaoImovelPermuta",
+      "Type": "text",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "valorImovelPermuta",
+      "Type": "varchar(100)",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "ajusteFinanceiroPermuta",
+      "Type": "text",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "prazoEntregaPosse",
+      "Type": "varchar(50)",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "condicaoEntregaPosse",
+      "Type": "text",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "prazoEscritura",
+      "Type": "varchar(50)",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "responsavelDespesas",
+      "Type": "varchar(50)",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "quantidadeExerciciosIptu",
+      "Type": "varchar(10)",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "prazoCertidaoObjetoPe",
+      "Type": "varchar(50)",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "prazoRestituicaoValores",
+      "Type": "varchar(50)",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "percentualComissao",
+      "Type": "varchar(20)",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "valorComissao",
+      "Type": "varchar(100)",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "percentualMulta",
+      "Type": "varchar(20)",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "condicoesDistrato",
+      "Type": "text",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "plataformaAssinatura",
+      "Type": "varchar(50)",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "razaoSocialImobiliaria",
+      "Type": "varchar(255)",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "cnpjImobiliaria",
+      "Type": "varchar(20)",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "creciImobiliaria",
+      "Type": "varchar(30)",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "enderecoImobiliaria",
+      "Type": "text",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "foroEleito",
+      "Type": "varchar(100)",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "cidadeAssinatura",
+      "Type": "varchar(100)",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "dataAssinatura",
+      "Type": "varchar(20)",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "nomeTestemunha1",
+      "Type": "varchar(255)",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "cpfTestemunha1",
+      "Type": "varchar(20)",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "nomeTestemunha2",
+      "Type": "varchar(255)",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "cpfTestemunha2",
+      "Type": "varchar(20)",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "pdfUrl",
+      "Type": "text",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "pdfKey",
+      "Type": "varchar(500)",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "contractStatus",
+      "Type": "enum('rascunho','gerado','enviado','assinado')",
+      "Null": "YES",
+      "Key": "",
+      "Default": "rascunho",
+      "Extra": ""
+    },
+    {
+      "Field": "createdAt",
+      "Type": "timestamp",
+      "Null": "NO",
+      "Key": "",
+      "Default": "CURRENT_TIMESTAMP",
+      "Extra": ""
+    },
+    {
+      "Field": "updatedAt",
+      "Type": "timestamp",
+      "Null": "NO",
+      "Key": "",
+      "Default": "CURRENT_TIMESTAMP",
+      "Extra": "DEFAULT_GENERATED on update CURRENT_TIMESTAMP"
+    }
+  ],
+  "messages": [],
+  "stdout": "Field\tType\tNull\tKey\tDefault\tExtra\nid\tint\tNO\tPRI\tNULL\tauto_increment\nuserId\tint\tNO\t\tNULL\t\ndealId\tint\tYES\t\tNULL\t\ncode\tvarchar(30)\tYES\t\tNULL\t\nnomeVendedor\tvarchar(255)\tYES\t\tNULL\t\nnacionalidadeVendedor\tvarchar(50)\tYES\t\tNULL\t\nestadoCivilVendedor\tvarchar(30)\tYES\t\tNULL\t\nprofissaoVendedor\tvarchar(100)\tYES\t\tNULL\t\ntipoDocumentoVendedor\tvarchar(10)\tYES\t\tNULL\t\nnumeroDocumentoVendedor\tvarchar(50)\tYES\t\tNULL\t\ncpfCnpjVendedor\tvarchar(20)\tYES\t\tNULL\t\nenderecoVendedor\ttext\tYES\t\tNULL\t\nnomeComprador\tvarchar(255)\tYES\t\tNULL\t\nnacionalidadeComprador\tvarchar(50)\tYES\t\tNULL\t\nestadoCivilComprador\tvarchar(30)\tYES\t\tNULL\t\nprofissaoComprador\tvarchar(100)\tYES\t\tNULL\t\ntipoDocumentoComprador\tvarchar(10)\tYES\t\tNULL\t\nnumeroDocumentoComprador\tvarchar(50)\tYES\t\tNULL\t\ncpfCnpjComprador\tvarchar(20)\tYES\t\tNULL\t\nenderecoComprador\ttext\tYES\t\tNULL\t\ndescricaoImovel\ttext\tYES\t\tNULL\t\nmatriculaImovel\tvarchar(50)\tYES\t\tNULL\t\ncartorioRegistroImoveis\tvarchar(255)\tYES\t\tNULL\t\nitensImovel\ttext\tYES\t\tNULL\t\nvalorTotalContrato\tvarchar(100)\tYES\t\tNULL\t\nmodalidadePagamento\tvarchar(30)\tYES\t\tNULL\t\nvalorPagamentoAvista\tvarchar(100)\tYES\t\tNULL\t\nformaPagamentoAvista\tvarchar(50)\tYES\t\tNULL\t\ndataPagamentoAvista\tvarchar(20)\tYES\t\tNULL\t\nvalorFinanciamento\tvarchar(100)\tYES\t\tNULL\t\ninstituicaoFinanceira\tvarchar(100)\tYES\t\tNULL\t\ndescricaoImovelPermuta\ttext\tYES\t\tNULL\t\nvalorImovelPermuta\tvarchar(100)\tYES\t\tNULL\t\najusteFinanceiroPermuta\ttext\tYES\t\tNULL\t\nprazoEntregaPosse\tvarchar(50)\tYES\t\tNULL\t\ncondicaoEntregaPosse\ttext\tYES\t\tNULL\t\nprazoEscritura\tvarchar(50)\tYES\t\tNULL\t\nresponsavelDespesas\tvarchar(50)\tYES\t\tNULL\t\nquantidadeExerciciosIptu\tvarchar(10)\tYES\t\tNULL\t\nprazoCertidaoObjetoPe\tvarchar(50)\tYES\t\tNULL\t\nprazoRestituicaoValores\tvarchar(50)\tYES\t\tNULL\t\npercentualComissao\tvarchar(20)\tYES\t\tNULL\t\nvalorComissao\tvarchar(100)\tYES\t\tNULL\t\npercentualMulta\tvarchar(20)\tYES\t\tNULL\t\ncondicoesDistrato\ttext\tYES\t\tNULL\t\nplataformaAssinatura\tvarchar(50)\tYES\t\tNULL\t\nrazaoSocialImobiliaria\tvarchar(255)\tYES\t\tNULL\t\ncnpjImobiliaria\tvarchar(20)\tYES\t\tNULL\t\ncreciImobiliaria\tvarchar(30)\tYES\t\tNULL\t\nenderecoImobiliaria\ttext\tYES\t\tNULL\t\nforoEleito\tvarchar(100)\tYES\t\tNULL\t\ncidadeAssinatura\tvarchar(100)\tYES\t\tNULL\t\ndataAssinatura\tvarchar(20)\tYES\t\tNULL\t\nnomeTestemunha1\tvarchar(255)\tYES\t\tNULL\t\ncpfTestemunha1\tvarchar(20)\tYES\t\tNULL\t\nnomeTestemunha2\tvarchar(255)\tYES\t\tNULL\t\ncpfTestemunha2\tvarchar(20)\tYES\t\tNULL\t\npdfUrl\ttext\tYES\t\tNULL\t\npdfKey\tvarchar(500)\tYES\t\tNULL\t\ncontractStatus\tenum('rascunho','gerado','enviado','assinado')\tYES\t\trascunho\t\ncreatedAt\ttimestamp\tNO\t\tCURRENT_TIMESTAMP\t\nupdatedAt\ttimestamp\tNO\t\tCURRENT_TIMESTAMP\tDEFAULT_GENERATED on update CURRENT_TIMESTAMP\n",
+  "stderr": "",
+  "execution_time_ms": 63
+}

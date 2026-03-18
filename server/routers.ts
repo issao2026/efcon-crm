@@ -158,7 +158,7 @@ export const appRouter = router({
         const stats = await getDashboardStats(ctx.user.id);
         return stats;
       } catch {
-        return { activeDeals: 14, totalContracts: 47, totalVolume: 8240000, pendingDocs: 6 };
+        return { activeDeals: 0, totalContracts: 0, totalVolume: 0, pendingDocs: 0 };
       }
     }),
     deals: protectedProcedure.query(async ({ ctx }) => {
@@ -702,21 +702,31 @@ Retorne confidence (0-100) indicando a qualidade da extração.`,
       contractId: z.number().optional(),
       fields: z.record(z.string(), z.string()),
     })).mutation(async ({ ctx, input }) => {
-      // Generate branded PDF using the official Marcello & Oliveira template + mascara
+       // Generate branded PDF using the official Marcello & Oliveira template + mascara
       const contractFields: ContractFields = { ...input.fields };
       const pdfBuffer = await generateContractPdf(contractFields);
-
       // Upload branded PDF to S3
       const contractKey = `contracts/${ctx.user.id}/${nanoid()}-contrato.pdf`;
       const { url: contractUrl } = await storagePut(contractKey, pdfBuffer, 'application/pdf');
-
       if (input.contractId) {
         await updateContract(input.contractId, { pdfUrl: contractUrl, pdfKey: contractKey, contractStatus: 'gerado' });
+      } else {
+        // Always create a new contract record so it appears in the Contratos list
+        const code = `CTR-${nanoid(8).toUpperCase()}`;
+        await createContract({
+          userId: ctx.user.id,
+          code,
+          nomeVendedor: input.fields.nome_vendedor || '',
+          nomeComprador: input.fields.nome_comprador || '',
+          descricaoImovel: input.fields.descricao_imovel || '',
+          valorTotalContrato: input.fields.valor_total_contrato || '',
+          pdfUrl: contractUrl,
+          pdfKey: contractKey,
+          contractStatus: 'gerado',
+        });
       }
-
       await createActivity({ userId: ctx.user.id, type: 'contract', title: 'Contrato gerado', description: `Para ${input.fields.nome_vendedor || 'N/A'}` });
       await notifyOwner({ title: 'Contrato gerado', content: `Vendedor: ${input.fields.nome_vendedor || 'N/A'}, Comprador: ${input.fields.nome_comprador || 'N/A'}` });
-
       return { contractUrl, htmlContent: '', filledText: '' };
     }),
     suggestFields: protectedProcedure.input(z.object({

@@ -5,16 +5,31 @@ import { DashboardShell } from "@/components/DashboardShell";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import {
-  Plus, Users, Search, User, Phone, Mail, FileText,
-  Building2, CheckCircle2, Clock, MoreHorizontal,
+  Plus, Users, Search, Phone, Mail, FileText, Building2,
 } from "lucide-react";
+
+const CLIENT_ROLE_LABELS: Record<string, string> = {
+  comprador: "Comprador", vendedor: "Vendedor", locatario: "Locatário",
+  locador: "Locador", fiador: "Fiador", corretor: "Corretor",
+};
+
+const CLIENT_ROLE_COLORS: Record<string, string> = {
+  comprador: "bg-blue-100 text-blue-700",
+  vendedor: "bg-green-100 text-green-700",
+  locatario: "bg-purple-100 text-purple-700",
+  locador: "bg-orange-100 text-orange-700",
+  fiador: "bg-gray-100 text-gray-700",
+  corretor: "bg-yellow-100 text-yellow-700",
+};
+
+type ClientRole = "comprador" | "vendedor" | "locatario" | "locador" | "fiador" | "corretor";
 
 export default function Clientes() {
   const [, navigate] = useLocation();
   const [searchQuery, setSearchQuery] = useState("");
   const [showNewClient, setShowNewClient] = useState(false);
   const [newClient, setNewClient] = useState({
-    name: "", cpfCnpj: "", email: "", phone: "", clientType: "comprador" as "comprador" | "vendedor" | "locatario" | "locador" | "fiador",
+    name: "", cpfCnpj: "", email: "", phone: "", clientRole: "comprador" as ClientRole,
   });
 
   const { data: clients = [], isLoading, refetch } = trpc.clients.list.useQuery();
@@ -22,7 +37,7 @@ export default function Clientes() {
     onSuccess: () => {
       toast.success("Cliente cadastrado com sucesso!");
       setShowNewClient(false);
-      setNewClient({ name: "", cpfCnpj: "", email: "", phone: "", clientType: "comprador" });
+      setNewClient({ name: "", cpfCnpj: "", email: "", phone: "", clientRole: "comprador" });
       refetch();
     },
     onError: () => toast.error("Erro ao cadastrar cliente"),
@@ -33,16 +48,6 @@ export default function Clientes() {
     const q = searchQuery.toLowerCase();
     return c.name?.toLowerCase().includes(q) || c.email?.toLowerCase().includes(q) || c.cpfCnpj?.includes(q);
   });
-
-  const CLIENT_TYPE_LABELS: Record<string, string> = {
-    comprador: "Comprador", vendedor: "Vendedor", locatario: "Locatário",
-    locador: "Locador", fiador: "Fiador",
-  };
-  const CLIENT_TYPE_COLORS: Record<string, string> = {
-    comprador: "bg-blue-100 text-blue-700", vendedor: "bg-green-100 text-green-700",
-    locatario: "bg-purple-100 text-purple-700", locador: "bg-orange-100 text-orange-700",
-    fiador: "bg-gray-100 text-gray-700",
-  };
 
   return (
     <DashboardShell
@@ -87,44 +92,51 @@ export default function Clientes() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filtered.map((client: any) => (
-            <div key={client.id} className="bg-white rounded-xl border border-border p-5 hover:shadow-md transition-shadow cursor-pointer" onClick={() => navigate(`/dashboard/clientes/${client.id}`)}>
-              <div className="flex items-start justify-between mb-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-700 font-bold text-sm">
-                    {client.name?.charAt(0)?.toUpperCase() || "?"}
+          {filtered.map((client: any) => {
+            const roleKey = client.clientRole || client.clientType || "comprador";
+            return (
+              <div
+                key={client.id}
+                className="bg-white rounded-xl border border-border p-5 hover:shadow-md transition-shadow cursor-pointer"
+                onClick={() => navigate(`/dashboard/clientes/${client.id}`)}
+              >
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-700 font-bold text-sm">
+                      {client.name?.charAt(0)?.toUpperCase() || "?"}
+                    </div>
+                    <div>
+                      <div className="font-semibold text-gray-900 text-sm">{client.name}</div>
+                      {client.cpfCnpj && <div className="text-xs text-muted-foreground">{client.cpfCnpj}</div>}
+                    </div>
                   </div>
-                  <div>
-                    <div className="font-semibold text-gray-900 text-sm">{client.name}</div>
-                    {client.cpfCnpj && <div className="text-xs text-muted-foreground">{client.cpfCnpj}</div>}
-                  </div>
+                  <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${CLIENT_ROLE_COLORS[roleKey] || "bg-gray-100 text-gray-700"}`}>
+                    {CLIENT_ROLE_LABELS[roleKey] || roleKey}
+                  </span>
                 </div>
-                <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${CLIENT_TYPE_COLORS[client.clientType] || "bg-gray-100 text-gray-700"}`}>
-                  {CLIENT_TYPE_LABELS[client.clientType] || client.clientType}
-                </span>
+                <div className="space-y-1.5">
+                  {client.email && (
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <Mail className="w-3.5 h-3.5" /> {client.email}
+                    </div>
+                  )}
+                  {client.phone && (
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <Phone className="w-3.5 h-3.5" /> {client.phone}
+                    </div>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 mt-4 pt-3 border-t border-border">
+                  <Button variant="outline" size="sm" className="flex-1 text-xs h-8">
+                    <FileText className="w-3.5 h-3.5 mr-1" /> Documentos
+                  </Button>
+                  <Button variant="outline" size="sm" className="flex-1 text-xs h-8">
+                    <Building2 className="w-3.5 h-3.5 mr-1" /> Negócios
+                  </Button>
+                </div>
               </div>
-              <div className="space-y-1.5">
-                {client.email && (
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <Mail className="w-3.5 h-3.5" /> {client.email}
-                  </div>
-                )}
-                {client.phone && (
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <Phone className="w-3.5 h-3.5" /> {client.phone}
-                  </div>
-                )}
-              </div>
-              <div className="flex items-center gap-2 mt-4 pt-3 border-t border-border">
-                <Button variant="outline" size="sm" className="flex-1 text-xs h-8">
-                  <FileText className="w-3.5 h-3.5 mr-1" /> Documentos
-                </Button>
-                <Button variant="outline" size="sm" className="flex-1 text-xs h-8">
-                  <Building2 className="w-3.5 h-3.5 mr-1" /> Negócios
-                </Button>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -137,15 +149,15 @@ export default function Clientes() {
               <div>
                 <label className="text-xs font-semibold text-gray-600 uppercase tracking-wide block mb-1">Tipo *</label>
                 <div className="grid grid-cols-3 gap-2">
-                  {(["comprador", "vendedor", "locatario", "locador", "fiador"] as const).map((t) => (
+                  {(["comprador", "vendedor", "locatario", "locador", "fiador"] as ClientRole[]).map((t) => (
                     <button
                       key={t}
-                      onClick={() => setNewClient({ ...newClient, clientType: t })}
+                      onClick={() => setNewClient({ ...newClient, clientRole: t })}
                       className={`px-2 py-1.5 text-xs font-semibold rounded-lg border-2 transition-colors ${
-                        newClient.clientType === t ? "border-blue-600 bg-blue-50 text-blue-700" : "border-gray-200 text-gray-600 hover:border-gray-300"
+                        newClient.clientRole === t ? "border-blue-600 bg-blue-50 text-blue-700" : "border-gray-200 text-gray-600 hover:border-gray-300"
                       }`}
                     >
-                      {CLIENT_TYPE_LABELS[t]}
+                      {CLIENT_ROLE_LABELS[t]}
                     </button>
                   ))}
                 </div>

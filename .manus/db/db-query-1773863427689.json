@@ -1,0 +1,42 @@
+{
+  "query": "SELECT id, name, email, phone, cpfCnpj, clientRole FROM clients LIMIT 10;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway04.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 35WEPRGEy139WNo.root --database hqCW96Ftj9zcKD8QtxsDCe --execute SELECT id, name, email, phone, cpfCnpj, clientRole FROM clients LIMIT 10;",
+  "rows": [
+    {
+      "id": "1",
+      "name": "DAVID LEANDRO NEPOMUCENO",
+      "email": "NULL",
+      "phone": "NULL",
+      "cpfCnpj": "NULL",
+      "clientRole": "comprador"
+    },
+    {
+      "id": "2",
+      "name": "KAIO DA SILVA CARVALHO",
+      "email": "NULL",
+      "phone": "NULL",
+      "cpfCnpj": "NULL",
+      "clientRole": "comprador"
+    },
+    {
+      "id": "3",
+      "name": "RODRIGO DA SILVA",
+      "email": "NULL",
+      "phone": "NULL",
+      "cpfCnpj": "231.869.868-69",
+      "clientRole": "comprador"
+    },
+    {
+      "id": "4",
+      "name": "PETERSON ALVES DE OLIVEIRA",
+      "email": "NULL",
+      "phone": "NULL",
+      "cpfCnpj": "NULL",
+      "clientRole": "vendedor"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tname\temail\tphone\tcpfCnpj\tclientRole\n1\tDAVID LEANDRO NEPOMUCENO\tNULL\tNULL\tNULL\tcomprador\n2\tKAIO DA SILVA CARVALHO\tNULL\tNULL\tNULL\tcomprador\n3\tRODRIGO DA SILVA\tNULL\tNULL\t231.869.868-69\tcomprador\n4\tPETERSON ALVES DE OLIVEIRA\tNULL\tNULL\tNULL\tvendedor\n",
+  "stderr": "",
+  "execution_time_ms": 67
+}

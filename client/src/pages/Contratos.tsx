@@ -5,15 +5,10 @@ import { DashboardShell } from "@/components/DashboardShell";
 import { Button } from "@/components/ui/button";
 import {
   Plus, FileOutput, Search, Download, Eye, CheckCircle2,
-  Clock, AlertTriangle, FileText,
+  Clock, AlertTriangle,
 } from "lucide-react";
 
-const CONTRACT_TYPE_LABELS: Record<string, string> = {
-  compra_venda: "Compra e Venda", locacao: "Locação",
-  permuta: "Permuta", financiamento: "Financiamento",
-};
-
-const STATUS_CONFIG = {
+const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
   rascunho: { label: "Rascunho", color: "bg-gray-100 text-gray-600" },
   gerado: { label: "Gerado", color: "bg-blue-100 text-blue-700" },
   enviado: { label: "Enviado", color: "bg-purple-100 text-purple-700" },
@@ -30,10 +25,10 @@ export default function Contratos() {
     if (!searchQuery) return true;
     const q = searchQuery.toLowerCase();
     return (
-      c.contractNumber?.toLowerCase().includes(q) ||
-      c.sellerName?.toLowerCase().includes(q) ||
-      c.buyerName?.toLowerCase().includes(q) ||
-      c.propertyAddress?.toLowerCase().includes(q)
+      c.code?.toLowerCase().includes(q) ||
+      c.nomeVendedor?.toLowerCase().includes(q) ||
+      c.nomeComprador?.toLowerCase().includes(q) ||
+      c.descricaoImovel?.toLowerCase().includes(q)
     );
   });
 
@@ -59,9 +54,9 @@ export default function Contratos() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         {[
           { label: "Total gerados", count: (contracts as any[]).length, icon: FileOutput, color: "text-blue-600", border: "border-l-blue-500" },
-          { label: "Assinados", count: (contracts as any[]).filter((c) => c.status === "assinado").length, icon: CheckCircle2, color: "text-green-600", border: "border-l-green-500" },
-          { label: "Aguardando", count: (contracts as any[]).filter((c) => c.status === "enviado").length, icon: Clock, color: "text-yellow-600", border: "border-l-yellow-500" },
-          { label: "Rascunhos", count: (contracts as any[]).filter((c) => c.status === "rascunho").length, icon: AlertTriangle, color: "text-gray-600", border: "border-l-gray-400" },
+          { label: "Assinados", count: (contracts as any[]).filter((c) => c.contractStatus === "assinado").length, icon: CheckCircle2, color: "text-green-600", border: "border-l-green-500" },
+          { label: "Aguardando", count: (contracts as any[]).filter((c) => c.contractStatus === "enviado").length, icon: Clock, color: "text-yellow-600", border: "border-l-yellow-500" },
+          { label: "Rascunhos", count: (contracts as any[]).filter((c) => c.contractStatus === "rascunho").length, icon: AlertTriangle, color: "text-gray-600", border: "border-l-gray-400" },
         ].map((stat) => (
           <div key={stat.label} className={`bg-white rounded-xl border border-border border-l-4 ${stat.border} p-4`}>
             <div className="flex items-center gap-2 mb-1">
@@ -106,36 +101,30 @@ export default function Contratos() {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-border bg-gray-50/50">
-                  {["Nº Contrato", "Tipo", "Partes", "Imóvel", "Valor", "Data", "Status", "Ações"].map((h) => (
+                  {["Nº Contrato", "Partes", "Imóvel", "Valor", "Data", "Status", "Ações"].map((h) => (
                     <th key={h} className="text-left text-xs font-bold text-muted-foreground uppercase tracking-wide px-4 py-3">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {filtered.map((contract: any, i: number) => {
-                  const status = STATUS_CONFIG[contract.status as keyof typeof STATUS_CONFIG] || STATUS_CONFIG.rascunho;
+                  const statusKey = contract.contractStatus || "rascunho";
+                  const status = STATUS_CONFIG[statusKey] || STATUS_CONFIG.rascunho;
                   return (
                     <tr key={contract.id ?? i} className="border-b border-border/50 hover:bg-gray-50/50 transition-colors">
                       <td className="px-4 py-3">
-                        <span className="text-blue-600 text-sm font-semibold">{contract.contractNumber || `#${i + 1}`}</span>
+                        <span className="text-blue-600 text-sm font-semibold">{contract.code || `CTR-${String(i + 1).padStart(3, "0")}`}</span>
                       </td>
                       <td className="px-4 py-3">
-                        <span className="text-xs font-semibold bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full">
-                          {CONTRACT_TYPE_LABELS[contract.contractType] || contract.contractType}
-                        </span>
+                        <div className="text-sm text-gray-900">{contract.nomeVendedor || "—"}</div>
+                        <div className="text-xs text-muted-foreground">{contract.nomeComprador || "—"}</div>
                       </td>
                       <td className="px-4 py-3">
-                        <div className="text-sm text-gray-900">{contract.sellerName || "—"}</div>
-                        <div className="text-xs text-muted-foreground">{contract.buyerName || "—"}</div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="text-sm text-gray-900 max-w-[160px] truncate">{contract.propertyAddress || "—"}</div>
+                        <div className="text-sm text-gray-900 max-w-[160px] truncate">{contract.descricaoImovel || "—"}</div>
                       </td>
                       <td className="px-4 py-3">
                         <span className="text-sm font-semibold text-gray-900">
-                          {contract.totalValue
-                            ? new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(Number(contract.totalValue))
-                            : "—"}
+                          {contract.valorTotalContrato || "—"}
                         </span>
                       </td>
                       <td className="px-4 py-3">

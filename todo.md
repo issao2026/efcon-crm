@@ -126,3 +126,11 @@
 ## Round 12 — Client Lookup in Contract Page
 - [ ] Add "Selecionar cliente cadastrado" dropdown at top of each section (Vendedor, Comprador, Corretor) in Contract.tsx
 - [ ] On selection, auto-fill all fields (nome, CPF, RG, endereço, estado civil, profissão, nacionalidade) from the registered client
+
+## Audit Round — Site-wide Errors & Inconsistencies (2026-03-18)
+- [ ] Fix 404: /dashboard/contratos/novo — redirect to /dashboard/contrato
+- [ ] Fix Contratos page: save generated contracts to DB and list them
+- [ ] Fix Dashboard KPIs: show real counts from DB (negócios ativos, contratos gerados)
+- [ ] Fix Relatórios chart: render real data in "Negócios por mês" chart
+- [ ] Fix Clientes cards: show email, phone and role (comprador/vendedor)
+- [ ] Wrap Contract generation page inside DashboardLayout (add sidebar)

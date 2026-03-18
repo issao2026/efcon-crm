@@ -269,32 +269,32 @@ export default function Dashboard() {
     {
       icon: Home,
       label: "Negócios ativos",
-      value: stats?.activeDeals ?? 14,
-      trend: "+3 este mês",
+      value: stats?.activeDeals ?? 0,
+      trend: stats?.activeDeals ? "+3 este mês" : "—",
       trendColor: "text-green-500",
       accent: "border-l-blue-500",
     },
     {
       icon: FileOutput,
       label: "Contratos gerados",
-      value: stats?.totalContracts ?? 47,
-      trend: "+12 este mês",
+      value: stats?.totalContracts ?? 0,
+      trend: stats?.totalContracts ? "+12 este mês" : "—",
       trendColor: "text-green-500",
       accent: "border-l-purple-500",
     },
     {
       icon: DollarSign,
       label: "Volume total em negociação",
-      value: formatCurrency(stats?.totalVolume ?? 8240000),
-      trend: "+R$ 1.2M",
+      value: formatCurrency(stats?.totalVolume ?? 0),
+      trend: stats?.totalVolume ? "+R$ 1.2M" : "—",
       trendColor: "text-green-500",
       accent: "border-l-green-500",
     },
     {
       icon: AlertTriangle,
       label: "Pendências documentais",
-      value: stats?.pendingDocs ?? 6,
-      trend: "2 hoje",
+      value: stats?.pendingDocs ?? 0,
+      trend: stats?.pendingDocs ? "2 hoje" : "—",
       trendColor: "text-red-500",
       accent: "border-l-red-500",
     },
@@ -302,7 +302,7 @@ export default function Dashboard() {
 
   return (
     <div className="flex h-screen bg-background overflow-hidden">
-      <Sidebar activeDeals={stats?.activeDeals ?? 14} pendingDocs={stats?.pendingDocs ?? 6} />
+      <Sidebar activeDeals={stats?.activeDeals ?? 0} pendingDocs={stats?.pendingDocs ?? 0} />
 
       {/* Main content */}
       <div className="flex-1 flex flex-col overflow-hidden">
