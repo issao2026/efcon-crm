@@ -50,7 +50,7 @@
 - [x] Final delivery
 
 ## Future Enhancements
-- [ ] Deal detail page with full document checklist
+- [x] Deal detail page with full document checklist
 - [ ] Automatic legal checklist by operation type
 - [ ] Clicksign integration for digital signatures
 - [ ] Financial reports with charts
@@ -79,3 +79,12 @@
 - [ ] Build DocumentGroups component — group cards showing person name, role, and document checklist per type
 - [ ] Integrate group creation after OCR scan in NegocioDocumentos page
 - [ ] Show grouped view in Documentos page with expand/collapse per group
+
+## Round 4 — Document Viewer, Deal Links, Client Selectors
+- [x] Document view/edit/delete modal in Documentos.tsx (click to open, edit OCR fields, delete)
+- [x] OCR trigger button in Documentos.tsx document list
+- [x] Person classification in Documentos.tsx (assign document to a person/group via DocumentDetailModal)
+- [x] Client selectors (comprador, vendedor, corretista) in Novo Negócio modal
+- [x] Build NegocioDetalhe page (deal detail with tabs: Resumo, Participantes, Documentos, Contrato, Histórico)
+- [x] Enable all deal links in Negocios.tsx table rows (clickable rows navigate to deal detail)
+- [x] Enable all deal card links in Dashboard Kanban (added Kanban view to Negocios.tsx with clickable cards)

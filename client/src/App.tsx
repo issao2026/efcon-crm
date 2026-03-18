@@ -17,6 +17,7 @@ import Financeiro from "./pages/Financeiro";
 import Relatorios from "./pages/Relatorios";
 import Configuracoes from "./pages/Configuracoes";
 import DocumentGroups from "./pages/DocumentGroups";
+import NegocioDetalhe from "./pages/NegocioDetalhe";
 
 function Router() {
   return (
@@ -29,6 +30,7 @@ function Router() {
 
       {/* Dashboard sub-pages */}
       <Route path={"/dashboard/negocios"} component={Negocios} />
+      <Route path={"/dashboard/negocios/:id"} component={NegocioDetalhe} />
       <Route path={"/dashboard/clientes"} component={Clientes} />
       <Route path={"/dashboard/documentos"} component={Documentos} />
       <Route path={"/dashboard/documentos/:id"} component={NegocioDocumentos} />

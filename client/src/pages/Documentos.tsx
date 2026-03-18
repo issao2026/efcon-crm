@@ -4,9 +4,10 @@ import { trpc } from "@/lib/trpc";
 import { DashboardShell } from "@/components/DashboardShell";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { DocumentDetailModal } from "@/components/DocumentDetailModal";
 import {
-  Plus, FileText, Search, CheckCircle2, Clock, AlertTriangle,
-  XCircle, Eye, Download, RefreshCw, Upload,
+  FileText, Search, CheckCircle2, Clock,
+  XCircle, Eye, Download, RefreshCw, Upload, Loader2, Zap,
 } from "lucide-react";
 
 const DOC_TYPE_LABELS: Record<string, string> = {
@@ -15,9 +16,10 @@ const DOC_TYPE_LABELS: Record<string, string> = {
   contrato: "Contrato", outro: "Outro",
 };
 
-const OCR_STATUS_CONFIG = {
+const OCR_STATUS_CONFIG: Record<string, { label: string; icon: any; color: string; bg: string }> = {
   pending: { label: "Pendente", icon: Clock, color: "text-gray-500", bg: "bg-gray-100" },
   processing: { label: "Processando", icon: RefreshCw, color: "text-blue-600", bg: "bg-blue-50" },
+  done: { label: "OCR Concluído", icon: CheckCircle2, color: "text-green-600", bg: "bg-green-50" },
   completed: { label: "Validado", icon: CheckCircle2, color: "text-green-600", bg: "bg-green-50" },
   failed: { label: "Com problema", icon: XCircle, color: "text-red-600", bg: "bg-red-50" },
 };
@@ -31,9 +33,24 @@ function formatFileSize(bytes?: number): string {
 
 export default function Documentos() {
   const [searchQuery, setSearchQuery] = useState("");
-  const [ocrFilter, setOcrFilter] = useState<"todos" | "pending" | "processing" | "completed" | "failed">("todos");
+  const [ocrFilter, setOcrFilter] = useState<"todos" | "pending" | "processing" | "done" | "failed">("todos");
+  const [selectedDocId, setSelectedDocId] = useState<number | null>(null);
+  const [docModalOpen, setDocModalOpen] = useState(false);
 
   const { data: documents = [], isLoading, refetch } = trpc.documents.list.useQuery({});
+
+  const ocrMutation = trpc.documents.processOcr.useMutation({
+    onSuccess: (result) => {
+      toast.success(`OCR concluído com ${result.confidence}% de confiança`);
+      refetch();
+    },
+    onError: (err) => toast.error(`Erro no OCR: ${err.message}`),
+  });
+
+  const handleOpenDoc = (docId: number) => {
+    setSelectedDocId(docId);
+    setDocModalOpen(true);
+  };
 
   const filtered = (documents as any[]).filter((d) => {
     if (ocrFilter !== "todos" && d.ocrStatus !== ocrFilter) return false;
@@ -45,7 +62,7 @@ export default function Documentos() {
   });
 
   const counts = {
-    completed: (documents as any[]).filter((d) => d.ocrStatus === "completed").length,
+    done: (documents as any[]).filter((d) => d.ocrStatus === "done" || d.ocrStatus === "completed").length,
     processing: (documents as any[]).filter((d) => d.ocrStatus === "processing").length,
     pending: (documents as any[]).filter((d) => d.ocrStatus === "pending").length,
     failed: (documents as any[]).filter((d) => d.ocrStatus === "failed").length,
@@ -72,7 +89,7 @@ export default function Documentos() {
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         {[
-          { key: "completed", label: "Validados", count: counts.completed, icon: CheckCircle2, color: "text-green-600", border: "border-l-green-500" },
+          { key: "done", label: "OCR Concluído", count: counts.done, icon: CheckCircle2, color: "text-green-600", border: "border-l-green-500" },
           { key: "processing", label: "OCR em andamento", count: counts.processing, icon: RefreshCw, color: "text-blue-600", border: "border-l-blue-500" },
           { key: "pending", label: "Pendentes", count: counts.pending, icon: Clock, color: "text-yellow-600", border: "border-l-yellow-500" },
           { key: "failed", label: "Com problema", count: counts.failed, icon: XCircle, color: "text-red-600", border: "border-l-red-500" },
@@ -104,7 +121,7 @@ export default function Documentos() {
           />
         </div>
         <div className="flex items-center gap-1">
-          {(["todos", "completed", "processing", "pending", "failed"] as const).map((f) => (
+          {(["todos", "done", "processing", "pending", "failed"] as const).map((f) => (
             <button
               key={f}
               onClick={() => setOcrFilter(f)}
@@ -112,7 +129,7 @@ export default function Documentos() {
                 ocrFilter === f ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
               }`}
             >
-              {f === "todos" ? "Todos" : OCR_STATUS_CONFIG[f].label}
+              {f === "todos" ? "Todos" : f === "done" ? "Concluído" : f === "processing" ? "Processando" : f === "pending" ? "Pendente" : "Problema"}
             </button>
           ))}
         </div>
@@ -138,7 +155,7 @@ export default function Documentos() {
               const status = OCR_STATUS_CONFIG[doc.ocrStatus as keyof typeof OCR_STATUS_CONFIG] || OCR_STATUS_CONFIG.pending;
               const StatusIcon = status.icon;
               return (
-                <div key={doc.id} className="flex items-center gap-4 px-5 py-4 hover:bg-gray-50/50 transition-colors">
+                <div key={doc.id} className="flex items-center gap-4 px-5 py-4 hover:bg-gray-50/50 transition-colors cursor-pointer" onClick={() => handleOpenDoc(doc.id)}>
                   <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${status.bg}`}>
                     <FileText className={`w-5 h-5 ${status.color}`} />
                   </div>
@@ -160,21 +177,36 @@ export default function Documentos() {
                     <StatusIcon className="w-3.5 h-3.5" />
                     {status.label}
                   </div>
-                  {doc.ocrConfidence && (
+                  {doc.ocrConfidence != null && (
                     <div className="text-xs text-muted-foreground font-medium w-16 text-right">
-                      OCR {Math.round(doc.ocrConfidence * 100)}%
+                      {doc.ocrConfidence}%
                     </div>
                   )}
-                  <div className="flex items-center gap-1">
-                    {doc.fileUrl && (
-                      <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer">
-                        <button className="p-1.5 text-muted-foreground hover:text-blue-600 hover:bg-blue-50 rounded transition-colors" title="Ver documento">
-                          <Eye className="w-4 h-4" />
-                        </button>
-                      </a>
+                  <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                    {(doc.ocrStatus === "pending" || doc.ocrStatus === "failed") && doc.fileUrl && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-xs gap-1 text-blue-600 border-blue-200 hover:bg-blue-50"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          ocrMutation.mutate({ documentId: doc.id, fileUrl: doc.fileUrl, docType: doc.docType || "outro" });
+                        }}
+                        disabled={ocrMutation.isPending}
+                        title="Processar OCR"
+                      >
+                        <Zap className="w-3 h-3" /> OCR
+                      </Button>
                     )}
+                    <button
+                      className="p-1.5 text-muted-foreground hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                      title="Ver e editar"
+                      onClick={(e) => { e.stopPropagation(); handleOpenDoc(doc.id); }}
+                    >
+                      <Eye className="w-4 h-4" />
+                    </button>
                     {doc.fileUrl && (
-                      <a href={doc.fileUrl} download={doc.name}>
+                      <a href={doc.fileUrl} download={doc.name} onClick={(e) => e.stopPropagation()}>
                         <button className="p-1.5 text-muted-foreground hover:text-green-600 hover:bg-green-50 rounded transition-colors" title="Baixar">
                           <Download className="w-4 h-4" />
                         </button>
@@ -187,6 +219,13 @@ export default function Documentos() {
           </div>
         )}
       </div>
+      <DocumentDetailModal
+        documentId={selectedDocId}
+        open={docModalOpen}
+        onClose={() => { setDocModalOpen(false); setSelectedDocId(null); }}
+        onDeleted={() => refetch()}
+        onUpdated={() => refetch()}
+      />
     </DashboardShell>
   );
 }

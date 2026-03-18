@@ -219,3 +219,14 @@ export async function createActivity(data: { userId: number; dealId?: number; ty
   if (!db) return;
   await db.insert(activities).values(data);
 }
+export async function deleteDocument(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return db.delete(documents).where(eq(documents.id, id));
+}
+export async function getDocumentById(id: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const rows = await db.select().from(documents).where(eq(documents.id, id)).limit(1);
+  return rows[0] ?? null;
+}

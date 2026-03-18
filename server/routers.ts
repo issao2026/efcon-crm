@@ -11,7 +11,7 @@ import {
   getClients, getClientById, createClient, updateClient,
   getProperties, createProperty,
   getDeals, getDealById, createDeal, updateDeal, deleteDeal, getDashboardStats,
-  getDocuments, createDocument, updateDocument,
+  getDocuments, getDocumentById, createDocument, updateDocument, deleteDocument,
   getContracts, getContractByDealId, createContract, updateContract,
   getActivities, createActivity,
 } from "./db";
@@ -215,6 +215,9 @@ export const appRouter = router({
       notes: z.string().optional(),
       propertyDescription: z.string().optional(),
       buyerName: z.string().optional(),
+      buyerId: z.number().optional(),
+      sellerId: z.number().optional(),
+      brokerId: z.number().optional(),
     })).mutation(async ({ ctx, input }) => {
       const prefix = input.type === 'venda' ? 'VND' : input.type === 'locacao' ? 'LOC' : input.type === 'permuta' ? 'PRM' : 'FIN';
       const code = `${prefix}-${nanoid(6).toUpperCase()}`;
@@ -228,6 +231,9 @@ export const appRouter = router({
         paymentModality: input.paymentModality,
         notes: input.notes,
         status: 'rascunho',
+        buyerId: input.buyerId,
+        sellerId: input.sellerId,
+        brokerId: input.brokerId,
       });
       await createActivity({ userId: ctx.user.id, type: 'deal', title: `Novo negócio cadastrado: ${code}`, description: input.propertyDescription });
       await notifyOwner({ title: `Novo negócio: ${code}`, content: `Tipo: ${input.type}, Valor: ${input.totalValue || input.monthlyValue || 'N/A'}` });
@@ -412,14 +418,38 @@ Retorne confidence (0-100) indicando a qualidade da extração.`,
           description: `${confidence}% precisão`,
         });
 
-        return { success: true, fields: ocrFields, confidence };
+         return { success: true, fields: ocrFields, confidence };
       } catch (error) {
         await updateDocument(input.documentId, { ocrStatus: 'failed' });
         throw error;
       }
     }),
+    getById: protectedProcedure.input(z.object({ id: z.number() })).query(async ({ ctx, input }) => {
+      const doc = await getDocumentById(input.id);
+      if (!doc || doc.userId !== ctx.user.id) throw new Error('Documento não encontrado');
+      return doc;
+    }),
+    updateOcrFields: protectedProcedure.input(z.object({
+      id: z.number(),
+      ocrFields: z.record(z.string(), z.string()),
+      docType: z.string().optional(),
+      clientId: z.number().optional(),
+    })).mutation(async ({ ctx, input }) => {
+      const doc = await getDocumentById(input.id);
+      if (!doc || doc.userId !== ctx.user.id) throw new Error('Documento não encontrado');
+      const updates: Record<string, unknown> = { ocrFields: JSON.stringify(input.ocrFields) };
+      if (input.docType) updates.docType = input.docType;
+      if (input.clientId !== undefined) updates.clientId = input.clientId;
+      await updateDocument(input.id, updates as any);
+      return { success: true };
+    }),
+    delete: protectedProcedure.input(z.object({ id: z.number() })).mutation(async ({ ctx, input }) => {
+      const doc = await getDocumentById(input.id);
+      if (!doc || doc.userId !== ctx.user.id) throw new Error('Documento não encontrado');
+      await deleteDocument(input.id);
+      return { success: true };
+    }),
   }),
-
   // ─── Document Groups ────────────────────────────────────────────────────────
   documentGroups: router({
     list: protectedProcedure.input(z.object({ dealId: z.number().optional() })).query(async ({ ctx, input }) => {

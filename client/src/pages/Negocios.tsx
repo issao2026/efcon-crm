@@ -1,16 +1,22 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Link, useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { DashboardShell } from "@/components/DashboardShell";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 import {
-  Plus, Briefcase, Search, Filter, ChevronRight,
-  CheckCircle2, AlertTriangle, Clock, FileOutput, Eye,
-  Building2, User, DollarSign, Calendar,
+  Plus, Briefcase, Search, Filter,
+  CheckCircle2, AlertTriangle, FileOutput, Eye,
+  Building2, User, DollarSign, LayoutGrid, List,
 } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 type DealStatus = "rascunho" | "em_andamento" | "contrato_gerado" | "assinatura" | "concluido";
 type DealType = "venda" | "locacao" | "permuta" | "financiamento";
@@ -31,6 +37,13 @@ const STATUS_COLORS: Record<DealStatus, string> = {
   contrato_gerado: "status-badge-contrato_gerado", assinatura: "status-badge-assinatura",
   concluido: "status-badge-concluido",
 };
+const PIPELINE_STAGES: { key: DealStatus; label: string; color: string; dot: string }[] = [
+  { key: "rascunho", label: "Rascunho", color: "text-gray-500", dot: "bg-gray-400" },
+  { key: "em_andamento", label: "Em andamento", color: "text-blue-600", dot: "bg-blue-500" },
+  { key: "contrato_gerado", label: "Contrato gerado", color: "text-purple-600", dot: "bg-purple-500" },
+  { key: "assinatura", label: "Assinatura", color: "text-orange-500", dot: "bg-orange-400" },
+  { key: "concluido", label: "Concluído", color: "text-green-600", dot: "bg-green-500" },
+];
 
 function formatCurrency(value?: string | number): string {
   if (!value) return "—";
@@ -45,22 +58,27 @@ export default function Negocios() {
   const [statusFilter, setStatusFilter] = useState<"todos" | DealStatus>("todos");
   const [searchQuery, setSearchQuery] = useState("");
   const [showNewDeal, setShowNewDeal] = useState(false);
+  const [viewMode, setViewMode] = useState<"list" | "kanban">("list");
 
-  // Form state for new deal
   const [newDeal, setNewDeal] = useState({
     type: "venda" as DealType,
     propertyDescription: "",
     buyerName: "",
     totalValue: "",
     monthlyValue: "",
+    buyerId: "",
+    sellerId: "",
+    brokerId: "",
   });
 
   const { data: deals = [], isLoading, refetch } = trpc.deals.list.useQuery();
+  const { data: clients = [] } = trpc.clients.list.useQuery();
+
   const createDeal = trpc.deals.create.useMutation({
     onSuccess: () => {
       toast.success("Negócio criado com sucesso!");
       setShowNewDeal(false);
-      setNewDeal({ type: "venda", propertyDescription: "", buyerName: "", totalValue: "", monthlyValue: "" });
+      setNewDeal({ type: "venda", propertyDescription: "", buyerName: "", totalValue: "", monthlyValue: "", buyerId: "", sellerId: "", brokerId: "" });
       refetch();
     },
     onError: () => toast.error("Erro ao criar negócio"),
@@ -80,26 +98,41 @@ export default function Negocios() {
     return true;
   });
 
+  const pipelineByStage = useMemo(() => {
+    const map: Record<DealStatus, any[]> = {
+      rascunho: [], em_andamento: [], contrato_gerado: [], assinatura: [], concluido: [],
+    };
+    (deals as any[]).forEach((d) => {
+      const s = d.status as DealStatus;
+      if (map[s]) map[s].push(d);
+    });
+    return map;
+  }, [deals]);
+
   const handleCreate = () => {
-      if (!newDeal.propertyDescription) { toast.error("Informe o imóvel"); return; }
+    if (!newDeal.propertyDescription) { toast.error("Informe o imóvel"); return; }
     createDeal.mutate({
       type: newDeal.type,
       propertyDescription: newDeal.propertyDescription || undefined,
       buyerName: newDeal.buyerName || undefined,
       totalValue: newDeal.totalValue || undefined,
       monthlyValue: newDeal.monthlyValue || undefined,
+      buyerId: newDeal.buyerId && newDeal.buyerId !== "manual" && newDeal.buyerId !== "none" ? parseInt(newDeal.buyerId) : undefined,
+      sellerId: newDeal.sellerId && newDeal.sellerId !== "none" ? parseInt(newDeal.sellerId) : undefined,
+      brokerId: newDeal.brokerId && newDeal.brokerId !== "none" ? parseInt(newDeal.brokerId) : undefined,
     });
   };
+
+  const buyerOptions = (clients as any[]).filter((c) => ["comprador", "locatario"].includes(c.clientRole || ""));
+  const sellerOptions = (clients as any[]).filter((c) => ["vendedor", "locador"].includes(c.clientRole || ""));
+  const brokerOptions = (clients as any[]).filter((c) => c.clientRole === "corretor");
+  const allClients = clients as any[];
 
   return (
     <DashboardShell
       searchPlaceholder="Buscar negócio, imóvel, cliente..."
       headerRight={
-        <Button
-          size="sm"
-          className="bg-blue-600 hover:bg-blue-700 text-white gap-2"
-          onClick={() => setShowNewDeal(true)}
-        >
+        <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white gap-2" onClick={() => setShowNewDeal(true)}>
           <Plus className="w-4 h-4" /> Novo negócio
         </Button>
       }
@@ -109,6 +142,22 @@ export default function Negocios() {
         <div>
           <h1 className="text-2xl font-black text-gray-900">Negócios</h1>
           <p className="text-muted-foreground text-sm mt-0.5">{(deals as any[]).length} negócios cadastrados</p>
+        </div>
+        <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
+          <button
+            onClick={() => setViewMode("list")}
+            className={`p-1.5 rounded-md transition-colors ${viewMode === "list" ? "bg-white shadow text-blue-600" : "text-gray-500 hover:text-gray-700"}`}
+            title="Lista"
+          >
+            <List className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => setViewMode("kanban")}
+            className={`p-1.5 rounded-md transition-colors ${viewMode === "kanban" ? "bg-white shadow text-blue-600" : "text-gray-500 hover:text-gray-700"}`}
+            title="Kanban"
+          >
+            <LayoutGrid className="w-4 h-4" />
+          </button>
         </div>
       </div>
 
@@ -127,213 +176,307 @@ export default function Negocios() {
         <div className="flex items-center gap-1">
           <Filter className="w-4 h-4 text-muted-foreground mr-1" />
           {(["todos", "venda", "locacao", "permuta"] as const).map((f) => (
-            <button
-              key={f}
-              onClick={() => setTypeFilter(f)}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors ${
-                typeFilter === f ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-              }`}
-            >
+            <button key={f} onClick={() => setTypeFilter(f)}
+              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors ${typeFilter === f ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>
               {f === "todos" ? "Todos" : f === "venda" ? "Venda" : f === "locacao" ? "Locação" : "Permuta"}
             </button>
           ))}
         </div>
         <div className="flex items-center gap-1">
           {(["todos", "rascunho", "em_andamento", "contrato_gerado", "assinatura", "concluido"] as const).map((s) => (
-            <button
-              key={s}
-              onClick={() => setStatusFilter(s)}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors ${
-                statusFilter === s ? "bg-gray-800 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-              }`}
-            >
+            <button key={s} onClick={() => setStatusFilter(s)}
+              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors ${statusFilter === s ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>
               {s === "todos" ? "Todos status" : STATUS_LABELS[s]}
             </button>
           ))}
         </div>
       </div>
 
-      {/* Table */}
-      <div className="bg-white rounded-xl border border-border overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-border bg-gray-50/50">
-                {["ID", "Tipo", "Imóvel", "Cliente", "Valor", "Docs", "Progresso", "Status", "Ações"].map((h) => (
-                  <th key={h} className="text-left text-xs font-bold text-muted-foreground uppercase tracking-wide px-4 py-3">
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {isLoading ? (
-                <tr><td colSpan={9} className="text-center py-12 text-muted-foreground text-sm">Carregando...</td></tr>
-              ) : filtered.length === 0 ? (
-                <tr>
-                  <td colSpan={9} className="text-center py-12">
-                    <Briefcase className="w-8 h-8 text-gray-200 mx-auto mb-2" />
-                    <p className="text-muted-foreground text-sm">Nenhum negócio encontrado</p>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="mt-3"
-                      onClick={() => setShowNewDeal(true)}
-                    >
-                      <Plus className="w-4 h-4 mr-1" /> Criar primeiro negócio
-                    </Button>
-                  </td>
+      {/* LIST VIEW */}
+      {viewMode === "list" && (
+        <div className="bg-white rounded-xl border border-border overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-border bg-gray-50/70">
+                  <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wide">Código</th>
+                  <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wide">Tipo</th>
+                  <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wide">Imóvel</th>
+                  <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wide">Comprador</th>
+                  <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wide">Valor</th>
+                  <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wide">Docs</th>
+                  <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wide">Progresso</th>
+                  <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wide">Status</th>
+                  <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wide">Ações</th>
                 </tr>
-              ) : (
-                filtered.map((deal: any, i: number) => {
-                  const value = deal.type === "locacao"
-                    ? (deal.monthlyValue ? `R$ ${Number(deal.monthlyValue).toLocaleString("pt-BR")}/mês` : "—")
-                    : formatCurrency(deal.totalValue);
-                  return (
-                    <tr key={deal.id ?? i} className="border-b border-border/50 hover:bg-gray-50/50 transition-colors">
-                      <td className="px-4 py-3">
-                        <span className="text-blue-600 text-sm font-semibold">{deal.code || `#${i + 1}`}</span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className={TYPE_COLORS[deal.type as DealType] || "type-badge-venda"}>
-                          {TYPE_LABELS[deal.type as DealType] || deal.type}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="text-sm font-medium text-gray-900 max-w-[180px] truncate">{deal.property || "—"}</div>
-                        {deal.broker && <div className="text-xs text-muted-foreground">Corretor: {deal.broker}</div>}
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="text-sm text-gray-900">{deal.buyer || "—"}</div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className="text-sm font-semibold text-gray-900">{value}</span>
-                      </td>
-                      <td className="px-4 py-3">
-                        {deal.docsCompleted != null && deal.docsTotal != null ? (
+              </thead>
+              <tbody>
+                {isLoading ? (
+                  <tr><td colSpan={9} className="text-center py-12 text-muted-foreground text-sm">Carregando...</td></tr>
+                ) : filtered.length === 0 ? (
+                  <tr>
+                    <td colSpan={9} className="text-center py-12">
+                      <Briefcase className="w-8 h-8 text-gray-200 mx-auto mb-2" />
+                      <p className="text-muted-foreground text-sm">Nenhum negócio encontrado</p>
+                      <Button size="sm" variant="outline" className="mt-3" onClick={() => setShowNewDeal(true)}>
+                        <Plus className="w-4 h-4 mr-1" /> Criar primeiro negócio
+                      </Button>
+                    </td>
+                  </tr>
+                ) : (
+                  filtered.map((deal: any, i: number) => {
+                    const value = deal.type === "locacao"
+                      ? (deal.monthlyValue ? `R$ ${Number(deal.monthlyValue).toLocaleString("pt-BR")}/mês` : "—")
+                      : formatCurrency(deal.totalValue);
+                    return (
+                      <tr
+                        key={deal.id ?? i}
+                        className="border-b border-border/50 hover:bg-blue-50/40 transition-colors cursor-pointer"
+                        onClick={() => navigate(`/dashboard/negocios/${deal.id}`)}
+                      >
+                        <td className="px-4 py-3">
+                          <span className="text-blue-600 text-sm font-semibold">{deal.code || `#${i + 1}`}</span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className={TYPE_COLORS[deal.type as DealType] || "type-badge-venda"}>
+                            {TYPE_LABELS[deal.type as DealType] || deal.type}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="text-sm font-medium text-gray-900 max-w-[180px] truncate">{deal.property || "—"}</div>
+                          {deal.broker && <div className="text-xs text-muted-foreground">Corretor: {deal.broker}</div>}
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="text-sm text-gray-900">{deal.buyer || "—"}</div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className="text-sm font-semibold text-gray-900">{value}</span>
+                        </td>
+                        <td className="px-4 py-3">
+                          {deal.docsCompleted != null && deal.docsTotal != null ? (
+                            <div className="flex items-center gap-1">
+                              {deal.docsCompleted === deal.docsTotal
+                                ? <CheckCircle2 className="w-4 h-4 text-green-500" />
+                                : <AlertTriangle className="w-4 h-4 text-yellow-500" />}
+                              <span className="text-xs text-muted-foreground">{deal.docsCompleted}/{deal.docsTotal}</span>
+                            </div>
+                          ) : "—"}
+                        </td>
+                        <td className="px-4 py-3 min-w-[100px]">
+                          {deal.progressPct != null ? (
+                            <div>
+                              <Progress value={deal.progressPct} className="h-1.5 mb-1" />
+                              <span className="text-xs text-muted-foreground">{deal.progressPct}%</span>
+                            </div>
+                          ) : "—"}
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className={STATUS_COLORS[deal.status as DealStatus] || "status-badge-rascunho"}>
+                            {STATUS_LABELS[deal.status as DealStatus] || deal.status}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                           <div className="flex items-center gap-1">
-                            {deal.docsCompleted === deal.docsTotal
-                              ? <CheckCircle2 className="w-4 h-4 text-green-500" />
-                              : <AlertTriangle className="w-4 h-4 text-yellow-500" />
-                            }
-                            <span className="text-xs text-muted-foreground">{deal.docsCompleted}/{deal.docsTotal}</span>
+                            <Link href={`/dashboard/negocios/${deal.id}/documentos`}>
+                              <button className="p-1.5 text-muted-foreground hover:text-blue-600 hover:bg-blue-50 rounded transition-colors" title="Documentos">
+                                <FileOutput className="w-4 h-4" />
+                              </button>
+                            </Link>
+                            <Link href={`/dashboard/contrato?dealId=${deal.id}`}>
+                              <button className="p-1.5 text-muted-foreground hover:text-purple-600 hover:bg-purple-50 rounded transition-colors" title="Gerar contrato">
+                                <Eye className="w-4 h-4" />
+                              </button>
+                            </Link>
                           </div>
-                        ) : "—"}
-                      </td>
-                      <td className="px-4 py-3 min-w-[100px]">
-                        {deal.progressPct != null ? (
-                          <div>
-                            <Progress value={deal.progressPct} className="h-1.5 mb-1" />
-                            <span className="text-xs text-muted-foreground">{deal.progressPct}%</span>
-                          </div>
-                        ) : "—"}
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className={STATUS_COLORS[deal.status as DealStatus] || "status-badge-rascunho"}>
-                          {STATUS_LABELS[deal.status as DealStatus] || deal.status}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-1">
-                          <Link href={`/dashboard/negocios/${deal.id}/documentos`}>
-                            <button className="p-1.5 text-muted-foreground hover:text-blue-600 hover:bg-blue-50 rounded transition-colors" title="Documentos">
-                              <FileOutput className="w-4 h-4" />
-                            </button>
-                          </Link>
-                          <Link href={`/dashboard/contrato?dealId=${deal.id}`}>
-                            <button className="p-1.5 text-muted-foreground hover:text-purple-600 hover:bg-purple-50 rounded transition-colors" title="Gerar contrato">
-                              <Eye className="w-4 h-4" />
-                            </button>
-                          </Link>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* KANBAN VIEW */}
+      {viewMode === "kanban" && (
+        <div className="overflow-x-auto pb-4">
+          <div className="flex gap-4 min-w-max">
+            {PIPELINE_STAGES.map((stage) => {
+              const stageDeals = pipelineByStage[stage.key] || [];
+              return (
+                <div key={stage.key} className="w-72 flex-shrink-0">
+                  <div className="flex items-center gap-2 mb-3 px-1">
+                    <span className={`w-2 h-2 rounded-full ${stage.dot}`} />
+                    <span className={`text-xs font-bold uppercase tracking-wide ${stage.color}`}>{stage.label}</span>
+                    <span className="ml-auto text-xs text-muted-foreground font-bold bg-gray-100 px-2 py-0.5 rounded-full">{stageDeals.length}</span>
+                  </div>
+                  <div className="space-y-3">
+                    {stageDeals.map((deal: any, i: number) => {
+                      const value = deal.type === "locacao"
+                        ? (deal.monthlyValue ? `R$ ${Number(deal.monthlyValue).toLocaleString("pt-BR")}/mês` : "—")
+                        : formatCurrency(deal.totalValue);
+                      return (
+                        <div
+                          key={deal.id ?? i}
+                          className="kanban-card cursor-pointer hover:shadow-md transition-shadow"
+                          onClick={() => navigate(`/dashboard/negocios/${deal.id}`)}
+                        >
+                          <div className="flex items-center justify-between mb-2">
+                            <span className={TYPE_COLORS[deal.type as DealType] || "type-badge-venda"}>
+                              {TYPE_LABELS[deal.type as DealType] || deal.type}
+                            </span>
+                            <span className="text-gray-400 text-xs">{deal.code}</span>
+                          </div>
+                          <div className="font-semibold text-gray-900 text-sm mb-0.5 truncate">{deal.property || "—"}</div>
+                          <div className="text-gray-500 text-xs mb-3">{deal.buyer || "—"}</div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-gray-900 font-bold text-sm">{value}</span>
+                            {deal.docsCompleted != null && deal.docsTotal != null && (
+                              <span className="text-gray-400 text-xs">{deal.docsCompleted}/{deal.docsTotal} docs</span>
+                            )}
+                          </div>
+                          {deal.progressPct != null && (
+                            <div className="mt-2">
+                              <Progress value={deal.progressPct} className="h-1" />
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                    {stageDeals.length === 0 && (
+                      <div className="border-2 border-dashed border-gray-200 rounded-xl p-4 text-center text-xs text-gray-400">
+                        Nenhum negócio
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* New Deal Modal */}
       {showNewDeal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto">
             <h2 className="text-lg font-bold text-gray-900 mb-4">Novo Negócio</h2>
             <div className="space-y-4">
+              {/* Type */}
               <div>
                 <label className="text-xs font-semibold text-gray-600 uppercase tracking-wide block mb-1">Tipo de operação</label>
                 <div className="grid grid-cols-2 gap-2">
                   {(["venda", "locacao", "permuta", "financiamento"] as DealType[]).map((t) => (
-                    <button
-                      key={t}
-                      onClick={() => setNewDeal({ ...newDeal, type: t })}
-                      className={`px-3 py-2 text-sm font-semibold rounded-lg border-2 transition-colors ${
-                        newDeal.type === t ? "border-blue-600 bg-blue-50 text-blue-700" : "border-gray-200 text-gray-600 hover:border-gray-300"
-                      }`}
-                    >
+                    <button key={t} onClick={() => setNewDeal({ ...newDeal, type: t })}
+                      className={`px-3 py-2 text-sm font-semibold rounded-lg border-2 transition-colors ${newDeal.type === t ? "border-blue-600 bg-blue-50 text-blue-700" : "border-gray-200 text-gray-600 hover:border-gray-300"}`}>
                       {TYPE_LABELS[t]}
                     </button>
                   ))}
                 </div>
               </div>
+
+              {/* Property */}
               <div>
                 <label className="text-xs font-semibold text-gray-600 uppercase tracking-wide block mb-1">Imóvel *</label>
                 <div className="relative">
                   <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <input
-                    type="text"
-                    placeholder="Ex: Rua das Palmeiras, 340"
+                  <input type="text" placeholder="Ex: Rua das Palmeiras, 340"
                     value={newDeal.propertyDescription}
                     onChange={(e) => setNewDeal({ ...newDeal, propertyDescription: e.target.value })}
-                    className="w-full pl-9 pr-4 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                  />
+                    className="w-full pl-9 pr-4 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
                 </div>
               </div>
+
+              {/* Buyer */}
               <div>
                 <label className="text-xs font-semibold text-gray-600 uppercase tracking-wide block mb-1">
-                  {newDeal.type === "locacao" ? "Locatário" : "Comprador"}
+                  {newDeal.type === "locacao" ? "Locatário (Comprador)" : "Comprador"}
                 </label>
-                <div className="relative">
-                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <input
-                    type="text"
-                    placeholder="Nome do cliente"
-                    value={newDeal.buyerName}
-                    onChange={(e) => setNewDeal({ ...newDeal, buyerName: e.target.value })}
-                    className="w-full pl-9 pr-4 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                  />
-                </div>
+                <Select value={newDeal.buyerId} onValueChange={(v) => setNewDeal({ ...newDeal, buyerId: v })}>
+                  <SelectTrigger className="h-10 text-sm">
+                    <SelectValue placeholder="Selecionar comprador..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="manual">Digitar manualmente</SelectItem>
+                    {(buyerOptions.length > 0 ? buyerOptions : allClients).map((c: any) => (
+                      <SelectItem key={c.id} value={c.id.toString()}>
+                        {c.name}{c.cpfCnpj ? ` — ${c.cpfCnpj}` : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {newDeal.buyerId === "manual" && (
+                  <div className="relative mt-2">
+                    <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <input type="text" placeholder="Nome do comprador"
+                      value={newDeal.buyerName}
+                      onChange={(e) => setNewDeal({ ...newDeal, buyerName: e.target.value })}
+                      className="w-full pl-9 pr-4 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+                  </div>
+                )}
               </div>
+
+              {/* Seller */}
+              <div>
+                <label className="text-xs font-semibold text-gray-600 uppercase tracking-wide block mb-1">
+                  {newDeal.type === "locacao" ? "Locador (Vendedor)" : "Vendedor"}
+                </label>
+                <Select value={newDeal.sellerId} onValueChange={(v) => setNewDeal({ ...newDeal, sellerId: v })}>
+                  <SelectTrigger className="h-10 text-sm">
+                    <SelectValue placeholder="Selecionar vendedor..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Não definido</SelectItem>
+                    {(sellerOptions.length > 0 ? sellerOptions : allClients).map((c: any) => (
+                      <SelectItem key={c.id} value={c.id.toString()}>
+                        {c.name}{c.cpfCnpj ? ` — ${c.cpfCnpj}` : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Broker */}
+              <div>
+                <label className="text-xs font-semibold text-gray-600 uppercase tracking-wide block mb-1">Corretista</label>
+                <Select value={newDeal.brokerId} onValueChange={(v) => setNewDeal({ ...newDeal, brokerId: v })}>
+                  <SelectTrigger className="h-10 text-sm">
+                    <SelectValue placeholder="Selecionar corretista..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Não definido</SelectItem>
+                    {(brokerOptions.length > 0 ? brokerOptions : allClients).map((c: any) => (
+                      <SelectItem key={c.id} value={c.id.toString()}>
+                        {c.name}{c.cpfCnpj ? ` — ${c.cpfCnpj}` : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Value */}
               <div>
                 <label className="text-xs font-semibold text-gray-600 uppercase tracking-wide block mb-1">
                   {newDeal.type === "locacao" ? "Aluguel mensal (R$)" : "Valor total (R$)"}
                 </label>
                 <div className="relative">
                   <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <input
-                    type="text"
-                    placeholder="Ex: 485000"
+                  <input type="text" placeholder="Ex: 485000"
                     value={newDeal.type === "locacao" ? newDeal.monthlyValue : newDeal.totalValue}
                     onChange={(e) => {
                       if (newDeal.type === "locacao") setNewDeal({ ...newDeal, monthlyValue: e.target.value });
                       else setNewDeal({ ...newDeal, totalValue: e.target.value });
                     }}
-                    className="w-full pl-9 pr-4 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                  />
+                    className="w-full pl-9 pr-4 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
                 </div>
               </div>
             </div>
+
             <div className="flex gap-3 mt-6">
-              <Button variant="outline" className="flex-1" onClick={() => setShowNewDeal(false)}>
-                Cancelar
-              </Button>
-              <Button
-                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
-                onClick={handleCreate}
-                disabled={createDeal.isPending}
-              >
+              <Button variant="outline" className="flex-1" onClick={() => setShowNewDeal(false)}>Cancelar</Button>
+              <Button className="flex-1 bg-blue-600 hover:bg-blue-700 text-white" onClick={handleCreate} disabled={createDeal.isPending}>
                 {createDeal.isPending ? "Criando..." : "Criar negócio"}
               </Button>
             </div>
