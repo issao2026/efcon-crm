@@ -40,6 +40,7 @@ interface ContractFormData {
   imovelMatricula: string;
   imovelCartorio: string;
   imovelAreaTotal: string;
+  imovelItens: string;
   // Financeiro
   valorTotal: string;
   valorSinal: string;
@@ -64,7 +65,7 @@ const INITIAL_FORM: ContractFormData = {
   vendedorEstadoCivil: "solteiro(a)", vendedorProfissao: "", vendedorEndereco: "",
   compradorNome: "", compradorCpf: "", compradorRg: "", compradorNacionalidade: "brasileiro(a)",
   compradorEstadoCivil: "solteiro(a)", compradorProfissao: "", compradorEndereco: "",
-  imovelDescricao: "", imovelEndereco: "", imovelMatricula: "", imovelCartorio: "", imovelAreaTotal: "",
+  imovelDescricao: "", imovelEndereco: "", imovelMatricula: "", imovelCartorio: "", imovelAreaTotal: "", imovelItens: "",
   valorTotal: "", valorSinal: "", valorFinanciamento: "", formaPagamento: "À vista",
   dataVencimento: "", testemunha1Nome: "", testemunha1Cpf: "", testemunha2Nome: "", testemunha2Cpf: "",
   localAssinatura: "Brasília, DF", dataAssinatura: new Date().toLocaleDateString("pt-BR"),
@@ -298,6 +299,27 @@ export default function Contract() {
     { enabled: prefillDealId !== null }
   );
   const { data: clientsList = [] } = trpc.clients.list.useQuery();
+  const { data: propertiesList = [] } = trpc.properties.list.useQuery();
+
+  // Helper to fill property fields from a property record
+  const fillFromProperty = (prop: any) => {
+    if (!prop) return;
+    const addr = [
+      prop.street, prop.number,
+      prop.complement, prop.neighborhood,
+      prop.city, prop.state, prop.zipCode,
+    ].filter(Boolean).join(', ');
+    setForm((prev) => ({
+      ...prev,
+      imovelDescricao: prop.description || prev.imovelDescricao,
+      imovelEndereco: addr || prev.imovelEndereco,
+      imovelMatricula: prop.registration || prev.imovelMatricula,
+      imovelCartorio: prop.registryOffice || prev.imovelCartorio,
+      imovelAreaTotal: prop.area || prev.imovelAreaTotal,
+      imovelItens: prop.items || prev.imovelItens,
+      valorTotal: prop.totalValue ? String(prop.totalValue) : prev.valorTotal,
+    }));
+  };
 
   // Pre-fill form when deal data loads
   useEffect(() => {
@@ -409,7 +431,7 @@ export default function Contract() {
         descricao_imovel: form.imovelDescricao,
         matricula_imovel: form.imovelMatricula,
         cartorio_registro_imoveis: form.imovelCartorio,
-        itens_que_permanecerao_no_imovel: 'conforme vistoria',
+        itens_que_permanecerao_no_imovel: form.imovelItens || 'conforme vistoria',
         valor_total_contrato: `R$ ${form.valorTotal}`,
         modalidade_pagamento: form.formaPagamento,
         valor_pagamento_avista: form.valorSinal ? `R$ ${form.valorSinal}` : 'N/A',
@@ -627,6 +649,24 @@ export default function Contract() {
             </Section>
 
             <Section title="Dados do Imóvel" icon={Home}>
+              <div className="md:col-span-2 mb-1">
+                <label className="block text-xs font-semibold text-gray-500 mb-1">Selecionar imóvel cadastrado</label>
+                <select
+                  defaultValue=""
+                  onChange={(e) => {
+                    const p = (propertiesList as any[]).find((x: any) => String(x.id) === e.target.value);
+                    if (p) fillFromProperty(p);
+                  }}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400"
+                >
+                  <option value="">— Buscar imóvel cadastrado —</option>
+                  {(propertiesList as any[]).map((p: any) => (
+                    <option key={p.id} value={p.id}>
+                      {p.propertyType ? `${p.propertyType} – ` : ''}{p.street}{p.number ? `, ${p.number}` : ''}{p.city ? ` – ${p.city}/${p.state}` : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
               <div className="md:col-span-2">
                 <Field label="Descrição do imóvel" name="imovelDescricao" value={form.imovelDescricao} onChange={setField} required placeholder="Ex: Apartamento, 3 quartos, 2 banheiros" />
               </div>
@@ -635,7 +675,10 @@ export default function Contract() {
               </div>
               <Field label="Matrícula" name="imovelMatricula" value={form.imovelMatricula} onChange={setField} placeholder="Nº da matrícula" />
               <Field label="Cartório de Registro" name="imovelCartorio" value={form.imovelCartorio} onChange={setField} placeholder="Nome do cartório" />
-              <Field label="Área total (m²)" name="imovelAreaTotal" value={form.imovelAreaTotal} onChange={setField} placeholder="Ex: 85" />
+              <Field label="Área total (m²)" name="imovelAreaTotal" value={form.imovelAreaTotal} onChange={setField} placeholder="Ex: 98,50" />
+              <div className="md:col-span-2">
+                <Field label="Itens que permanecem no imóvel" name="imovelItens" value={form.imovelItens} onChange={setField} placeholder="Ex: Armários embutidos, ar-condicionado..." />
+              </div>
             </Section>
 
             <Section title="Dados Financeiros" icon={DollarSign}>

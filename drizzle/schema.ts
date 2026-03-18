@@ -45,6 +45,7 @@ export const properties = mysqlTable("properties", {
   id: int("id").autoincrement().primaryKey(),
   userId: int("userId").notNull(),
   description: text("description"),
+  propertyType: varchar("propertyType", { length: 50 }),
   street: varchar("street", { length: 255 }),
   number: varchar("number", { length: 20 }),
   complement: varchar("complement", { length: 100 }),
@@ -55,6 +56,8 @@ export const properties = mysqlTable("properties", {
   registration: varchar("registration", { length: 50 }),
   registryOffice: varchar("registryOffice", { length: 255 }),
   area: varchar("area", { length: 50 }),
+  totalValue: decimal("totalValue", { precision: 15, scale: 2 }),
+  items: text("items"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });

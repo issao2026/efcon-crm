@@ -790,15 +790,29 @@ Retorne um JSON com sugestões para campos vazios ou incompletos.`,
     list: protectedProcedure.query(async ({ ctx }) => {
       return getProperties(ctx.user.id);
     }),
+    getById: protectedProcedure.input(z.object({ id: z.number() })).query(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) return null;
+      const { properties: propsTable } = await import('../drizzle/schema');
+      const { eq } = await import('drizzle-orm');
+      const rows = await db.select().from(propsTable).where(eq(propsTable.id, input.id)).limit(1);
+      return rows[0] ?? null;
+    }),
     create: protectedProcedure.input(z.object({
       description: z.string().optional(),
+      propertyType: z.string().optional(),
       street: z.string().optional(),
       number: z.string().optional(),
+      complement: z.string().optional(),
+      neighborhood: z.string().optional(),
       city: z.string().optional(),
       state: z.string().optional(),
+      zipCode: z.string().optional(),
       registration: z.string().optional(),
       registryOffice: z.string().optional(),
       area: z.string().optional(),
+      totalValue: z.string().optional(),
+      items: z.string().optional(),
     })).mutation(async ({ ctx, input }) => {
       return createProperty({ ...input, userId: ctx.user.id });
     }),

@@ -1,0 +1,24 @@
+{
+  "query": "SELECT id, userId, propertyType, street, number, complement, neighborhood, city, state, registration, area, totalValue FROM properties LIMIT 5;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway04.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 35WEPRGEy139WNo.root --database hqCW96Ftj9zcKD8QtxsDCe --execute SELECT id, userId, propertyType, street, number, complement, neighborhood, city, state, registration, area, totalValue FROM properties LIMIT 5;",
+  "rows": [
+    {
+      "id": "1",
+      "userId": "1",
+      "propertyType": "Apartamento",
+      "street": "Rua das Acácias",
+      "number": "450",
+      "complement": "Apto 302, Bloco B",
+      "neighborhood": "Jardim Europa",
+      "city": "Goiânia",
+      "state": "GO",
+      "registration": "45.678",
+      "area": "98,50 m²",
+      "totalValue": "485000.00"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tuserId\tpropertyType\tstreet\tnumber\tcomplement\tneighborhood\tcity\tstate\tregistration\tarea\ttotalValue\n1\t1\tApartamento\tRua das Acácias\t450\tApto 302, Bloco B\tJardim Europa\tGoiânia\tGO\t45.678\t98,50 m²\t485000.00\n",
+  "stderr": "",
+  "execution_time_ms": 56
+}
