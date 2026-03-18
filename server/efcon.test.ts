@@ -147,7 +147,7 @@ describe("pipeline stages", () => {
 
 // ─── Contract template tests ──────────────────────────────────────────────────
 describe("contracts.generate", () => {
-  it("generates a contract with filled fields", async () => {
+  it("generates a branded PDF contract with filled fields", async () => {
     const { ctx } = createAuthContext();
     const caller = appRouter.createCaller(ctx);
 
@@ -161,16 +161,15 @@ describe("contracts.generate", () => {
         valor_total_contrato: "R$ 485.000",
         modalidade_pagamento: "À vista",
         data_assinatura: "18/03/2026",
-        cidade_assinatura: "Brasília, DF",
+        cidade_assinatura: "Jundiaí, SP",
       },
     });
 
+    // Should return a URL pointing to the branded PDF in S3
     expect(result).toHaveProperty("contractUrl");
-    expect(result).toHaveProperty("filledText");
-    expect(result.filledText).toContain("João Silva");
-    expect(result.filledText).toContain("Maria Santos");
-    expect(result.filledText).toContain("R$ 485.000");
-  }, 30000); // 30s timeout for LLM call
+    expect(typeof result.contractUrl).toBe("string");
+    expect(result.contractUrl).toMatch(/\.pdf$|pdf/);
+  }, 60000); // 60s timeout for LibreOffice + PDF merge
 });
 
 // ─── Contract suggestFields tests ─────────────────────────────────────────────

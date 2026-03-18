@@ -16,6 +16,7 @@ import {
   getActivities, createActivity,
 } from "./db";
 import { nanoid } from "nanoid";
+import { generateContractPdf, type ContractFields } from "./contractGenerator";
 
 // ─── Contract template ───────────────────────────────────────────────────────
 const CONTRACT_TEMPLATE = `CONTRATO PADRÃO DE PROMESSA DE COMPRA E VENDA DE IMÓVEL
@@ -699,41 +700,13 @@ Retorne confidence (0-100) indicando a qualidade da extração.`,
       contractId: z.number().optional(),
       fields: z.record(z.string(), z.string()),
     })).mutation(async ({ ctx, input }) => {
-      // Fill the template
-      const filledContract = fillTemplate(CONTRACT_TEMPLATE, {
-        ...input.fields,
-        razao_social_imobiliaria: String(input.fields.razaoSocialImobiliaria || 'Marcello & Oliveira Negócios Imobiliários'),
-        cnpj_imobiliaria: String(input.fields.cnpjImobiliaria || '12.345.678/0001-99'),
-        creci_imobiliaria: String(input.fields.creciImobiliaria || '28.867 J'),
-        endereco_imobiliaria: String(input.fields.enderecoImobiliaria || 'Rua Elias José Cavalcanti, 1698 – Jundiaí-SP'),
-        assinatura_vendedor: '___________________________',
-        assinatura_comprador: '___________________________',
-        assinatura_imobiliaria: '___________________________',
-      });
+      // Generate branded PDF using the official Marcello & Oliveira template + mascara
+      const contractFields: ContractFields = { ...input.fields };
+      const pdfBuffer = await generateContractPdf(contractFields);
 
-      // Use LLM to generate a proper HTML contract
-      const htmlResponse = await invokeLLM({
-        messages: [
-          {
-            role: 'system',
-            content: `Você é um gerador de contratos imobiliários profissionais. 
-Converta o texto do contrato para HTML bem formatado com:
-- Cabeçalho com "Marcello & Oliveira Negócios Imobiliários | CRECI 28.867 J"
-- Formatação profissional com seções numeradas
-- Espaços para assinatura no final
-- Use apenas HTML básico (h1, h2, p, hr, table, div)
-Retorne apenas o HTML, sem markdown.`,
-          },
-          { role: 'user', content: `Formate este contrato como HTML profissional:\n\n${filledContract}` },
-        ],
-      });
-
-      const rawContent = htmlResponse.choices[0]?.message?.content;
-      const htmlContent = (typeof rawContent === 'string' ? rawContent : JSON.stringify(rawContent)) || filledContract;
-
-      // Store as text file in S3
-      const contractKey = `contracts/${ctx.user.id}/${nanoid()}-contrato.html`;
-      const { url: contractUrl } = await storagePut(contractKey, Buffer.from(htmlContent, 'utf-8'), 'text/html');
+      // Upload branded PDF to S3
+      const contractKey = `contracts/${ctx.user.id}/${nanoid()}-contrato.pdf`;
+      const { url: contractUrl } = await storagePut(contractKey, pdfBuffer, 'application/pdf');
 
       if (input.contractId) {
         await updateContract(input.contractId, { pdfUrl: contractUrl, pdfKey: contractKey, contractStatus: 'gerado' });
@@ -742,7 +715,7 @@ Retorne apenas o HTML, sem markdown.`,
       await createActivity({ userId: ctx.user.id, type: 'contract', title: 'Contrato gerado', description: `Para ${input.fields.nome_vendedor || 'N/A'}` });
       await notifyOwner({ title: 'Contrato gerado', content: `Vendedor: ${input.fields.nome_vendedor || 'N/A'}, Comprador: ${input.fields.nome_comprador || 'N/A'}` });
 
-      return { contractUrl, htmlContent, filledText: filledContract };
+      return { contractUrl, htmlContent: '', filledText: '' };
     }),
     suggestFields: protectedProcedure.input(z.object({
       partialFields: z.record(z.string(), z.string()),
