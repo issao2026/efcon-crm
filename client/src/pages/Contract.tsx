@@ -193,7 +193,7 @@ function ContractPreview({ form }: { form: ContractFormData }) {
   const isLocacao = form.contractType === "locacao";
 
   return (
-    <div className="bg-white border border-gray-200 rounded-2xl p-8 font-serif text-sm leading-relaxed text-gray-800 max-h-[600px] overflow-y-auto">
+    <div id="contract-preview-content" className="bg-white border border-gray-200 rounded-2xl p-8 font-serif text-sm leading-relaxed text-gray-800 max-h-[600px] overflow-y-auto">
       {/* Header */}
       <div className="text-center mb-8">
         <div className="text-xs font-bold text-gray-400 tracking-widest uppercase mb-2">Marcello & Oliveira Imóveis</div>
@@ -520,7 +520,32 @@ export default function Contract() {
       setGeneratedPdfUrl(result.contractUrl);
       toast.success("Contrato gerado com sucesso!");
     } catch (error: any) {
-      toast.error(error.message || "Erro ao gerar contrato");
+      // If server PDF generation fails (Chromium/weasyprint not available in production),
+      // fall back to browser print which always works
+      const errMsg = (error?.message || "").toLowerCase();
+      const isPdfEngineError = errMsg.includes("chromium") || errMsg.includes("weasyprint") ||
+        errMsg.includes("browser") || errMsg.includes("failed to launch") ||
+        errMsg.includes("libnss") || errMsg.includes("shared object") ||
+        errMsg.includes("internal server error");
+      if (isPdfEngineError) {
+        toast.info("Gerando PDF via impressão do navegador...");
+        setTimeout(() => {
+          const previewEl = document.getElementById('contract-preview-content');
+          if (previewEl) {
+            const printWindow = window.open('', '_blank');
+            if (printWindow) {
+              printWindow.document.write(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><title>Contrato</title><style>body{font-family:Georgia,serif;font-size:11pt;line-height:1.6;margin:2.5cm;color:#111}h2{text-align:center;font-size:14pt;text-transform:uppercase;letter-spacing:1px}strong{font-weight:700}p{margin-bottom:0.8em;text-align:justify}.pl-4{padding-left:1em}.h-px{display:none}.h-0\.5{display:none}@media print{body{margin:2cm}}</style></head><body>${previewEl.innerHTML}</body></html>`);
+              printWindow.document.close();
+              printWindow.focus();
+              setTimeout(() => { printWindow.print(); }, 500);
+            }
+          } else {
+            window.print();
+          }
+        }, 100);
+      } else {
+        toast.error(error.message || "Erro ao gerar contrato");
+      }
     } finally {
       setIsGenerating(false);
     }

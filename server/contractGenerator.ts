@@ -1,20 +1,20 @@
 /**
  * Contract generation using the official Marcello & Oliveira template.
  *
- * Production-compatible flow (no Chromium/Puppeteer dependency):
+ * Production-compatible flow (100% Node.js, no Python/weasyprint/LibreOffice):
  *  1. Download contratopadrao.docx from CDN (cached locally)
  *  2. Fill {{placeholders}} with docxtemplater
  *  3. Convert filled .docx → HTML with mammoth
- *  4. Render HTML → PDF with weasyprint (Python) via child_process
- *     - Mascara letterhead applied as @page background-image
- *     - Works in both sandbox and production environments
+ *  4. Render with puppeteer-core + Chromium using headerTemplate/footerTemplate
+ *     for the branded mascara letterhead (works correctly on ALL pages)
  */
 
 import PizZip from 'pizzip';
 import Docxtemplater from 'docxtemplater';
 import mammoth from 'mammoth';
-import { spawnSync } from 'child_process';
-import { readFileSync, writeFileSync, existsSync, mkdirSync, unlinkSync } from 'fs';
+import puppeteer from 'puppeteer-core';
+import { execSync } from 'child_process';
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { tmpdir } from 'os';
@@ -31,10 +31,12 @@ const CACHE_DIR = join(tmpdir(), 'efcon-templates');
 const TEMPLATE_DOCX = join(CACHE_DIR, 'contratopadrao.docx');
 
 // Mascara base64 — loaded once at module init from the bundled txt file
+// Falls back to CDN URL if the local file is not available
 let _mascaraDataUri: string | null = null;
 
 function getMascaraDataUri(): string {
   if (_mascaraDataUri) return _mascaraDataUri;
+  // Try to load from local file (available in sandbox and bundled in production)
   const localPaths = [
     join(__dirname, 'mascara_b64.txt'),
     join(process.cwd(), 'server/mascara_b64.txt'),
@@ -47,7 +49,7 @@ function getMascaraDataUri(): string {
       return _mascaraDataUri;
     }
   }
-  // Fallback: CDN URL
+  // Fallback: use CDN URL (may not work in headerTemplate due to CSP)
   return 'https://d2xsxph8kpxj0f.cloudfront.net/310419663029938987/hqCW96Ftj9zcKD8QtxsDCe/mascara_bg_78151d47.png';
 }
 
@@ -248,27 +250,22 @@ const DEFAULTS: Record<string, string> = {
   tipo_contrato: 'COMPRA E VENDA',
 };
 
-function buildFullHtml(bodyHtml: string, mascaraUri: string): string {
+function buildContentHtml(bodyHtml: string): string {
   return `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
 <style>
-  @page {
-    size: A4;
-    margin: 4.2cm 2.2cm 6.5cm 2.2cm;
-    background-image: url("${mascaraUri}");
-    background-size: 100% 100%;
-    background-repeat: no-repeat;
-    -weasyprint-background-image: url("${mascaraUri}");
-  }
   * { box-sizing: border-box; }
+  @page { size: A4; }
   html, body {
     margin: 0;
     padding: 0;
     font-family: Arial, Helvetica, sans-serif;
     font-size: 9.5pt;
     color: #111;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
   h1, h2, h3 {
     font-size: 9.5pt;
@@ -299,35 +296,28 @@ ${bodyHtml}
 </html>`;
 }
 
-/**
- * Render HTML to PDF using weasyprint (Python).
- * weasyprint is available in both sandbox and production environments.
- */
-function renderWithWeasyprint(htmlContent: string): Buffer {
-  const tmpHtml = join(tmpdir(), `efcon-contract-${Date.now()}.html`);
-  const tmpPdf = join(tmpdir(), `efcon-contract-${Date.now()}.pdf`);
-  try {
-    writeFileSync(tmpHtml, htmlContent, 'utf-8');
-    // Use Python weasyprint to convert HTML → PDF
-    const result = spawnSync('python3', [
-      '-c',
-      `import weasyprint, sys; weasyprint.HTML(filename=sys.argv[1]).write_pdf(sys.argv[2])`,
-      tmpHtml,
-      tmpPdf,
-    ], { timeout: 60000, stdio: 'pipe' });
+// Chromium executable paths to try (sandbox + production)
+const CHROMIUM_PATHS = [
+  '/usr/bin/chromium-browser',
+  '/usr/bin/chromium',
+  '/usr/bin/google-chrome',
+  '/usr/bin/google-chrome-stable',
+  '/snap/bin/chromium',
+];
 
-    if (result.status !== 0) {
-      const stderr = result.stderr?.toString() || '';
-      throw new Error(`weasyprint failed: ${stderr}`);
-    }
-    if (!existsSync(tmpPdf)) {
-      throw new Error('weasyprint did not produce output file');
-    }
-    return readFileSync(tmpPdf);
-  } finally {
-    try { if (existsSync(tmpHtml)) unlinkSync(tmpHtml); } catch {}
-    try { if (existsSync(tmpPdf)) unlinkSync(tmpPdf); } catch {}
+function findChromium(): string {
+  for (const p of CHROMIUM_PATHS) {
+    try {
+      execSync(`test -x "${p}"`, { stdio: 'pipe' });
+      return p;
+    } catch {}
   }
+  try {
+    const found = execSync('which chromium-browser chromium google-chrome 2>/dev/null | head -1', { stdio: 'pipe' })
+      .toString().trim();
+    if (found) return found;
+  } catch {}
+  throw new Error('Chromium not found. Install chromium-browser.');
 }
 
 /**
@@ -361,10 +351,78 @@ export async function generateContractPdf(fields: ContractFields): Promise<Buffe
   const mammothResult = await mammoth.convertToHtml({ buffer: filledDocxBuf });
   const bodyHtml = mammothResult.value;
 
-  // Step 3: Build full HTML with mascara letterhead as @page background
-  const mascaraUri = getMascaraDataUri();
-  const fullHtml = buildFullHtml(bodyHtml, mascaraUri);
+  // Step 3: Build content HTML (no background — mascara goes in header/footer templates)
+  const fullHtml = buildContentHtml(bodyHtml);
 
-  // Step 4: Render HTML → PDF with weasyprint (no Chromium needed)
-  return renderWithWeasyprint(fullHtml);
+  // Step 4: Build header/footer templates with the mascara letterhead
+  // The mascara image is A4 (1241x1754px):
+  //   - Header region: top 10.1% = 3.0cm
+  //   - Footer region: bottom 17.6% = 5.22cm
+  // We use background-position to show only the relevant part of the image.
+  const mascaraUri = getMascaraDataUri();
+
+  // Header: show top portion of mascara (3.2cm tall, full width)
+  // background-size: 100% auto ensures the image fills the width and scales proportionally
+  // background-position: top left aligns the top of the image to the top of the header
+  const headerTemplate = `<div style="
+    width: 100%;
+    height: 3.2cm;
+    margin: 0;
+    padding: 0;
+    background-image: url('${mascaraUri}');
+    background-size: 100% auto;
+    background-repeat: no-repeat;
+    background-position: top left;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  "></div>`;
+
+  // Footer: show bottom portion of mascara (5.5cm tall, full width)
+  // background-position: bottom left aligns the bottom of the image to the bottom of the footer
+  const footerTemplate = `<div style="
+    width: 100%;
+    height: 5.5cm;
+    margin: 0;
+    padding: 0;
+    background-image: url('${mascaraUri}');
+    background-size: 100% auto;
+    background-repeat: no-repeat;
+    background-position: bottom left;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  "></div>`;
+
+  // Step 5: Render with puppeteer-core + Chromium → PDF
+  const chromiumPath = findChromium();
+  const browser = await puppeteer.launch({
+    executablePath: chromiumPath,
+    args: [
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage',
+      '--disable-gpu',
+    ],
+    headless: true,
+  });
+
+  try {
+    const page = await browser.newPage();
+    await page.setContent(fullHtml, { waitUntil: 'networkidle0', timeout: 30000 });
+    const pdfBuffer = await page.pdf({
+      format: 'A4',
+      printBackground: true,
+      displayHeaderFooter: true,
+      headerTemplate,
+      footerTemplate,
+      margin: {
+        top: '4.2cm',
+        right: '2.2cm',
+        bottom: '6.5cm',
+        left: '2.2cm',
+      },
+    });
+    return Buffer.from(pdfBuffer);
+  } finally {
+    await browser.close();
+  }
 }
