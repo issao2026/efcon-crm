@@ -135,6 +135,13 @@
 - [ ] Fix Clientes cards: show email, phone and role (comprador/vendedor)
 - [ ] Wrap Contract generation page inside DashboardLayout (add sidebar)
 
+## Phase 12 — Dashboard Real Data + Actions
+- [x] Remove fake/static data from Dashboard (hardcoded trends, fake activities)
+- [x] Connect dashboard stats cards to real DB data
+- [x] Add visualizar, editar, apagar actions to deals table in Dashboard
+- [x] Make pipeline kanban cards clickable (open edit modal)
+- [x] Fix "Atualizado às" and user name to use real logged-in user data
+
 ## Phase 11 — Contract Actions
 - [x] Add contracts.getById procedure
 - [x] Add contracts.update procedure

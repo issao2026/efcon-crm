@@ -164,32 +164,16 @@ export const appRouter = router({
     }),
     deals: protectedProcedure.query(async ({ ctx }) => {
       try {
-        const dbDeals = await getDeals(ctx.user.id);
-        if (dbDeals.length > 0) return dbDeals;
-        return DEMO_DEALS;
+        return await getDeals(ctx.user.id);
       } catch {
-        return DEMO_DEALS;
+        return [];
       }
     }),
     activities: protectedProcedure.query(async ({ ctx }) => {
       try {
-        const acts = await getActivities(ctx.user.id, 8);
-        if (acts.length > 0) return acts;
-        return DEMO_ACTIVITIES.map((a, i) => ({
-          id: i + 1,
-          userId: ctx.user.id,
-          dealId: null,
-          type: a.type,
-          title: a.title,
-          description: a.description,
-          createdAt: new Date(Date.now() - a.minutesAgo * 60 * 1000),
-        }));
+        return await getActivities(ctx.user.id, 8);
       } catch {
-        return DEMO_ACTIVITIES.map((a, i) => ({
-          id: i + 1, userId: ctx.user.id, dealId: null,
-          type: a.type, title: a.title, description: a.description,
-          createdAt: new Date(Date.now() - a.minutesAgo * 60 * 1000),
-        }));
+        return [];
       }
     }),
   }),
@@ -198,11 +182,9 @@ export const appRouter = router({
   deals: router({
     list: protectedProcedure.query(async ({ ctx }) => {
       try {
-        const dbDeals = await getDeals(ctx.user.id);
-        if (dbDeals.length > 0) return dbDeals;
-        return DEMO_DEALS;
+        return await getDeals(ctx.user.id);
       } catch {
-        return DEMO_DEALS;
+        return [];
       }
     }),
     byId: protectedProcedure.input(z.object({ id: z.number() })).query(async ({ input }) => {
@@ -251,7 +233,30 @@ export const appRouter = router({
       await createActivity({ userId: ctx.user.id, dealId: input.id, type: 'status', title: `Status atualizado para ${input.status}` });
       return { success: true };
     }),
-    delete: protectedProcedure.input(z.object({ id: z.number() })).mutation(async ({ input }) => {
+    update: protectedProcedure.input(z.object({
+      id: z.number(),
+      type: z.enum(['venda', 'locacao', 'permuta', 'financiamento']).optional(),
+      subtype: z.string().optional(),
+      status: z.enum(['rascunho', 'em_andamento', 'contrato_gerado', 'assinatura', 'concluido']).optional(),
+      totalValue: z.string().optional(),
+      monthlyValue: z.string().optional(),
+      paymentModality: z.string().optional(),
+      notes: z.string().optional(),
+      buyerId: z.number().nullable().optional(),
+      sellerId: z.number().nullable().optional(),
+      brokerId: z.number().nullable().optional(),
+      propertyId: z.number().nullable().optional(),
+    })).mutation(async ({ ctx, input }) => {
+      const { id, ...data } = input;
+      const existing = await getDealById(id);
+      if (!existing || existing.userId !== ctx.user.id) throw new TRPCError({ code: 'NOT_FOUND' });
+      await updateDeal(id, data as any);
+      await createActivity({ userId: ctx.user.id, dealId: id, type: 'status', title: `Negócio ${existing.code} atualizado` });
+      return { success: true };
+    }),
+    delete: protectedProcedure.input(z.object({ id: z.number() })).mutation(async ({ ctx, input }) => {
+      const existing = await getDealById(input.id);
+      if (!existing || existing.userId !== ctx.user.id) throw new TRPCError({ code: 'NOT_FOUND' });
       await deleteDeal(input.id);
       return { success: true };
     }),
