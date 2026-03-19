@@ -3,6 +3,7 @@ import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
+import { TRPCError } from "@trpc/server";
 import { invokeLLM } from "./_core/llm";
 import { storagePut } from "./storage";
 import { notifyOwner } from "./_core/notification";
@@ -12,7 +13,7 @@ import {
   getProperties, createProperty,
   getDeals, getDealById, createDeal, updateDeal, deleteDeal, getDashboardStats,
   getDocuments, getDocumentById, createDocument, updateDocument, deleteDocument,
-  getContracts, getContractByDealId, createContract, updateContract,
+  getContracts, getContractById, getContractByDealId, createContract, updateContract, deleteContract,
   getActivities, createActivity,
 } from "./db";
 import { nanoid } from "nanoid";
@@ -768,9 +769,37 @@ Retorne um JSON com sugestões para campos vazios ou incompletos.`,
       const content = response.choices[0]?.message?.content;
       return typeof content === 'string' ? JSON.parse(content) : content;
     }),
+    getById: protectedProcedure.input(z.object({ id: z.number() })).query(async ({ ctx, input }) => {
+      return getContractById(input.id, ctx.user.id);
+    }),
+    update: protectedProcedure.input(z.object({
+      id: z.number(),
+      contractStatus: z.enum(['rascunho', 'gerado', 'enviado', 'assinado']).optional(),
+      nomeVendedor: z.string().optional(),
+      nomeComprador: z.string().optional(),
+      descricaoImovel: z.string().optional(),
+      valorTotalContrato: z.string().optional(),
+      cidadeAssinatura: z.string().optional(),
+      dataAssinatura: z.string().optional(),
+      nomeTestemunha1: z.string().optional(),
+      cpfTestemunha1: z.string().optional(),
+      nomeTestemunha2: z.string().optional(),
+      cpfTestemunha2: z.string().optional(),
+    })).mutation(async ({ ctx, input }) => {
+      const { id, ...data } = input;
+      const existing = await getContractById(id, ctx.user.id);
+      if (!existing) throw new TRPCError({ code: 'NOT_FOUND' });
+      await updateContract(id, data);
+      return { success: true };
+    }),
+    delete: protectedProcedure.input(z.object({ id: z.number() })).mutation(async ({ ctx, input }) => {
+      const existing = await getContractById(input.id, ctx.user.id);
+      if (!existing) throw new TRPCError({ code: 'NOT_FOUND' });
+      await deleteContract(input.id, ctx.user.id);
+      return { success: true };
+    }),
   }),
-
-  // ─── Properties ────────────────────────────────────────────────────────────
+  // ─── Properties ─────────────────────────────────────────────────────────────
   properties: router({
     list: protectedProcedure.query(async ({ ctx }) => {
       return getProperties(ctx.user.id);

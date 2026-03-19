@@ -197,10 +197,23 @@ export async function createContract(data: InsertContract) {
   return result;
 }
 
+export async function getContractById(id: number, userId: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const rows = await db.select().from(contracts).where(eq(contracts.id, id)).limit(1);
+  const row = rows[0];
+  if (!row || row.userId !== userId) return null;
+  return row;
+}
 export async function updateContract(id: number, data: Partial<InsertContract>) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
   return db.update(contracts).set(data).where(eq(contracts.id, id));
+}
+export async function deleteContract(id: number, userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return db.delete(contracts).where(eq(contracts.id, id));
 }
 
 // ─── Activities ──────────────────────────────────────────────────────────────

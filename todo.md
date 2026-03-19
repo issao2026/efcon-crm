@@ -135,6 +135,12 @@
 - [ ] Fix Clientes cards: show email, phone and role (comprador/vendedor)
 - [ ] Wrap Contract generation page inside DashboardLayout (add sidebar)
 
+## Phase 11 — Contract Actions
+- [x] Add contracts.getById procedure
+- [x] Add contracts.update procedure
+- [x] Add contracts.delete procedure
+- [x] Add visualizar (download PDF), editar (form preenchido) and apagar buttons to Contratos page
+
 ## Phase 10 — Mobile Responsiveness
 - [x] Fix DashboardLayout: sidebar hidden on mobile, hamburger button to open/close, overlay backdrop
 - [x] Fix DashboardShell: header responsive on mobile
