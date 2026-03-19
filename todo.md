@@ -135,6 +135,10 @@
 - [ ] Fix Clientes cards: show email, phone and role (comprador/vendedor)
 - [ ] Wrap Contract generation page inside DashboardLayout (add sidebar)
 
+## Phase 10 — Mobile Responsiveness
+- [x] Fix DashboardLayout: sidebar hidden on mobile, hamburger button to open/close, overlay backdrop
+- [x] Fix DashboardShell: header responsive on mobile
+
 ## Phase 9 — Improvements (Mar 2026)
 - [x] Add missing contract fields (prazo de posse, prazo de escritura, percentual de multa, foro eleito, plataforma de assinatura, dados da imobiliária)
 - [x] Update contractGenerator.ts with new ContractFields and DEFAULTS
