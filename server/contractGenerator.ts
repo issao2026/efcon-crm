@@ -13,6 +13,7 @@ import PizZip from 'pizzip';
 import Docxtemplater from 'docxtemplater';
 import mammoth from 'mammoth';
 import puppeteer from 'puppeteer-core';
+import chromiumPkg from '@sparticuz/chromium';
 import { execSync } from 'child_process';
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { join, dirname } from 'path';
@@ -305,7 +306,7 @@ const CHROMIUM_PATHS = [
   '/snap/bin/chromium',
 ];
 
-function findChromium(): string {
+function findSystemChromium(): string | null {
   for (const p of CHROMIUM_PATHS) {
     try {
       execSync(`test -x "${p}"`, { stdio: 'pipe' });
@@ -317,7 +318,19 @@ function findChromium(): string {
       .toString().trim();
     if (found) return found;
   } catch {}
-  throw new Error('Chromium not found. Install chromium-browser.');
+  return null;
+}
+
+async function getChromiumPath(): Promise<string> {
+  // First try system Chromium (available in sandbox/dev)
+  const systemPath = findSystemChromium();
+  if (systemPath) return systemPath;
+  // Fall back to @sparticuz/chromium (works in production/serverless)
+  try {
+    const execPath = await chromiumPkg.executablePath();
+    if (execPath) return execPath;
+  } catch {}
+  throw new Error('Chromium not found. Install chromium-browser or @sparticuz/chromium.');
 }
 
 /**
@@ -393,10 +406,13 @@ export async function generateContractPdf(fields: ContractFields): Promise<Buffe
   "></div>`;
 
   // Step 5: Render with puppeteer-core + Chromium → PDF
-  const chromiumPath = findChromium();
+  const chromiumPath = await getChromiumPath();
+  // @sparticuz/chromium requires specific args; merge with standard ones
+  const sparticuzArgs = chromiumPkg.args || [];
   const browser = await puppeteer.launch({
     executablePath: chromiumPath,
     args: [
+      ...sparticuzArgs,
       '--no-sandbox',
       '--disable-setuid-sandbox',
       '--disable-dev-shm-usage',
