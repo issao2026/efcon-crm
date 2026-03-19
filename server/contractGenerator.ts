@@ -150,6 +150,15 @@ export type ContractFields = {
   // Financiamento extra
   valor_financiamento?: string;
   valor_entrada_financiamento_extra?: string;
+  // Locação
+  prazo_locacao?: string;
+  dia_vencimento_aluguel?: string;
+  tipo_garantia?: string;
+  valor_garantia?: string;
+  indice_reajuste?: string;
+  multa_rescisao_antecipada?: string;
+  destinacao_imovel?: string;
+  tipo_contrato?: string;
 };
 
 const DEFAULTS: Record<string, string> = {
@@ -230,6 +239,15 @@ const DEFAULTS: Record<string, string> = {
   cpf_testemunha_1: '___________________________',
   nome_testemunha_2: '___________________________',
   cpf_testemunha_2: '___________________________',
+  // Locação
+  prazo_locacao: 'N/A',
+  dia_vencimento_aluguel: 'N/A',
+  tipo_garantia: 'N/A',
+  valor_garantia: 'N/A',
+  indice_reajuste: 'IGPM',
+  multa_rescisao_antecipada: 'N/A',
+  destinacao_imovel: 'residencial',
+  tipo_contrato: 'COMPRA E VENDA',
 };
 
 function buildContentHtml(bodyHtml: string): string {

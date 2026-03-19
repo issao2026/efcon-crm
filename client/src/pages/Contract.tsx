@@ -68,6 +68,14 @@ interface ContractFormData {
   descricaoImovelPermuta: string;
   valorImovelPermuta: string;
   ajusteFinanceiroPermuta: string;
+  // Locação
+  prazoLocacao: string;
+  diaVencimentoAluguel: string;
+  tipoGarantia: string;
+  valorGarantia: string;
+  indiceReajuste: string;
+  multaRescisaoAntecipada: string;
+  destinacaoImovel: string;
   // Imobiliária
   imobiliariaNome: string;
   imobiliariaCnpj: string;
@@ -95,6 +103,9 @@ const INITIAL_FORM: ContractFormData = {
   condicoesDistrato: "conforme lei 13.786/2018", foro: "Brasília, Distrito Federal",
   plataformaAssinatura: "Clicksign",
   descricaoImovelPermuta: "", valorImovelPermuta: "", ajusteFinanceiroPermuta: "",
+  prazoLocacao: "30 meses", diaVencimentoAluguel: "10", tipoGarantia: "caução",
+  valorGarantia: "", indiceReajuste: "IGPM", multaRescisaoAntecipada: "3 alugueis",
+  destinacaoImovel: "residencial",
   imobiliariaNome: "Marcello & Oliveira Imóveis", imobiliariaCnpj: "12.345.678/0001-99",
   imobiliariaEndereco: "CRECI 28.867 J – Brasília, DF",
   localAssinatura: "Brasília, DF", dataAssinatura: new Date().toLocaleDateString("pt-BR"),
@@ -495,6 +506,15 @@ export default function Contract() {
         cpf_testemunha_1: form.testemunha1Cpf,
         nome_testemunha_2: form.testemunha2Nome,
         cpf_testemunha_2: form.testemunha2Cpf,
+        // Locação-specific fields
+        prazo_locacao: form.prazoLocacao || 'N/A',
+        dia_vencimento_aluguel: form.diaVencimentoAluguel || 'N/A',
+        tipo_garantia: form.tipoGarantia || 'N/A',
+        valor_garantia: form.valorGarantia ? `R$ ${form.valorGarantia}` : 'N/A',
+        indice_reajuste: form.indiceReajuste || 'IGPM',
+        multa_rescisao_antecipada: form.multaRescisaoAntecipada || 'N/A',
+        destinacao_imovel: form.destinacaoImovel || 'residencial',
+        tipo_contrato: form.contractType === 'locacao' ? 'LOCAÇÃO' : form.contractType === 'permuta' ? 'PERMUTA' : form.contractType === 'financiamento' ? 'FINANCIAMENTO' : 'COMPRA E VENDA',
       };
       const result = await generateMutation.mutateAsync({ fields });
       setGeneratedPdfUrl(result.contractUrl);
@@ -712,23 +732,65 @@ export default function Contract() {
             </Section>
 
             <Section title="Dados Financeiros" icon={DollarSign}>
-              <Field label={form.contractType === "locacao" ? "Valor mensal (R$)" : "Valor total (R$)"} name="valorTotal" value={form.valorTotal} onChange={setField} required placeholder="Ex: 485000" />
+              <Field label={form.contractType === "locacao" ? "Valor do aluguel mensal (R$)" : "Valor total (R$)"} name="valorTotal" value={form.valorTotal} onChange={setField} required placeholder={form.contractType === "locacao" ? "Ex: 2500" : "Ex: 485000"} />
               {form.contractType !== "locacao" && (
                 <Field label="Valor do sinal (R$)" name="valorSinal" value={form.valorSinal} onChange={setField} placeholder="Ex: 50000" />
               )}
               {(form.contractType === "compra_venda" || form.contractType === "financiamento") && (
                 <Field label="Valor financiado (R$)" name="valorFinanciamento" value={form.valorFinanciamento} onChange={setField} placeholder="Ex: 350000" />
               )}
-              <Field label="Forma de pagamento" name="formaPagamento" value={form.formaPagamento} onChange={setField}
-                options={[
-                  { value: "À vista", label: "À vista" },
-                  { value: "Financiamento bancário", label: "Financiamento bancário" },
-                  { value: "Parcelado", label: "Parcelado" },
-                  { value: "Permuta", label: "Permuta" },
-                ]}
-              />
-              <Field label="Data de vencimento" name="dataVencimento" value={form.dataVencimento} onChange={setField} type="date" />
+              {form.contractType !== "locacao" && (
+                <Field label="Forma de pagamento" name="formaPagamento" value={form.formaPagamento} onChange={setField}
+                  options={[
+                    { value: "À vista", label: "À vista" },
+                    { value: "Financiamento bancário", label: "Financiamento bancário" },
+                    { value: "Parcelado", label: "Parcelado" },
+                    { value: "Permuta", label: "Permuta" },
+                  ]}
+                />
+              )}
+              {form.contractType !== "locacao" && (
+                <Field label="Data de vencimento" name="dataVencimento" value={form.dataVencimento} onChange={setField} type="date" />
+              )}
             </Section>
+
+            {/* Locação-specific section */}
+            {form.contractType === "locacao" && (
+              <Section title="Condições de Locação" icon={Scale} defaultOpen={true}>
+                <Field label="Prazo de locação" name="prazoLocacao" value={form.prazoLocacao} onChange={setField} placeholder="Ex: 30 meses" required />
+                <Field label="Dia de vencimento do aluguel" name="diaVencimentoAluguel" value={form.diaVencimentoAluguel} onChange={setField} placeholder="Ex: 10" />
+                <Field label="Destinação do imóvel" name="destinacaoImovel" value={form.destinacaoImovel} onChange={setField}
+                  options={[
+                    { value: "residencial", label: "Residencial" },
+                    { value: "comercial", label: "Comercial" },
+                    { value: "misto", label: "Misto" },
+                  ]}
+                />
+                <Field label="Índice de reajuste" name="indiceReajuste" value={form.indiceReajuste} onChange={setField}
+                  options={[
+                    { value: "IGPM", label: "IGP-M" },
+                    { value: "IPCA", label: "IPCA" },
+                    { value: "INPC", label: "INPC" },
+                    { value: "IPC", label: "IPC" },
+                  ]}
+                />
+                <Field label="Tipo de garantia" name="tipoGarantia" value={form.tipoGarantia} onChange={setField}
+                  options={[
+                    { value: "caução", label: "Caução (depósito)" },
+                    { value: "fiador", label: "Fiador" },
+                    { value: "seguro-fiança", label: "Seguro-fiança" },
+                    { value: "título de capitalização", label: "Título de capitalização" },
+                    { value: "sem garantia", label: "Sem garantia" },
+                  ]}
+                />
+                {(form.tipoGarantia === "caução" || form.tipoGarantia === "título de capitalização") && (
+                  <Field label="Valor da garantia (R$)" name="valorGarantia" value={form.valorGarantia} onChange={setField} placeholder="Ex: 7500 (3x aluguel)" />
+                )}
+                <Field label="Multa por rescisão antecipada" name="multaRescisaoAntecipada" value={form.multaRescisaoAntecipada} onChange={setField} placeholder="Ex: 3 alugueis proporcionais" />
+                <Field label="Percentual de multa (%)" name="percentualMulta" value={form.percentualMulta} onChange={setField} placeholder="Ex: 10" />
+                <Field label="Foro eleito" name="foro" value={form.foro} onChange={setField} placeholder="Ex: Brasília, Distrito Federal" className="md:col-span-2" />
+              </Section>
+            )}
 
             <Section title="Testemunhas" icon={Users} defaultOpen={false}>
               <Field label="Testemunha 1 – Nome" name="testemunha1Nome" value={form.testemunha1Nome} onChange={setField} placeholder="Nome completo" />
@@ -778,6 +840,7 @@ export default function Contract() {
               <Field label="CNPJ" name="imobiliariaCnpj" value={form.imobiliariaCnpj} onChange={setField} placeholder="00.000.000/0001-00" />
               <Field label="Endereço da imobiliária" name="imobiliariaEndereco" value={form.imobiliariaEndereco} onChange={setField} className="md:col-span-2" />
             </Section>
+{form.contractType !== "locacao" && (
             <Section title="Cláusulas Contratuais" icon={Scale} defaultOpen={false}>
               <Field label="Prazo de entrega da posse" name="prazoEntregaPosse" value={form.prazoEntregaPosse} onChange={setField} placeholder="Ex: 30 dias após assinatura" />
               <Field label="Condição de entrega" name="condicaoEntregaPosse" value={form.condicaoEntregaPosse} onChange={setField} placeholder="Ex: livre e desembaraçado" />
@@ -796,6 +859,7 @@ export default function Contract() {
               <Field label="Condições de distrato" name="condicoesDistrato" value={form.condicoesDistrato} onChange={setField} className="md:col-span-2" />
               <Field label="Foro eleito" name="foro" value={form.foro} onChange={setField} placeholder="Ex: Brasília, Distrito Federal" className="md:col-span-2" />
             </Section>
+            )}
             {form.contractType === "permuta" && (
               <Section title="Dados da Permuta" icon={Repeat2} defaultOpen={true}>
                 <Field label="Descrição do imóvel permutado" name="descricaoImovelPermuta" value={form.descricaoImovelPermuta} onChange={setField} className="md:col-span-2" />

@@ -135,6 +135,12 @@
 - [ ] Fix Clientes cards: show email, phone and role (comprador/vendedor)
 - [ ] Wrap Contract generation page inside DashboardLayout (add sidebar)
 
+## Phase 14 — Contract Type Selector (Compra e Venda / Locação)
+- [x] Add contract type selector at top of Contract form (Compra e Venda / Locação / Permuta / Financiamento)
+- [x] Show/hide fields specific to each type (locação: prazo, dia vencimento, garantia, índice reajuste, multa rescisão; compra e venda: sinal, financiamento, prazo posse, escritura)
+- [x] Update contractGenerator.ts with locação-specific fields in ContractFields type and DEFAULTS
+- [x] Map locação fields in handleGenerate (prazo_locacao, tipo_garantia, indice_reajuste, destinacao_imovel, etc.)
+
 ## Phase 13 — Dashboard Clickable Cards + Spreadsheet Import
 - [x] Make stat cards clickable (navigate to corresponding section)
 - [x] Add WhatsApp floating button (FAB) fixed bottom-right on all dashboard pages (number: 11940388766)
