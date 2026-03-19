@@ -185,3 +185,10 @@
 - [x] Add CEP lookup to Clientes.tsx new client form (with address fields)
 - [x] Add CEP lookup to Negocios.tsx property address form
 - [x] Add CEP lookup to Imoveis.tsx property modal
+
+## Phase 16 — Locação Contract Fix
+- [x] Fix: contrato de locação usa template de Compra e Venda no PDF (Vendedor/Comprador em vez de Locador/Locatário)
+- [x] Added generateLocacaoBodyHtml() function that generates locação HTML directly with LOCADOR(A)/LOCATÁRIO(A) labels and all locação-specific clauses
+- [x] prepareContractHtml() now routes to locação generator when tipo_contrato === 'LOCAÇÃO'
+- [x] Updated tests: locacao test now verifies LOCADOR(A)/LOCATÁRIO(A) labels and absence of VENDEDOR(A)/COMPRADOR(A)
+- [x] All 14 tests passing

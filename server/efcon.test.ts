@@ -230,6 +230,17 @@ describe("contracts.generateHtml", () => {
 
     expect(result.html).toContain("Locador Teste");
     expect(result.html).toContain("<!DOCTYPE html>");
+    // Verify locação uses correct labels (not compra e venda labels)
+    expect(result.html).toContain("LOCADOR(A)");
+    expect(result.html).toContain("LOCAT\u00c1RIO(A)");
+    expect(result.html).not.toContain("VENDEDOR(A)");
+    expect(result.html).not.toContain("COMPRADOR(A)");
+    // Verify locação-specific clauses are present
+    expect(result.html).toContain("CONTRATO DE LOCAÇÃO");
+    // The prazo_locacao value should appear in the HTML
+    expect(result.html).toContain("30 meses");
+    // Locatário name should appear
+    expect(result.html).toContain("Locatário Teste");
   }, 60000);
 });
 

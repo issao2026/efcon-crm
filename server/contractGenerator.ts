@@ -321,11 +321,87 @@ function findChromium(): string {
 }
 
 /**
- * Shared helper: merge fields with defaults, fill DOCX template, convert to HTML.
+ * Generate the body HTML for a Locação (rental) contract.
+ * Since the DOCX template is for Compra e Venda only, we generate locação HTML directly.
+ */
+function generateLocacaoBodyHtml(f: Record<string, string>): string {
+  const v = (key: string, fallback = '___________________________') => f[key] || fallback;
+  return `
+<p style="text-align:center"><strong>CONTRATO DE LOCAÇÃO RESIDENCIAL/COMERCIAL</strong></p>
+<p style="text-align:center">Marcello &amp; Oliveira Negócios Imobiliários – CRECI ${v('creci_imobiliaria', '28.867 J')}</p>
+<br>
+<p>Pelo presente instrumento particular, as partes abaixo qualificadas celebram o presente <strong>Contrato de Locação</strong>, que se regerá pelas cláusulas e condições seguintes:</p>
+<br>
+<p><strong>LOCADOR(A):</strong></p>
+<p style="margin-left:1.5cm">${v('nome_vendedor')}, ${v('nacionalidade_vendedor', '')}${v('estado_civil_vendedor', '') ? ', ' + v('estado_civil_vendedor', '') : ''}${v('profissao_vendedor', '') ? ', ' + v('profissao_vendedor', '') : ''}, portador(a) do ${v('tipo_documento_vendedor', 'RG')} nº ${v('numero_documento_vendedor')}, inscrito(a) no CPF/CNPJ sob nº ${v('cpf_cnpj_vendedor')}, residente e domiciliado(a) em ${v('endereco_vendedor')}, doravante denominado(a) <strong>LOCADOR(A)</strong>.</p>
+<br>
+<p><strong>LOCATÁRIO(A):</strong></p>
+<p style="margin-left:1.5cm">${v('nome_comprador')}, ${v('nacionalidade_comprador', '')}${v('estado_civil_comprador', '') ? ', ' + v('estado_civil_comprador', '') : ''}${v('profissao_comprador', '') ? ', ' + v('profissao_comprador', '') : ''}, portador(a) do ${v('tipo_documento_comprador', 'RG')} nº ${v('numero_documento_comprador')}, inscrito(a) no CPF/CNPJ sob nº ${v('cpf_cnpj_comprador')}, residente e domiciliado(a) em ${v('endereco_comprador')}, doravante denominado(a) <strong>LOCATÁRIO(A)</strong>.</p>
+<br>
+<p><strong>INTERMEDIADORA (SE APLICÁVEL):</strong></p>
+<p style="margin-left:1.5cm">${v('nome_intermediadora', 'Marcello &amp; Oliveira Negócios Imobiliários')}, inscrita no CNPJ sob nº ${v('cnpj_intermediadora', '12.345.678/0001-99')}, CRECI nº ${v('creci_intermediadora', '28.867 J')}, com endereço comercial em ${v('endereco_intermediadora', 'CRECI 28.867 J – Brasília, DF')}, doravante denominada <strong>INTERMEDIADORA</strong>.</p>
+<br>
+<p><strong>CLÁUSULA 1ª – DO OBJETO</strong></p>
+<p>O presente contrato tem por objeto a locação do imóvel: <strong>${v('descricao_imovel')}</strong>, matrícula nº ${v('matricula_imovel')} – ${v('cartorio_registro_imoveis')}, destinado a uso <strong>${v('destinacao_imovel', 'residencial')}</strong>.</p>
+<br>
+<p><strong>CLÁUSULA 2ª – DO PRAZO</strong></p>
+<p>A locação terá prazo de <strong>${v('prazo_locacao', '___________________________')}</strong>, iniciando-se na data de assinatura deste instrumento.</p>
+<br>
+<p><strong>CLÁUSULA 3ª – DO ALUGUEL</strong></p>
+<p>O valor do aluguel mensal é de <strong>${v('valor_total_contrato')}</strong>, a ser pago até o dia <strong>${v('dia_vencimento_aluguel', '___')}</strong> de cada mês, mediante ${v('modalidade_pagamento', 'transferência bancária')}.</p>
+<br>
+<p><strong>CLÁUSULA 4ª – DO REAJUSTE</strong></p>
+<p>O aluguel será reajustado anualmente pelo índice <strong>${v('indice_reajuste', 'IGPM')}</strong>, conforme variação acumulada no período.</p>
+<br>
+<p><strong>CLÁUSULA 5ª – DA GARANTIA</strong></p>
+<p>Como garantia locatícia, fica estabelecida: <strong>${v('tipo_garantia', '___________________________')}</strong>${v('valor_garantia', '') !== '___________________________' ? ', no valor de ' + v('valor_garantia') : ''}.</p>
+<br>
+<p><strong>CLÁUSULA 6ª – DAS OBRIGAÇÕES DO LOCATÁRIO</strong></p>
+<p>O LOCATÁRIO obriga-se a: (a) pagar pontualmente o aluguel e encargos; (b) usar o imóvel conforme sua destinação; (c) conservar o imóvel em bom estado; (d) não sublocar ou ceder o imóvel sem autorização expressa do LOCADOR; (e) restituir o imóvel ao término do contrato nas mesmas condições em que o recebeu.</p>
+<br>
+<p><strong>CLÁUSULA 7ª – DAS OBRIGAÇÕES DO LOCADOR</strong></p>
+<p>O LOCADOR obriga-se a: (a) entregar o imóvel em condições de uso; (b) garantir ao LOCATÁRIO o uso pacífico do imóvel; (c) responder pelos vícios ou defeitos anteriores à locação.</p>
+<br>
+<p><strong>CLÁUSULA 8ª – DA RESCISÃO E MULTA</strong></p>
+<p>Em caso de rescisão antecipada pelo LOCATÁRIO, será devida multa de <strong>${v('multa_rescisao_antecipada', '___________________________')}</strong>. ${v('condicoes_distrato', '')}.</p>
+<br>
+<p><strong>CLÁUSULA 9ª – DO FORO</strong></p>
+<p>Fica eleito o foro da comarca de <strong>${v('foro_eleito', 'Brasília, Distrito Federal')}</strong> para dirimir quaisquer controvérsias oriundas do presente contrato.</p>
+<br>
+<p>E por estarem assim justos e contratados, assinam o presente instrumento em 2 (duas) vias de igual teor e forma, na presença das testemunhas abaixo.</p>
+<br>
+<p>${v('cidade_assinatura')}, ${v('data_assinatura')}.</p>
+<br><br>
+<table style="width:100%;border:none">
+  <tr>
+    <td style="border:none;width:50%;text-align:center">___________________________<br><strong>${v('nome_vendedor')}</strong><br>LOCADOR(A)<br>CPF: ${v('cpf_cnpj_vendedor')}</td>
+    <td style="border:none;width:50%;text-align:center">___________________________<br><strong>${v('nome_comprador')}</strong><br>LOCATÁRIO(A)<br>CPF: ${v('cpf_cnpj_comprador')}</td>
+  </tr>
+</table>
+<br>
+<table style="width:100%;border:none">
+  <tr>
+    <td style="border:none;width:50%;text-align:center">___________________________<br><strong>${v('razao_social_imobiliaria', 'Marcello &amp; Oliveira Imóveis')}</strong><br>INTERMEDIADORA<br>CRECI: ${v('creci_imobiliaria', '28.867 J')}</td>
+    <td style="border:none;width:50%;text-align:center"></td>
+  </tr>
+</table>
+<br>
+<p><strong>Testemunhas:</strong></p>
+<table style="width:100%;border:none">
+  <tr>
+    <td style="border:none;width:50%;text-align:center">___________________________<br>${v('nome_testemunha_1')}<br>CPF: ${v('cpf_testemunha_1')}</td>
+    <td style="border:none;width:50%;text-align:center">___________________________<br>${v('nome_testemunha_2')}<br>CPF: ${v('cpf_testemunha_2')}</td>
+  </tr>
+</table>
+`;
+}
+
+/**
+ * Shared helper: merge fields with defaults, fill DOCX template (or generate locação HTML), convert to HTML.
  * Returns { bodyHtml, mascaraUri }.
  */
 async function prepareContractHtml(fields: ContractFields): Promise<{ bodyHtml: string; mascaraUri: string }> {
-  await ensureTemplates();
+  const mascaraUri = getMascaraDataUri();
 
   // Merge defaults + provided fields
   const merged: Record<string, string> = {};
@@ -336,6 +412,13 @@ async function prepareContractHtml(fields: ContractFields): Promise<{ bodyHtml: 
     if (v !== undefined && v !== null && v !== '') merged[k] = String(v);
   }
 
+  // For Locação contracts: generate HTML directly (no DOCX template available)
+  if (merged.tipo_contrato === 'LOCAÇÃO' || merged.tipo_contrato === 'LOCACAO') {
+    const bodyHtml = generateLocacaoBodyHtml(merged);
+    return { bodyHtml, mascaraUri };
+  }
+
+  await ensureTemplates();
   // Step 1: Fill DOCX template with docxtemplater
   const templateContent = readFileSync(TEMPLATE_DOCX, 'binary');
   const zip = new PizZip(templateContent);
@@ -347,12 +430,9 @@ async function prepareContractHtml(fields: ContractFields): Promise<{ bodyHtml: 
   });
   doc.render(merged);
   const filledDocxBuf = doc.getZip().generate({ type: 'nodebuffer' });
-
   // Step 2: Convert filled DOCX → HTML with mammoth
   const mammothResult = await mammoth.convertToHtml({ buffer: filledDocxBuf });
   const bodyHtml = mammothResult.value;
-
-  const mascaraUri = getMascaraDataUri();
   return { bodyHtml, mascaraUri };
 }
 
