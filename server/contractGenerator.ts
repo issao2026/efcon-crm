@@ -456,26 +456,45 @@ export async function generateContractHtml(fields: ContractFields): Promise<stri
 <title>Contrato – Marcello &amp; Oliveira Imóveis</title>
 <style>
   * { box-sizing: border-box; }
-  @page {
-    size: A4;
-    margin: 0;
-    background-image: url('${mascaraUri}');
-    background-size: 100% 100%;
-    background-repeat: no-repeat;
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
-  }
+  @page { size: A4; margin: 0; }
   html, body {
     margin: 0;
     padding: 0;
     font-family: Arial, Helvetica, sans-serif;
     font-size: 9.5pt;
     color: #111;
+    background: white;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  /*
+   * Mascara letterhead — position:fixed so it covers every printed page.
+   * @page background-image is NOT supported by Chrome/Firefox/Edge (only Puppeteer/WeasyPrint).
+   * Using a fixed <img> element is the only cross-browser way to get a background on every page.
+   */
+  .mascara-bg {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 0;
+    pointer-events: none;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .mascara-bg img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: fill;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
   .page-content {
-    /* Top: 3.2cm header area + 1cm gap; Bottom: 5.5cm footer + 0.5cm gap; Sides: 2.2cm */
+    position: relative;
+    z-index: 1;
+    /* Top: 3.2cm header + 1cm gap; Bottom: 5.5cm footer + 0.5cm gap; Sides: 2.2cm */
     padding: 4.2cm 2.2cm 6.0cm 2.2cm;
     min-height: 29.7cm;
   }
@@ -537,11 +556,19 @@ export async function generateContractHtml(fields: ContractFields): Promise<stri
   .print-bar .btn-close:hover { background: #fecaca; }
   @media print {
     .print-bar { display: none !important; }
-    .page-content { padding-top: 4.2cm; }
+    /* Ensure mascara is rendered in print — Chrome requires -webkit-print-color-adjust */
+    .mascara-bg, .mascara-bg img {
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
   }
 </style>
 </head>
 <body>
+<!-- Mascara letterhead: fixed behind all content, visible on screen AND in print -->
+<div class="mascara-bg" aria-hidden="true">
+  <img src="${mascaraUri}" alt="" />
+</div>
 <div class="print-bar">
   <span>📄 Contrato pronto – Marcello &amp; Oliveira Imóveis</span>
   <button onclick="window.print()">🖨️ Imprimir / Salvar como PDF</button>
@@ -551,10 +578,17 @@ export async function generateContractHtml(fields: ContractFields): Promise<stri
 ${bodyHtml}
 </div>
 <script>
-  // Auto-trigger print dialog after a short delay so the page renders first
-  window.addEventListener('load', function() {
-    setTimeout(function() { window.print(); }, 800);
-  });
+  // Wait for the mascara image to load before triggering the print dialog
+  var img = document.querySelector('.mascara-bg img');
+  function triggerPrint() {
+    setTimeout(function() { window.print(); }, 600);
+  }
+  if (img && !img.complete) {
+    img.addEventListener('load', triggerPrint);
+    img.addEventListener('error', triggerPrint); // print even if image fails
+  } else {
+    window.addEventListener('load', triggerPrint);
+  }
 </script>
 </body>
 </html>`;

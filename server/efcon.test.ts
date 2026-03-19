@@ -199,8 +199,9 @@ describe("contracts.generateHtml", () => {
     // Should return an HTML string
     expect(result).toHaveProperty("html");
     expect(typeof result.html).toBe("string");
-    // HTML should contain the mascara background-image
-    expect(result.html).toContain("background-image");
+    // HTML should contain the mascara-bg element with an <img> tag (fixed-position letterhead)
+    expect(result.html).toContain("mascara-bg");
+    expect(result.html).toContain("<img src=");
     // HTML should contain the contract content
     expect(result.html).toContain("João Silva");
     // HTML should contain the print button

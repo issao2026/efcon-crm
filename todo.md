@@ -141,6 +141,7 @@
 - [x] Fix Contract.tsx fallback: when Puppeteer fails in production, call generateHtml endpoint and open the branded HTML in a new window for printing
 - [x] Update tests: add generateHtml tests, fix obsolete demo-data tests to reflect real-data behavior
 - [x] All 14 tests passing
+- [x] Fix mascara not loading: replaced @page background-image (not supported by browsers) with position:fixed <img> element (works in Chrome/Firefox/Edge print)
 
 ## Phase 14 — Contract Type Selector (Compra e Venda / Locação)
 - [x] Add contract type selector at top of Contract form (Compra e Venda / Locação / Permuta / Financiamento)
