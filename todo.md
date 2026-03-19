@@ -135,6 +135,14 @@
 - [ ] Fix Clientes cards: show email, phone and role (comprador/vendedor)
 - [ ] Wrap Contract generation page inside DashboardLayout (add sidebar)
 
+## Phase 13 — Dashboard Clickable Cards + Spreadsheet Import
+- [x] Make stat cards clickable (navigate to corresponding section)
+- [x] Add WhatsApp floating button (FAB) fixed bottom-right on all dashboard pages (number: 11940388766)
+- [x] Create spreadsheet import modal in Dashboard with file upload, preview table, column mapping, and import action
+- [x] Add spreadsheet import (Excel/CSV) for deals and clients
+- [x] Create import modal with file upload, preview, and column mapping
+- [x] Add server-side import procedure (parse XLSX/CSV, validate, bulk insert)
+
 ## Phase 12 — Dashboard Real Data + Actions
 - [x] Remove fake/static data from Dashboard (hardcoded trends, fake activities)
 - [x] Connect dashboard stats cards to real DB data

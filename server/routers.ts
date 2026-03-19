@@ -17,6 +17,7 @@ import {
   getActivities, createActivity,
 } from "./db";
 import { nanoid } from "nanoid";
+import * as XLSX from "xlsx";
 import { generateContractPdf, type ContractFields } from "./contractGenerator";
 
 // ─── Contract template ───────────────────────────────────────────────────────
@@ -860,7 +861,7 @@ Retorne um JSON com sugestões para campos vazios ou incompletos.`,
       await db.update(propsTable).set(data).where(and(eq(propsTable.id, id), eq(propsTable.userId, ctx.user.id)));
       return { success: true };
     }),
-    delete: protectedProcedure.input(z.object({ id: z.number() })).mutation(async ({ ctx, input }) => {
+     delete: protectedProcedure.input(z.object({ id: z.number() })).mutation(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new Error('DB not available');
       const { properties: propsTable } = await import('../drizzle/schema');
@@ -869,6 +870,119 @@ Retorne um JSON com sugestões para campos vazios ou incompletos.`,
       return { success: true };
     }),
   }),
-});
 
+  // ─── Import (Spreadsheet) ────────────────────────────────────────────────────
+  import: router({
+    // Parse a base64-encoded XLSX/CSV file and return rows as JSON (preview)
+    preview: protectedProcedure.input(z.object({
+      fileBase64: z.string(),
+      fileName: z.string(),
+      sheetIndex: z.number().default(0),
+    })).mutation(async ({ input }) => {
+      const buf = Buffer.from(input.fileBase64, 'base64');
+      const wb = XLSX.read(buf, { type: 'buffer' });
+      const sheetName = wb.SheetNames[input.sheetIndex] ?? wb.SheetNames[0];
+      const ws = wb.Sheets[sheetName];
+      const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' }) as string[][];
+      const headers = rows[0] ?? [];
+      const data = rows.slice(1).filter(r => r.some(c => c !== '')).slice(0, 10); // preview first 10 rows
+      return { headers, preview: data, sheetNames: wb.SheetNames, totalRows: rows.length - 1 };
+    }),
+
+    // Import clients from spreadsheet
+    clients: protectedProcedure.input(z.object({
+      fileBase64: z.string(),
+      fileName: z.string(),
+      sheetIndex: z.number().default(0),
+      mapping: z.object({
+        name: z.number(),
+        cpfCnpj: z.number().optional(),
+        email: z.number().optional(),
+        phone: z.number().optional(),
+        address: z.number().optional(),
+        clientRole: z.number().optional(),
+        profession: z.number().optional(),
+        maritalStatus: z.number().optional(),
+      }),
+      hasHeader: z.boolean().default(true),
+    })).mutation(async ({ ctx, input }) => {
+      const buf = Buffer.from(input.fileBase64, 'base64');
+      const wb = XLSX.read(buf, { type: 'buffer' });
+      const sheetName = wb.SheetNames[input.sheetIndex] ?? wb.SheetNames[0];
+      const ws = wb.Sheets[sheetName];
+      const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' }) as string[][];
+      const dataRows = input.hasHeader ? rows.slice(1) : rows;
+      const validRoles = ['comprador', 'vendedor', 'locador', 'locatario', 'fiador', 'corretor'];
+      let imported = 0, skipped = 0;
+      for (const row of dataRows) {
+        const name = String(row[input.mapping.name] ?? '').trim();
+        if (!name) { skipped++; continue; }
+        const rawRole = input.mapping.clientRole != null ? String(row[input.mapping.clientRole] ?? '').toLowerCase().trim() : '';
+        const clientRole = validRoles.includes(rawRole) ? rawRole as any : 'comprador';
+        await createClient({
+          userId: ctx.user.id,
+          name,
+          cpfCnpj: input.mapping.cpfCnpj != null ? String(row[input.mapping.cpfCnpj] ?? '').trim() || undefined : undefined,
+          email: input.mapping.email != null ? String(row[input.mapping.email] ?? '').trim() || undefined : undefined,
+          phone: input.mapping.phone != null ? String(row[input.mapping.phone] ?? '').trim() || undefined : undefined,
+          address: input.mapping.address != null ? String(row[input.mapping.address] ?? '').trim() || undefined : undefined,
+          profession: input.mapping.profession != null ? String(row[input.mapping.profession] ?? '').trim() || undefined : undefined,
+          maritalStatus: input.mapping.maritalStatus != null ? String(row[input.mapping.maritalStatus] ?? '').trim() || undefined : undefined,
+          clientRole,
+        });
+        imported++;
+      }
+      return { imported, skipped };
+    }),
+
+    // Import deals from spreadsheet
+    deals: protectedProcedure.input(z.object({
+      fileBase64: z.string(),
+      fileName: z.string(),
+      sheetIndex: z.number().default(0),
+      mapping: z.object({
+        type: z.number(),
+        totalValue: z.number().optional(),
+        monthlyValue: z.number().optional(),
+        status: z.number().optional(),
+        notes: z.number().optional(),
+        subtype: z.number().optional(),
+        paymentModality: z.number().optional(),
+      }),
+      hasHeader: z.boolean().default(true),
+    })).mutation(async ({ ctx, input }) => {
+      const buf = Buffer.from(input.fileBase64, 'base64');
+      const wb = XLSX.read(buf, { type: 'buffer' });
+      const sheetName = wb.SheetNames[input.sheetIndex] ?? wb.SheetNames[0];
+      const ws = wb.Sheets[sheetName];
+      const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' }) as string[][];
+      const dataRows = input.hasHeader ? rows.slice(1) : rows;
+      const typeMap: Record<string, string> = { venda: 'venda', locacao: 'locacao', locação: 'locacao', permuta: 'permuta', financiamento: 'financiamento' };
+      const statusMap: Record<string, string> = { rascunho: 'rascunho', 'em andamento': 'em_andamento', 'em_andamento': 'em_andamento', 'contrato gerado': 'contrato_gerado', assinatura: 'assinatura', concluido: 'concluido', concluído: 'concluido' };
+      let imported = 0, skipped = 0;
+      for (const row of dataRows) {
+        const rawType = String(row[input.mapping.type] ?? '').toLowerCase().trim();
+        const dealType = typeMap[rawType] as any;
+        if (!dealType) { skipped++; continue; }
+        const rawStatus = input.mapping.status != null ? String(row[input.mapping.status] ?? '').toLowerCase().trim() : '';
+        const status = (statusMap[rawStatus] as any) || 'rascunho';
+        const prefix = dealType === 'venda' ? 'VND' : dealType === 'locacao' ? 'LOC' : dealType === 'permuta' ? 'PRM' : 'FIN';
+        const code = `${prefix}-${String(Date.now()).slice(-6)}-${nanoid(3).toUpperCase()}`;
+        await createDeal({
+          userId: ctx.user.id,
+          code,
+          type: dealType,
+          status,
+          subtype: input.mapping.subtype != null ? String(row[input.mapping.subtype] ?? '').trim() || undefined : undefined,
+          totalValue: input.mapping.totalValue != null ? String(row[input.mapping.totalValue] ?? '').replace(/[^0-9.,]/g, '').replace(',', '.') || undefined : undefined,
+          monthlyValue: input.mapping.monthlyValue != null ? String(row[input.mapping.monthlyValue] ?? '').replace(/[^0-9.,]/g, '').replace(',', '.') || undefined : undefined,
+          paymentModality: input.mapping.paymentModality != null ? String(row[input.mapping.paymentModality] ?? '').trim() || undefined : undefined,
+          notes: input.mapping.notes != null ? String(row[input.mapping.notes] ?? '').trim() || undefined : undefined,
+        });
+        imported++;
+      }
+      return { imported, skipped };
+    }),
+  }),
+});
 export type AppRouter = typeof appRouter;

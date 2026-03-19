@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { SpreadsheetImportModal } from "@/components/SpreadsheetImportModal";
 import { Link, useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
@@ -8,7 +9,7 @@ import { DashboardShell } from "@/components/DashboardShell";
 import { toast } from "sonner";
 import {
   Briefcase, FileText, FileOutput,
-  DollarSign, BarChart3, Plus,
+  DollarSign, BarChart3, Plus, ChevronRight,
   TrendingUp, AlertTriangle, CheckCircle2, Clock, Home, 
   Filter, RefreshCw, Upload, Search, Pencil, Trash2, X, Save,
   Eye,
@@ -294,6 +295,7 @@ export default function Dashboard() {
   const [typeFilter, setTypeFilter] = useState<"todos" | DealType>("todos");
   const [editingDeal, setEditingDeal] = useState<Deal | null>(null);
   const [deletingDeal, setDeletingDeal] = useState<Deal | null>(null);
+  const [showImport, setShowImport] = useState(false);
 
   const { data: stats } = trpc.dashboard.stats.useQuery(undefined, { enabled: isAuthenticated });
   const { data: deals = [], isLoading: dealsLoading } = trpc.dashboard.deals.useQuery(undefined, { enabled: isAuthenticated });
@@ -327,6 +329,7 @@ export default function Dashboard() {
       trend: dealsThisMonth > 0 ? `+${dealsThisMonth} este mês` : "Nenhum este mês",
       trendColor: dealsThisMonth > 0 ? "text-green-500" : "text-gray-400",
       accent: "border-l-blue-500",
+      href: "/dashboard/negocios",
     },
     {
       icon: FileOutput,
@@ -335,6 +338,7 @@ export default function Dashboard() {
       trend: stats?.totalContracts ? `${stats.totalContracts} total` : "Nenhum ainda",
       trendColor: "text-blue-500",
       accent: "border-l-purple-500",
+      href: "/dashboard/contratos",
     },
     {
       icon: DollarSign,
@@ -343,6 +347,7 @@ export default function Dashboard() {
       trend: stats?.totalVolume ? "em negócios ativos" : "Sem negócios",
       trendColor: "text-green-500",
       accent: "border-l-green-500",
+      href: "/dashboard/financeiro",
     },
     {
       icon: AlertTriangle,
@@ -351,6 +356,7 @@ export default function Dashboard() {
       trend: stats?.pendingDocs ? "documentos pendentes" : "Tudo em dia",
       trendColor: stats?.pendingDocs ? "text-red-500" : "text-green-500",
       accent: "border-l-red-500",
+      href: "/dashboard/documentos",
     },
   ];
 
@@ -372,6 +378,7 @@ export default function Dashboard() {
       {/* Modals */}
       {editingDeal && <EditDealModal deal={editingDeal} onClose={() => setEditingDeal(null)} />}
       {deletingDeal && <DeleteDealModal deal={deletingDeal} onClose={() => setDeletingDeal(null)} />}
+      {showImport && <SpreadsheetImportModal onClose={() => setShowImport(false)} />}
 
       {/* Header */}
       <div className="flex items-start justify-between mb-6 flex-wrap gap-3">
@@ -381,21 +388,36 @@ export default function Dashboard() {
             Atualizado às {new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })} · {userName}
           </p>
         </div>
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-2 text-xs border-green-200 text-green-700 hover:bg-green-50 hover:border-green-400"
+          onClick={() => setShowImport(true)}
+        >
+          <Upload className="w-4 h-4" />
+          <span className="hidden sm:inline">Importar planilha</span>
+          <span className="sm:hidden">Importar</span>
+        </Button>
       </div>
 
       {/* Stat cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
         {statCards.map((card) => (
-          <div key={card.label} className={`bg-white rounded-xl border border-border p-4 border-l-4 ${card.accent}`}>
-            <div className="flex items-center justify-between mb-2">
-              <card.icon className="w-4 h-4 text-muted-foreground" />
-              <span className={`text-xs font-semibold flex items-center gap-1 ${card.trendColor}`}>
-                <TrendingUp className="w-3 h-3" /> {card.trend}
-              </span>
+          <Link key={card.label} href={card.href}>
+            <div className={`bg-white rounded-xl border border-border p-4 border-l-4 ${card.accent} cursor-pointer hover:shadow-md hover:-translate-y-0.5 transition-all duration-150 group`}>
+              <div className="flex items-center justify-between mb-2">
+                <card.icon className="w-4 h-4 text-muted-foreground group-hover:text-blue-600 transition-colors" />
+                <span className={`text-xs font-semibold flex items-center gap-1 ${card.trendColor}`}>
+                  <TrendingUp className="w-3 h-3" /> {card.trend}
+                </span>
+              </div>
+              <div className="text-xl font-black text-gray-900">{card.value}</div>
+              <div className="text-muted-foreground text-xs mt-1 flex items-center justify-between">
+                <span>{card.label}</span>
+                <ChevronRight className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+              </div>
             </div>
-            <div className="text-xl font-black text-gray-900">{card.value}</div>
-            <div className="text-muted-foreground text-xs mt-1">{card.label}</div>
-          </div>
+          </Link>
         ))}
       </div>
 

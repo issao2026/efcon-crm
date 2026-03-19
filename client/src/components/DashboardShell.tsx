@@ -8,6 +8,7 @@ import {
   DollarSign, BarChart3, Settings, Bell, Search, Plus, LogOut, FolderOpen,
   Menu, X, Home,
 } from "lucide-react";
+import { WhatsAppFAB } from "@/components/WhatsAppFAB";
 
 interface DashboardShellProps {
   children: React.ReactNode;
@@ -213,6 +214,9 @@ export function DashboardShell({ children, headerRight, searchPlaceholder }: Das
           {children}
         </main>
       </div>
+
+      {/* WhatsApp Floating Button */}
+      <WhatsAppFAB />
     </div>
   );
 }
