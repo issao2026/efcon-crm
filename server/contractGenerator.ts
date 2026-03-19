@@ -250,7 +250,14 @@ const DEFAULTS: Record<string, string> = {
   tipo_contrato: 'COMPRA E VENDA',
 };
 
-function buildContentHtml(bodyHtml: string): string {
+/**
+ * Build the plain content HTML for Puppeteer PDF generation.
+ * The mascara is injected via headerTemplate/footerTemplate in the pdf() call,
+ * NOT in the body. This ensures the mascara appears correctly on every page.
+ * The body only contains the text content with no background.
+ * _mascaraUri is accepted but unused here (kept for signature compatibility).
+ */
+function buildContractHtmlWithBackground(bodyHtml: string, _mascaraUri: string): string {
   return `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -264,8 +271,6 @@ function buildContentHtml(bodyHtml: string): string {
     font-family: Arial, Helvetica, sans-serif;
     font-size: 9.5pt;
     color: #111;
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
   }
   h1, h2, h3 {
     font-size: 9.5pt;
@@ -442,37 +447,38 @@ async function prepareContractHtml(fields: ContractFields): Promise<{ bodyHtml: 
 export async function generateContractPdf(fields: ContractFields): Promise<Buffer> {
   const { bodyHtml, mascaraUri } = await prepareContractHtml(fields);
 
-  // Build content HTML (no background — mascara goes in header/footer templates)
-  const fullHtml = buildContentHtml(bodyHtml);
+  // Build plain content HTML (no background — mascara goes in header/footer templates)
+  const fullHtml = buildContractHtmlWithBackground(bodyHtml, mascaraUri);
 
-  // Build header/footer templates with the mascara letterhead
-  // The mascara image is A4 (1241x1754px):
-  //   - Header region: top 10.1% = 3.0cm
-  //   - Footer region: bottom 17.6% = 5.22cm
-  // We use background-position to show only the relevant part of the image.
+  // Mascara layout analysis (from pixel analysis of mascara_bg.png 1241x1754px = A4):
+  //   - Header dark area: 0–3.0cm from top
+  //   - Footer dark area: starts at 24.37cm, height = 5.33cm
+  // Header template: shows top 3.2cm of mascara (full width, background-position: top)
+  // Footer template: shows bottom 5.6cm of mascara (full width, background-position: bottom)
+  // Page margins: top 3.5cm (header height + 0.3cm buffer), bottom 5.8cm (footer height + 0.5cm buffer)
 
-  // Header: show top portion of mascara (3.2cm tall, full width)
   const headerTemplate = `<div style="
-    width: 100%;
+    width: 21cm;
     height: 3.2cm;
     margin: 0;
     padding: 0;
+    overflow: hidden;
     background-image: url('${mascaraUri}');
-    background-size: 100% auto;
+    background-size: 21cm 29.7cm;
     background-repeat: no-repeat;
     background-position: top left;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   "></div>`;
 
-  // Footer: show bottom portion of mascara (5.5cm tall, full width)
   const footerTemplate = `<div style="
-    width: 100%;
-    height: 5.5cm;
+    width: 21cm;
+    height: 5.6cm;
     margin: 0;
     padding: 0;
+    overflow: hidden;
     background-image: url('${mascaraUri}');
-    background-size: 100% auto;
+    background-size: 21cm 29.7cm;
     background-repeat: no-repeat;
     background-position: bottom left;
     -webkit-print-color-adjust: exact;
@@ -502,9 +508,9 @@ export async function generateContractPdf(fields: ContractFields): Promise<Buffe
       headerTemplate,
       footerTemplate,
       margin: {
-        top: '4.2cm',
+        top: '3.8cm',
         right: '2.2cm',
-        bottom: '6.5cm',
+        bottom: '5.8cm',
         left: '2.2cm',
       },
     });

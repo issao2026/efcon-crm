@@ -192,3 +192,11 @@
 - [x] prepareContractHtml() now routes to locação generator when tipo_contrato === 'LOCAÇÃO'
 - [x] Updated tests: locacao test now verifies LOCADOR(A)/LOCATÁRIO(A) labels and absence of VENDEDOR(A)/COMPRADOR(A)
 - [x] All 14 tests passing
+
+## Phase 17 — PDF Margin Fix (Mascara Overlap)
+- [x] Fix: texto invadindo a área preta da máscara nas páginas 2 e 3 do PDF
+- [x] Analyzed mascara image pixel-by-pixel: header dark area 0–3.0cm, footer dark area starts at 24.37cm (5.33cm tall)
+- [x] Fixed approach: use headerTemplate (3.2cm, background-size: 21cm 29.7cm, position: top) + footerTemplate (5.6cm, position: bottom)
+- [x] Set correct page margins: top 3.8cm, bottom 5.8cm, left/right 2.2cm
+- [x] Verified visually: all 3 pages have mascara correctly with text inside white area
+- [x] All 14 tests passing
