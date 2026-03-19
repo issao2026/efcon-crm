@@ -18,7 +18,7 @@ import {
 } from "./db";
 import { nanoid } from "nanoid";
 import * as XLSX from "xlsx";
-import { generateContractPdf, type ContractFields } from "./contractGenerator";
+import { generateContractPdf, generateContractHtml, type ContractFields } from "./contractGenerator";
 
 // ─── Contract template ───────────────────────────────────────────────────────
 const CONTRACT_TEMPLATE = `CONTRATO PADRÃO DE PROMESSA DE COMPRA E VENDA DE IMÓVEL
@@ -735,6 +735,13 @@ Retorne confidence (0-100) indicando a qualidade da extração.`,
       await createActivity({ userId: ctx.user.id, type: 'contract', title: 'Contrato gerado', description: `Para ${input.fields.nome_vendedor || 'N/A'}` });
       await notifyOwner({ title: 'Contrato gerado', content: `Vendedor: ${input.fields.nome_vendedor || 'N/A'}, Comprador: ${input.fields.nome_comprador || 'N/A'}` });
       return { contractUrl, htmlContent: '', filledText: '' };
+    }),
+    generateHtml: protectedProcedure.input(z.object({
+      fields: z.record(z.string(), z.string()),
+    })).mutation(async ({ input }) => {
+      const contractFields: ContractFields = { ...input.fields };
+      const html = await generateContractHtml(contractFields);
+      return { html };
     }),
     suggestFields: protectedProcedure.input(z.object({
       partialFields: z.record(z.string(), z.string()),

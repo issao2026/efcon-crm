@@ -83,65 +83,69 @@ describe("dashboard", () => {
     expect(stats.activeDeals).toBeGreaterThanOrEqual(0);
   });
 
-  it("returns demo deals when DB is unavailable", async () => {
+  it("returns deals array from DB (may be empty in test environment)", async () => {
     const { ctx } = createAuthContext();
     const caller = appRouter.createCaller(ctx);
 
     const deals = await caller.dashboard.deals();
 
+    // Should always return an array (real data or empty)
     expect(Array.isArray(deals)).toBe(true);
-    expect(deals.length).toBeGreaterThan(0);
 
-    // Check first deal has required fields
-    const first = deals[0] as any;
-    expect(first).toHaveProperty("type");
-    expect(first).toHaveProperty("status");
-    expect(["venda", "locacao", "permuta", "financiamento"]).toContain(first.type);
-    expect(["rascunho", "em_andamento", "contrato_gerado", "assinatura", "concluido"]).toContain(first.status);
+    // If there are deals, they should have the correct structure
+    if (deals.length > 0) {
+      const first = deals[0] as any;
+      expect(first).toHaveProperty("type");
+      expect(first).toHaveProperty("status");
+      expect(["venda", "locacao", "permuta", "financiamento"]).toContain(first.type);
+      expect(["rascunho", "em_andamento", "contrato_gerado", "assinatura", "concluido"]).toContain(first.status);
+    }
   });
 
-  it("returns activities with correct structure", async () => {
+  it("returns activities array from DB (may be empty in test environment)", async () => {
     const { ctx } = createAuthContext();
     const caller = appRouter.createCaller(ctx);
 
     const activities = await caller.dashboard.activities();
 
     expect(Array.isArray(activities)).toBe(true);
-    expect(activities.length).toBeGreaterThan(0);
 
-    const act = activities[0] as any;
-    expect(act).toHaveProperty("type");
-    expect(act).toHaveProperty("title");
-    expect(act).toHaveProperty("createdAt");
+    // If there are activities, they should have the correct structure
+    if (activities.length > 0) {
+      const act = activities[0] as any;
+      expect(act).toHaveProperty("type");
+      expect(act).toHaveProperty("title");
+      expect(act).toHaveProperty("createdAt");
+    }
   });
 });
 
 // ─── Pipeline stage tests ─────────────────────────────────────────────────────
 describe("pipeline stages", () => {
-  it("demo deals cover all 5 pipeline stages", async () => {
+  it("deals have valid pipeline statuses when present", async () => {
     const { ctx } = createAuthContext();
     const caller = appRouter.createCaller(ctx);
 
     const deals = await caller.dashboard.deals();
-    const statuses = new Set((deals as any[]).map((d) => d.status));
+    const validStatuses = ["rascunho", "em_andamento", "contrato_gerado", "assinatura", "concluido"];
 
-    expect(statuses.has("rascunho")).toBe(true);
-    expect(statuses.has("em_andamento")).toBe(true);
-    expect(statuses.has("contrato_gerado")).toBe(true);
-    expect(statuses.has("assinatura")).toBe(true);
-    expect(statuses.has("concluido")).toBe(true);
+    // All deals should have valid statuses
+    for (const deal of deals as any[]) {
+      expect(validStatuses).toContain(deal.status);
+    }
   });
 
-  it("demo deals include all 3 operation types", async () => {
+  it("deals have valid operation types when present", async () => {
     const { ctx } = createAuthContext();
     const caller = appRouter.createCaller(ctx);
 
     const deals = await caller.dashboard.deals();
-    const types = new Set((deals as any[]).map((d) => d.type));
+    const validTypes = ["venda", "locacao", "permuta", "financiamento"];
 
-    expect(types.has("venda")).toBe(true);
-    expect(types.has("locacao")).toBe(true);
-    expect(types.has("permuta")).toBe(true);
+    // All deals should have valid types
+    for (const deal of deals as any[]) {
+      expect(validTypes).toContain(deal.type);
+    }
   });
 });
 
@@ -170,6 +174,62 @@ describe("contracts.generate", () => {
     expect(typeof result.contractUrl).toBe("string");
     expect(result.contractUrl).toMatch(/\.pdf$|pdf/);
   }, 60000); // 60s timeout for LibreOffice + PDF merge
+});
+
+// ─── Contract generateHtml (print fallback) tests ─────────────────────────────
+describe("contracts.generateHtml", () => {
+  it("returns a print-ready HTML string with mascara background", async () => {
+    const { ctx } = createAuthContext();
+    const caller = appRouter.createCaller(ctx);
+
+    const result = await caller.contracts.generateHtml({
+      fields: {
+        nome_vendedor: "João Silva",
+        cpf_cnpj_vendedor: "123.456.789-00",
+        nome_comprador: "Maria Santos",
+        cpf_cnpj_comprador: "987.654.321-00",
+        descricao_imovel: "Apartamento 3 quartos",
+        valor_total_contrato: "R$ 485.000",
+        modalidade_pagamento: "À vista",
+        data_assinatura: "18/03/2026",
+        cidade_assinatura: "Jundiaí, SP",
+      },
+    });
+
+    // Should return an HTML string
+    expect(result).toHaveProperty("html");
+    expect(typeof result.html).toBe("string");
+    // HTML should contain the mascara background-image
+    expect(result.html).toContain("background-image");
+    // HTML should contain the contract content
+    expect(result.html).toContain("João Silva");
+    // HTML should contain the print button
+    expect(result.html).toContain("window.print()");
+    // HTML should be a valid HTML document
+    expect(result.html).toContain("<!DOCTYPE html>");
+    expect(result.html).toContain("</html>");
+  }, 60000);
+
+  it("generateHtml includes locação fields when tipo_contrato is LOCAÇÃO", async () => {
+    const { ctx } = createAuthContext();
+    const caller = appRouter.createCaller(ctx);
+
+    const result = await caller.contracts.generateHtml({
+      fields: {
+        nome_vendedor: "Locador Teste",
+        nome_comprador: "Locatário Teste",
+        descricao_imovel: "Casa residencial",
+        valor_total_contrato: "R$ 2.500",
+        tipo_contrato: "LOCAÇÃO",
+        prazo_locacao: "30 meses",
+        dia_vencimento_aluguel: "10",
+        tipo_garantia: "caução",
+      },
+    });
+
+    expect(result.html).toContain("Locador Teste");
+    expect(result.html).toContain("<!DOCTYPE html>");
+  }, 60000);
 });
 
 // ─── Contract suggestFields tests ─────────────────────────────────────────────

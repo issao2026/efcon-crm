@@ -135,6 +135,13 @@
 - [ ] Fix Clientes cards: show email, phone and role (comprador/vendedor)
 - [ ] Wrap Contract generation page inside DashboardLayout (add sidebar)
 
+## Phase 15 — PDF Fallback Fix (Production)
+- [x] Add generateContractHtml function to contractGenerator.ts (fills DOCX template + mascara background)
+- [x] Add contracts.generateHtml tRPC procedure to routers.ts
+- [x] Fix Contract.tsx fallback: when Puppeteer fails in production, call generateHtml endpoint and open the branded HTML in a new window for printing
+- [x] Update tests: add generateHtml tests, fix obsolete demo-data tests to reflect real-data behavior
+- [x] All 14 tests passing
+
 ## Phase 14 — Contract Type Selector (Compra e Venda / Locação)
 - [x] Add contract type selector at top of Contract form (Compra e Venda / Locação / Permuta / Financiamento)
 - [x] Show/hide fields specific to each type (locação: prazo, dia vencimento, garantia, índice reajuste, multa rescisão; compra e venda: sinal, financiamento, prazo posse, escritura)

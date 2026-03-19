@@ -393,6 +393,7 @@ export default function Contract() {
   }, [dealData, clientsList]);
 
   const generateMutation = trpc.contracts.generate.useMutation();
+  const generateHtmlMutation = trpc.contracts.generateHtml.useMutation();
   const aiSuggestMutation = trpc.contracts.suggestFields.useMutation();
 
   // Helper to fill a section from a client record
@@ -451,8 +452,7 @@ export default function Contract() {
     }
 
     setIsGenerating(true);
-    try {
-      const fields: Record<string, string> = {
+    const fields: Record<string, string> = {
         nome_vendedor: form.vendedorNome,
         nacionalidade_vendedor: form.vendedorNacionalidade,
         estado_civil_vendedor: form.vendedorEstadoCivil,
@@ -516,6 +516,7 @@ export default function Contract() {
         destinacao_imovel: form.destinacaoImovel || 'residencial',
         tipo_contrato: form.contractType === 'locacao' ? 'LOCAÇÃO' : form.contractType === 'permuta' ? 'PERMUTA' : form.contractType === 'financiamento' ? 'FINANCIAMENTO' : 'COMPRA E VENDA',
       };
+    try {
       const result = await generateMutation.mutateAsync({ fields });
       setGeneratedPdfUrl(result.contractUrl);
       toast.success("Contrato gerado com sucesso!");
@@ -528,8 +529,21 @@ export default function Contract() {
         errMsg.includes("libnss") || errMsg.includes("shared object") ||
         errMsg.includes("internal server error");
       if (isPdfEngineError) {
-        toast.info("Gerando PDF via impressão do navegador...");
-        setTimeout(() => {
+        toast.info("Gerando contrato para impressão...");
+        try {
+          // Use the server to generate the correct HTML with mascara background
+          const htmlResult = await generateHtmlMutation.mutateAsync({ fields });
+          const printWindow = window.open('', '_blank');
+          if (printWindow) {
+            printWindow.document.open();
+            printWindow.document.write(htmlResult.html);
+            printWindow.document.close();
+          } else {
+            toast.error("Popup bloqueado. Permita popups para este site e tente novamente.");
+          }
+        } catch (_htmlErr) {
+          // Last resort: use the preview element content (no mascara)
+          toast.warning("Abrindo contrato sem papel timbrado (fallback)...");
           const previewEl = document.getElementById('contract-preview-content');
           if (previewEl) {
             const printWindow = window.open('', '_blank');
@@ -542,7 +556,7 @@ export default function Contract() {
           } else {
             window.print();
           }
-        }, 100);
+        }
       } else {
         toast.error(error.message || "Erro ao gerar contrato");
       }

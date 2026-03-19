@@ -321,9 +321,10 @@ function findChromium(): string {
 }
 
 /**
- * Generate a branded contract PDF buffer from the given fields.
+ * Shared helper: merge fields with defaults, fill DOCX template, convert to HTML.
+ * Returns { bodyHtml, mascaraUri }.
  */
-export async function generateContractPdf(fields: ContractFields): Promise<Buffer> {
+async function prepareContractHtml(fields: ContractFields): Promise<{ bodyHtml: string; mascaraUri: string }> {
   await ensureTemplates();
 
   // Merge defaults + provided fields
@@ -351,19 +352,26 @@ export async function generateContractPdf(fields: ContractFields): Promise<Buffe
   const mammothResult = await mammoth.convertToHtml({ buffer: filledDocxBuf });
   const bodyHtml = mammothResult.value;
 
-  // Step 3: Build content HTML (no background — mascara goes in header/footer templates)
+  const mascaraUri = getMascaraDataUri();
+  return { bodyHtml, mascaraUri };
+}
+
+/**
+ * Generate a branded contract PDF buffer from the given fields.
+ */
+export async function generateContractPdf(fields: ContractFields): Promise<Buffer> {
+  const { bodyHtml, mascaraUri } = await prepareContractHtml(fields);
+
+  // Build content HTML (no background — mascara goes in header/footer templates)
   const fullHtml = buildContentHtml(bodyHtml);
 
-  // Step 4: Build header/footer templates with the mascara letterhead
+  // Build header/footer templates with the mascara letterhead
   // The mascara image is A4 (1241x1754px):
   //   - Header region: top 10.1% = 3.0cm
   //   - Footer region: bottom 17.6% = 5.22cm
   // We use background-position to show only the relevant part of the image.
-  const mascaraUri = getMascaraDataUri();
 
   // Header: show top portion of mascara (3.2cm tall, full width)
-  // background-size: 100% auto ensures the image fills the width and scales proportionally
-  // background-position: top left aligns the top of the image to the top of the header
   const headerTemplate = `<div style="
     width: 100%;
     height: 3.2cm;
@@ -378,7 +386,6 @@ export async function generateContractPdf(fields: ContractFields): Promise<Buffe
   "></div>`;
 
   // Footer: show bottom portion of mascara (5.5cm tall, full width)
-  // background-position: bottom left aligns the bottom of the image to the bottom of the footer
   const footerTemplate = `<div style="
     width: 100%;
     height: 5.5cm;
@@ -392,7 +399,7 @@ export async function generateContractPdf(fields: ContractFields): Promise<Buffe
     print-color-adjust: exact;
   "></div>`;
 
-  // Step 5: Render with puppeteer-core + Chromium → PDF
+  // Render with puppeteer-core + Chromium → PDF
   const chromiumPath = findChromium();
   const browser = await puppeteer.launch({
     executablePath: chromiumPath,
@@ -425,4 +432,130 @@ export async function generateContractPdf(fields: ContractFields): Promise<Buffe
   } finally {
     await browser.close();
   }
+}
+
+/**
+ * Generate a print-ready HTML string for the contract.
+ *
+ * This is used as a fallback when Puppeteer/Chromium is not available in production.
+ * The returned HTML:
+ *  - Fills the DOCX template with the provided fields (same as the PDF path)
+ *  - Embeds the mascara letterhead as a full-page @page background-image
+ *  - Adds a "Print / Save as PDF" button bar visible on screen but hidden when printing
+ *  - Auto-triggers window.print() after 800ms so the user can save as PDF immediately
+ *
+ * The frontend opens this HTML in a new window for the user to print/save.
+ */
+export async function generateContractHtml(fields: ContractFields): Promise<string> {
+  const { bodyHtml, mascaraUri } = await prepareContractHtml(fields);
+
+  return `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Contrato – Marcello &amp; Oliveira Imóveis</title>
+<style>
+  * { box-sizing: border-box; }
+  @page {
+    size: A4;
+    margin: 0;
+    background-image: url('${mascaraUri}');
+    background-size: 100% 100%;
+    background-repeat: no-repeat;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  html, body {
+    margin: 0;
+    padding: 0;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 9.5pt;
+    color: #111;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .page-content {
+    /* Top: 3.2cm header area + 1cm gap; Bottom: 5.5cm footer + 0.5cm gap; Sides: 2.2cm */
+    padding: 4.2cm 2.2cm 6.0cm 2.2cm;
+    min-height: 29.7cm;
+  }
+  h1, h2, h3 {
+    font-size: 9.5pt;
+    font-weight: bold;
+    margin: 0.8em 0 0.3em;
+  }
+  p {
+    margin: 0.35em 0;
+    line-height: 1.55;
+    text-align: justify;
+  }
+  strong { font-weight: bold; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0.5em 0;
+    font-size: 9pt;
+  }
+  td, th {
+    border: 1px solid #ccc;
+    padding: 4px 6px;
+  }
+  /* Print toolbar — visible on screen, hidden when printing */
+  .print-bar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    background: #1e40af;
+    color: white;
+    padding: 10px 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    z-index: 9999;
+    font-family: Arial, sans-serif;
+    font-size: 14px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  }
+  .print-bar span { flex: 1; }
+  .print-bar button {
+    background: white;
+    color: #1e40af;
+    border: none;
+    padding: 7px 20px;
+    border-radius: 5px;
+    font-weight: bold;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background 0.15s;
+  }
+  .print-bar button:hover { background: #dbeafe; }
+  .print-bar .btn-close {
+    background: #fee2e2;
+    color: #991b1b;
+  }
+  .print-bar .btn-close:hover { background: #fecaca; }
+  @media print {
+    .print-bar { display: none !important; }
+    .page-content { padding-top: 4.2cm; }
+  }
+</style>
+</head>
+<body>
+<div class="print-bar">
+  <span>📄 Contrato pronto – Marcello &amp; Oliveira Imóveis</span>
+  <button onclick="window.print()">🖨️ Imprimir / Salvar como PDF</button>
+  <button class="btn-close" onclick="window.close()">✕ Fechar</button>
+</div>
+<div class="page-content">
+${bodyHtml}
+</div>
+<script>
+  // Auto-trigger print dialog after a short delay so the page renders first
+  window.addEventListener('load', function() {
+    setTimeout(function() { window.print(); }, 800);
+  });
+</script>
+</body>
+</html>`;
 }
