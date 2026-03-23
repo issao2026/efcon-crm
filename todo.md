@@ -200,3 +200,13 @@
 - [x] Set correct page margins: top 3.8cm, bottom 5.8cm, left/right 2.2cm
 - [x] Verified visually: all 3 pages have mascara correctly with text inside white area
 - [x] All 14 tests passing
+
+## Phase 18 — Safari iOS Compatibility Fix
+- [x] Root cause: Safari iOS auto-translation modifies the DOM directly, conflicting with React Virtual DOM → removeChild crash
+- [x] Fix: added translate="no" to <html> element and <meta name="google" content="notranslate"> to prevent auto-translation
+- [x] Fix: changed lang="en" to lang="pt-BR" so Safari doesn't attempt translation
+- [x] Fix: replaced next-themes useTheme() in sonner.tsx with project's custom ThemeContext (next-themes provider was not configured)
+- [x] Fix: moved localStorage.setItem from useMemo to useEffect in useAuth.ts (side effects in useMemo violate React rules)
+- [x] Fix: wrapped all localStorage access in try/catch for Safari iOS private browsing compatibility
+- [x] Fix: translated ErrorBoundary to Portuguese and added translate="no"
+- [x] All 14 tests passing
