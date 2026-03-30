@@ -210,3 +210,15 @@
 - [x] Fix: wrapped all localStorage access in try/catch for Safari iOS private browsing compatibility
 - [x] Fix: translated ErrorBoundary to Portuguese and added translate="no"
 - [x] All 14 tests passing
+
+## Phase 19 — Navegação Top Nav + Múltiplos Participantes + WhatsApp
+- [x] Redesenhar navegação: substituir sidebar pelo top nav horizontal dark (estilo efcon.com.br/auth)
+- [x] Top nav: logo Efcon à esquerda, links centrais (Analytics, Configurações), botão "+ Novo Contrato" + notificações + tema + avatar à direita
+- [x] Múltiplos vendedores no formulário de criação de contrato (+ Adicionar Vendedor)
+- [x] Compradores: sozinho, marido e esposa, outros (múltiplos)
+- [x] Corretores: múltiplos (+ Adicionar Corretor)
+- [x] Lista de seleção rápida de clientes cadastrados no início do formulário
+- [x] Envio de WhatsApp para cada participante verificar e assinar o contrato
+- [x] WhatsApp em Lote: enviar para todos os participantes de uma vez
+- [x] Atualizar generateLocacaoBodyHtml para exibir locadores/locatários adicionais no PDF
+- [x] Testes multi-partes (16 testes passando)

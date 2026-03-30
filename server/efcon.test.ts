@@ -277,6 +277,59 @@ describe("documents.list", () => {
   });
 });
 
+// ─── Multi-party contract tests ─────────────────────────────────────────────
+describe("contracts.multiParty", () => {
+  it("generates locação HTML with multiple locadores", async () => {
+    const { ctx } = createAuthContext();
+    const caller = appRouter.createCaller(ctx);
+
+    const result = await caller.contracts.generateHtml({
+      fields: {
+        nome_vendedor: "Locador Principal",
+        cpf_cnpj_vendedor: "111.222.333-44",
+        vendedores_adicionais: "Segundo Locador, brasileiro(a), casado(a), CPF 555.666.777-88",
+        nome_comprador: "Locatário Teste",
+        cpf_cnpj_comprador: "999.888.777-66",
+        descricao_imovel: "Apartamento 2 quartos",
+        valor_total_contrato: "R$ 3.000",
+        tipo_contrato: "LOCAÇÃO",
+        prazo_locacao: "24 meses",
+        dia_vencimento_aluguel: "5",
+      },
+    });
+
+    expect(result.html).toContain("Locador Principal");
+    expect(result.html).toContain("Locatário Teste");
+    expect(result.html).toContain("LOCADOR(A)");
+    expect(result.html).toContain("LOCATÁRIO(A)");
+    // Additional locadores should appear in the HTML
+    expect(result.html).toContain("Segundo Locador");
+  }, 30000);
+
+  it("generates compra e venda HTML with multiple compradores", async () => {
+    const { ctx } = createAuthContext();
+    const caller = appRouter.createCaller(ctx);
+
+    const result = await caller.contracts.generateHtml({
+      fields: {
+        nome_vendedor: "Vendedor Único",
+        cpf_cnpj_vendedor: "111.222.333-44",
+        nome_comprador: "Comprador Principal",
+        cpf_cnpj_comprador: "999.888.777-66",
+        compradores_adicionais: "Cônjuge Comprador, brasileiro(a), casado(a), CPF 444.555.666-77",
+        descricao_imovel: "Casa 3 quartos",
+        valor_total_contrato: "R$ 600.000",
+        tipo_contrato: "COMPRA E VENDA",
+        modalidade_pagamento: "Financiamento bancário",
+      },
+    });
+
+    expect(result.html).toContain("Vendedor Único");
+    expect(result.html).toContain("Comprador Principal");
+    expect(result.html).toContain("<!DOCTYPE html>");
+  }, 30000);
+});
+
 // ─── Deals CRUD tests ─────────────────────────────────────────────────────────
 describe("deals", () => {
   it("returns deals list", async () => {

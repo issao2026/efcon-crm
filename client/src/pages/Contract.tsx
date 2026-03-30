@@ -6,34 +6,41 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import {
-  Zap, ArrowLeft, ArrowRight, FileOutput, Download, Eye,
+  Zap, ArrowLeft, FileOutput, Download, Eye,
   Loader2, CheckCircle2, User, Home, DollarSign, Users,
-  ChevronDown, ChevronUp, RefreshCw, FileText, Scale, Building2, Repeat2
+  ChevronDown, ChevronUp, RefreshCw, FileText, Scale, Building2, Repeat2,
+  Plus, Trash2, MessageCircle,
 } from "lucide-react";
 import { getLoginUrl } from "@/const";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 type ContractType = "compra_venda" | "locacao" | "permuta" | "financiamento";
 
+interface PartyData {
+  id: string;
+  nome: string;
+  cpf: string;
+  rg: string;
+  nacionalidade: string;
+  estadoCivil: string;
+  profissao: string;
+  endereco: string;
+  whatsapp: string;
+}
+
+interface BrokerData {
+  id: string;
+  nome: string;
+  creci: string;
+  whatsapp: string;
+}
+
 interface ContractFormData {
-  // Tipo
   contractType: ContractType;
-  // Vendedor / Locador
-  vendedorNome: string;
-  vendedorCpf: string;
-  vendedorRg: string;
-  vendedorNacionalidade: string;
-  vendedorEstadoCivil: string;
-  vendedorProfissao: string;
-  vendedorEndereco: string;
-  // Comprador / Locatário
-  compradorNome: string;
-  compradorCpf: string;
-  compradorRg: string;
-  compradorNacionalidade: string;
-  compradorEstadoCivil: string;
-  compradorProfissao: string;
-  compradorEndereco: string;
+  // Multi-party
+  vendedores: PartyData[];
+  compradores: PartyData[];
+  corretores: BrokerData[];
   // Imóvel
   imovelDescricao: string;
   imovelEndereco: string;
@@ -83,16 +90,24 @@ interface ContractFormData {
   // Misc
   localAssinatura: string;
   dataAssinatura: string;
-  corretorNome: string;
-  corretorCreci: string;
 }
+
+const makeParty = (): PartyData => ({
+  id: Math.random().toString(36).slice(2),
+  nome: "", cpf: "", rg: "", nacionalidade: "brasileiro(a)",
+  estadoCivil: "solteiro(a)", profissao: "", endereco: "", whatsapp: "",
+});
+
+const makeBroker = (): BrokerData => ({
+  id: Math.random().toString(36).slice(2),
+  nome: "Marcello & Oliveira", creci: "28.867 J", whatsapp: "",
+});
 
 const INITIAL_FORM: ContractFormData = {
   contractType: "compra_venda",
-  vendedorNome: "", vendedorCpf: "", vendedorRg: "", vendedorNacionalidade: "brasileiro(a)",
-  vendedorEstadoCivil: "solteiro(a)", vendedorProfissao: "", vendedorEndereco: "",
-  compradorNome: "", compradorCpf: "", compradorRg: "", compradorNacionalidade: "brasileiro(a)",
-  compradorEstadoCivil: "solteiro(a)", compradorProfissao: "", compradorEndereco: "",
+  vendedores: [makeParty()],
+  compradores: [makeParty()],
+  corretores: [makeBroker()],
   imovelDescricao: "", imovelEndereco: "", imovelMatricula: "", imovelCartorio: "", imovelAreaTotal: "", imovelItens: "",
   valorTotal: "", valorSinal: "", valorFinanciamento: "", formaPagamento: "À vista",
   dataVencimento: "", testemunha1Nome: "", testemunha1Cpf: "", testemunha2Nome: "", testemunha2Cpf: "",
@@ -109,7 +124,6 @@ const INITIAL_FORM: ContractFormData = {
   imobiliariaNome: "Marcello & Oliveira Imóveis", imobiliariaCnpj: "12.345.678/0001-99",
   imobiliariaEndereco: "CRECI 28.867 J – Brasília, DF",
   localAssinatura: "Brasília, DF", dataAssinatura: new Date().toLocaleDateString("pt-BR"),
-  corretorNome: "Marcello & Oliveira", corretorCreci: "28.867 J",
 };
 
 const CONTRACT_TYPE_OPTIONS = [
@@ -119,12 +133,21 @@ const CONTRACT_TYPE_OPTIONS = [
   { value: "financiamento", label: "Financiamento" },
 ];
 
-// ─── Field component ─────────────────────────────────────────────────────────
+const ESTADO_CIVIL_OPTIONS = [
+  { value: "solteiro(a)", label: "Solteiro(a)" },
+  { value: "casado(a)", label: "Casado(a)" },
+  { value: "divorciado(a)", label: "Divorciado(a)" },
+  { value: "viúvo(a)", label: "Viúvo(a)" },
+  { value: "separado(a)", label: "Separado(a)" },
+  { value: "união estável", label: "União estável" },
+];
+
+// ─── Simple Field ─────────────────────────────────────────────────────────────
 function Field({
-  label, name, value, onChange, type = "text", required, placeholder, options, className
+  label, value, onChange, type = "text", required, placeholder, options, className
 }: {
-  label: string; name: keyof ContractFormData; value: string;
-  onChange: (name: keyof ContractFormData, value: string) => void;
+  label: string; value: string;
+  onChange: (value: string) => void;
   type?: string; required?: boolean; placeholder?: string;
   options?: { value: string; label: string }[];
   className?: string;
@@ -137,7 +160,7 @@ function Field({
         </label>
         <select
           value={value}
-          onChange={(e) => onChange(name, e.target.value)}
+          onChange={(e) => onChange(e.target.value)}
           className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400"
         >
           {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
@@ -153,7 +176,7 @@ function Field({
       <input
         type={type}
         value={value}
-        onChange={(e) => onChange(name, e.target.value)}
+        onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400"
       />
@@ -163,9 +186,9 @@ function Field({
 
 // ─── Section ─────────────────────────────────────────────────────────────────
 function Section({
-  title, icon: Icon, children, defaultOpen = true
+  title, icon: Icon, children, defaultOpen = true, badge
 }: {
-  title: string; icon: React.ElementType; children: React.ReactNode; defaultOpen?: boolean;
+  title: string; icon: React.ElementType; children: React.ReactNode; defaultOpen?: boolean; badge?: string;
 }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
@@ -179,10 +202,179 @@ function Section({
             <Icon className="w-4 h-4 text-blue-600" />
           </div>
           <span className="font-bold text-gray-900">{title}</span>
+          {badge && <Badge className="bg-blue-100 text-blue-700 text-xs">{badge}</Badge>}
         </div>
         {open ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
       </button>
-      {open && <div className="px-5 pb-5 grid grid-cols-1 md:grid-cols-2 gap-4">{children}</div>}
+      {open && <div className="px-5 pb-5">{children}</div>}
+    </div>
+  );
+}
+
+// ─── Party Card (Vendedor / Comprador) ────────────────────────────────────────
+function PartyCard({
+  party, index, label, clients, onUpdate, onRemove, canRemove,
+}: {
+  party: PartyData;
+  index: number;
+  label: string;
+  clients: any[];
+  onUpdate: (updated: PartyData) => void;
+  onRemove: () => void;
+  canRemove: boolean;
+}) {
+  const set = (field: keyof PartyData, value: string) =>
+    onUpdate({ ...party, [field]: value });
+
+  const fillFromClient = (client: any) => {
+    if (!client) return;
+    onUpdate({
+      ...party,
+      nome: client.name || party.nome,
+      cpf: client.cpfCnpj || party.cpf,
+      rg: client.rg || party.rg,
+      nacionalidade: client.nationality || party.nacionalidade,
+      estadoCivil: client.maritalStatus || party.estadoCivil,
+      profissao: client.profession || party.profissao,
+      endereco: client.address || party.endereco,
+      whatsapp: client.phone || party.whatsapp,
+    });
+  };
+
+  return (
+    <div className="border border-gray-100 rounded-xl p-4 mb-3 bg-gray-50/50">
+      <div className="flex items-center justify-between mb-3">
+        <span className="text-xs font-bold text-blue-600 uppercase tracking-widest">
+          {label} {index + 1}
+        </span>
+        {canRemove && (
+          <button
+            onClick={onRemove}
+            className="text-red-400 hover:text-red-600 transition-colors p-1 rounded-lg hover:bg-red-50"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+        )}
+      </div>
+
+      {/* Quick select from clients */}
+      <div className="mb-3">
+        <label className="block text-xs font-semibold text-gray-500 mb-1">Selecionar cliente cadastrado</label>
+        <select
+          defaultValue=""
+          onChange={(e) => {
+            const c = clients.find((x: any) => String(x.id) === e.target.value);
+            if (c) fillFromClient(c);
+          }}
+          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400"
+        >
+          <option value="">— Buscar cliente cadastrado —</option>
+          {clients.map((c: any) => (
+            <option key={c.id} value={c.id}>{c.name} {c.clientRole ? `(${c.clientRole})` : ''}</option>
+          ))}
+        </select>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <Field label="Nome completo" value={party.nome} onChange={(v) => set("nome", v)} required placeholder="Nome completo" />
+        <Field label="CPF" value={party.cpf} onChange={(v) => set("cpf", v)} required placeholder="000.000.000-00" />
+        <Field label="RG" value={party.rg} onChange={(v) => set("rg", v)} placeholder="00.000.000-0" />
+        <Field label="Nacionalidade" value={party.nacionalidade} onChange={(v) => set("nacionalidade", v)} />
+        <Field label="Estado civil" value={party.estadoCivil} onChange={(v) => set("estadoCivil", v)} options={ESTADO_CIVIL_OPTIONS} />
+        <Field label="Profissão" value={party.profissao} onChange={(v) => set("profissao", v)} />
+        <Field
+          label="Endereço completo"
+          value={party.endereco}
+          onChange={(v) => set("endereco", v)}
+          placeholder="Rua, número, bairro, cidade, estado"
+          className="md:col-span-2"
+        />
+        <Field
+          label="WhatsApp (com DDD)"
+          value={party.whatsapp}
+          onChange={(v) => set("whatsapp", v)}
+          placeholder="(61) 99999-9999"
+          type="tel"
+        />
+      </div>
+    </div>
+  );
+}
+
+// ─── Broker Card ─────────────────────────────────────────────────────────────
+function BrokerCard({
+  broker, index, clients, onUpdate, onRemove, canRemove,
+}: {
+  broker: BrokerData;
+  index: number;
+  clients: any[];
+  onUpdate: (updated: BrokerData) => void;
+  onRemove: () => void;
+  canRemove: boolean;
+}) {
+  const set = (field: keyof BrokerData, value: string) =>
+    onUpdate({ ...broker, [field]: value });
+
+  const fillFromClient = (client: any) => {
+    if (!client) return;
+    onUpdate({
+      ...broker,
+      nome: client.name || broker.nome,
+      whatsapp: client.phone || broker.whatsapp,
+    });
+  };
+
+  return (
+    <div className="border border-gray-100 rounded-xl p-4 mb-3 bg-gray-50/50">
+      <div className="flex items-center justify-between mb-3">
+        <span className="text-xs font-bold text-blue-600 uppercase tracking-widest">
+          Corretor {index + 1}
+        </span>
+        {canRemove && (
+          <button
+            onClick={onRemove}
+            className="text-red-400 hover:text-red-600 transition-colors p-1 rounded-lg hover:bg-red-50"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+        )}
+      </div>
+
+      <div className="mb-3">
+        <label className="block text-xs font-semibold text-gray-500 mb-1">Selecionar corretor cadastrado</label>
+        <select
+          defaultValue=""
+          onChange={(e) => {
+            const c = clients.find((x: any) => String(x.id) === e.target.value);
+            if (c) fillFromClient(c);
+          }}
+          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400"
+        >
+          <option value="">— Buscar corretor cadastrado —</option>
+          {clients.filter((c: any) => c.clientRole === 'corretor').map((c: any) => (
+            <option key={c.id} value={c.id}>{c.name}</option>
+          ))}
+          {clients.filter((c: any) => c.clientRole !== 'corretor').length > 0 && (
+            <optgroup label="Outros clientes">
+              {clients.filter((c: any) => c.clientRole !== 'corretor').map((c: any) => (
+                <option key={c.id} value={c.id}>{c.name} ({c.clientRole || 'sem categoria'})</option>
+              ))}
+            </optgroup>
+          )}
+        </select>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <Field label="Nome / Razão social" value={broker.nome} onChange={(v) => set("nome", v)} required />
+        <Field label="CRECI" value={broker.creci} onChange={(v) => set("creci", v)} placeholder="00.000 J" />
+        <Field
+          label="WhatsApp (com DDD)"
+          value={broker.whatsapp}
+          onChange={(v) => set("whatsapp", v)}
+          placeholder="(61) 99999-9999"
+          type="tel"
+        />
+      </div>
     </div>
   );
 }
@@ -191,126 +383,202 @@ function Section({
 function ContractPreview({ form }: { form: ContractFormData }) {
   const typeLabel = CONTRACT_TYPE_OPTIONS.find((o) => o.value === form.contractType)?.label || "Compra e Venda";
   const isLocacao = form.contractType === "locacao";
+  const vendedorLabel = isLocacao ? "LOCADOR(A)" : "VENDEDOR(A)";
+  const compradorLabel = isLocacao ? "LOCATÁRIO(A)" : "COMPRADOR(A)";
 
   return (
     <div id="contract-preview-content" className="bg-white border border-gray-200 rounded-2xl p-8 font-serif text-sm leading-relaxed text-gray-800 max-h-[600px] overflow-y-auto">
-      {/* Header */}
       <div className="text-center mb-8">
         <div className="text-xs font-bold text-gray-400 tracking-widest uppercase mb-2">Marcello & Oliveira Imóveis</div>
-        <div className="text-xs text-gray-400 mb-4">CRECI {form.corretorCreci} · Brasília, DF</div>
+        <div className="text-xs text-gray-400 mb-4">CRECI {form.corretores[0]?.creci || "28.867 J"} · Brasília, DF</div>
         <h2 className="text-lg font-black text-gray-900 uppercase tracking-wide">
           Contrato de {typeLabel}
         </h2>
         <div className="h-0.5 bg-gray-200 mt-4" />
       </div>
 
-      {/* Parties */}
       <p className="mb-4">
         Pelo presente instrumento particular, as partes abaixo qualificadas celebram o presente{" "}
-        <strong>Contrato de {typeLabel}</strong>, que se regerá pelas cláusulas e condições seguintes:
+        <strong>Contrato de {typeLabel}</strong>:
       </p>
 
-      <p className="mb-2"><strong>{isLocacao ? "LOCADOR(A):" : "VENDEDOR(A):"}</strong></p>
-      <p className="mb-4 pl-4 text-gray-700">
-        {form.vendedorNome || "[NOME DO VENDEDOR]"}, {form.vendedorNacionalidade}, {form.vendedorEstadoCivil},
-        {form.vendedorProfissao ? ` ${form.vendedorProfissao},` : ""} portador(a) do CPF nº{" "}
-        {form.vendedorCpf || "[CPF]"}, RG nº {form.vendedorRg || "[RG]"}, residente e domiciliado(a) em{" "}
-        {form.vendedorEndereco || "[ENDEREÇO]"}.
-      </p>
+      {form.vendedores.map((v, i) => (
+        <div key={v.id}>
+          <p className="mb-2"><strong>{vendedorLabel}{form.vendedores.length > 1 ? ` ${i + 1}` : ""}:</strong></p>
+          <p className="mb-4 pl-4 text-gray-700">
+            {v.nome || "[NOME]"}, {v.nacionalidade}, {v.estadoCivil},
+            {v.profissao ? ` ${v.profissao},` : ""} CPF nº {v.cpf || "[CPF]"}, RG nº {v.rg || "[RG]"},
+            residente em {v.endereco || "[ENDEREÇO]"}.
+          </p>
+        </div>
+      ))}
 
-      <p className="mb-2"><strong>{isLocacao ? "LOCATÁRIO(A):" : "COMPRADOR(A):"}</strong></p>
-      <p className="mb-4 pl-4 text-gray-700">
-        {form.compradorNome || "[NOME DO COMPRADOR]"}, {form.compradorNacionalidade}, {form.compradorEstadoCivil},
-        {form.compradorProfissao ? ` ${form.compradorProfissao},` : ""} portador(a) do CPF nº{" "}
-        {form.compradorCpf || "[CPF]"}, RG nº {form.compradorRg || "[RG]"}, residente e domiciliado(a) em{" "}
-        {form.compradorEndereco || "[ENDEREÇO]"}.
-      </p>
+      {form.compradores.map((c, i) => (
+        <div key={c.id}>
+          <p className="mb-2"><strong>{compradorLabel}{form.compradores.length > 1 ? ` ${i + 1}` : ""}:</strong></p>
+          <p className="mb-4 pl-4 text-gray-700">
+            {c.nome || "[NOME]"}, {c.nacionalidade}, {c.estadoCivil},
+            {c.profissao ? ` ${c.profissao},` : ""} CPF nº {c.cpf || "[CPF]"}, RG nº {c.rg || "[RG]"},
+            residente em {c.endereco || "[ENDEREÇO]"}.
+          </p>
+        </div>
+      ))}
 
       <div className="h-px bg-gray-100 my-4" />
 
       <p className="mb-2"><strong>CLÁUSULA 1ª – DO OBJETO</strong></p>
       <p className="mb-4 text-gray-700">
-        O presente contrato tem por objeto o imóvel{" "}
-        {form.imovelDescricao || "[DESCRIÇÃO DO IMÓVEL]"}, localizado em{" "}
-        {form.imovelEndereco || "[ENDEREÇO DO IMÓVEL]"}, com área total de{" "}
-        {form.imovelAreaTotal || "[ÁREA]"} m², registrado sob a matrícula nº{" "}
-        {form.imovelMatricula || "[MATRÍCULA]"} no {form.imovelCartorio || "[CARTÓRIO]"}.
+        Imóvel: {form.imovelDescricao || "[DESCRIÇÃO]"}, localizado em {form.imovelEndereco || "[ENDEREÇO]"},
+        área total de {form.imovelAreaTotal || "[ÁREA]"} m², matrícula nº {form.imovelMatricula || "[MATRÍCULA]"}.
       </p>
 
-      <p className="mb-2"><strong>CLÁUSULA 2ª – DO PREÇO E FORMA DE PAGAMENTO</strong></p>
+      <p className="mb-2"><strong>CLÁUSULA 2ª – DO PREÇO</strong></p>
       <p className="mb-4 text-gray-700">
-        O valor {isLocacao ? "do aluguel mensal" : "total da transação"} é de{" "}
-        <strong>R$ {form.valorTotal || "[VALOR]"}</strong>, a ser pago mediante{" "}
-        {form.formaPagamento || "[FORMA DE PAGAMENTO]"}.
-        {form.valorSinal && ` Sinal de R$ ${form.valorSinal} a ser pago na assinatura.`}
-        {form.valorFinanciamento && ` Valor financiado: R$ ${form.valorFinanciamento}.`}
-      </p>
-
-      <p className="mb-2"><strong>CLÁUSULA 3ª – DA ENTREGA</strong></p>
-      <p className="mb-4 text-gray-700">
-        A entrega do imóvel será realizada na data acordada entre as partes, livre e desembaraçado de quaisquer
-        ônus, dívidas ou encargos que possam prejudicar o pleno exercício do direito do{" "}
-        {isLocacao ? "locatário" : "comprador"}.
-      </p>
-
-      <p className="mb-2"><strong>CLÁUSULA 4ª – DAS OBRIGAÇÕES</strong></p>
-      <p className="mb-4 text-gray-700">
-        As partes se obrigam a cumprir fielmente todas as disposições do presente contrato, respondendo cada
-        qual pelos danos causados em decorrência do descumprimento de suas obrigações.
+        Valor {isLocacao ? "do aluguel mensal" : "total"}: <strong>R$ {form.valorTotal || "[VALOR]"}</strong>,
+        mediante {form.formaPagamento || "[FORMA DE PAGAMENTO]"}.
       </p>
 
       <div className="h-px bg-gray-100 my-4" />
-
       <p className="mb-6 text-gray-700">
-        E por estarem assim justos e contratados, firmam o presente instrumento em 02 (duas) vias de igual
-        teor e forma, na presença das testemunhas abaixo.
-      </p>
-
-      <p className="mb-8 text-gray-700">
         {form.localAssinatura}, {form.dataAssinatura}.
       </p>
 
       <div className="grid grid-cols-2 gap-8 mt-8">
-        <div className="text-center">
-          <div className="border-t border-gray-400 pt-2">
-            <div className="font-semibold">{form.vendedorNome || "[VENDEDOR]"}</div>
-            <div className="text-xs text-gray-500">CPF: {form.vendedorCpf || "[CPF]"}</div>
+        {form.vendedores.map((v, i) => (
+          <div key={v.id} className="text-center">
+            <div className="border-t border-gray-400 pt-2">
+              <div className="font-semibold">{v.nome || `[${vendedorLabel}${form.vendedores.length > 1 ? ` ${i+1}` : ""}]`}</div>
+              <div className="text-xs text-gray-500">CPF: {v.cpf || "[CPF]"}</div>
+            </div>
           </div>
-        </div>
-        <div className="text-center">
-          <div className="border-t border-gray-400 pt-2">
-            <div className="font-semibold">{form.compradorNome || "[COMPRADOR]"}</div>
-            <div className="text-xs text-gray-500">CPF: {form.compradorCpf || "[CPF]"}</div>
+        ))}
+        {form.compradores.map((c, i) => (
+          <div key={c.id} className="text-center">
+            <div className="border-t border-gray-400 pt-2">
+              <div className="font-semibold">{c.nome || `[${compradorLabel}${form.compradores.length > 1 ? ` ${i+1}` : ""}]`}</div>
+              <div className="text-xs text-gray-500">CPF: {c.cpf || "[CPF]"}</div>
+            </div>
           </div>
-        </div>
+        ))}
       </div>
 
-      {(form.testemunha1Nome || form.testemunha2Nome) && (
-        <div className="mt-8">
-          <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-4">Testemunhas:</p>
-          <div className="grid grid-cols-2 gap-8">
-            {form.testemunha1Nome && (
-              <div className="text-center">
-                <div className="border-t border-gray-400 pt-2">
-                  <div className="font-semibold text-sm">{form.testemunha1Nome}</div>
-                  <div className="text-xs text-gray-500">CPF: {form.testemunha1Cpf || "[CPF]"}</div>
-                </div>
-              </div>
-            )}
-            {form.testemunha2Nome && (
-              <div className="text-center">
-                <div className="border-t border-gray-400 pt-2">
-                  <div className="font-semibold text-sm">{form.testemunha2Nome}</div>
-                  <div className="text-xs text-gray-500">CPF: {form.testemunha2Cpf || "[CPF]"}</div>
-                </div>
-              </div>
-            )}
+      <div className="mt-8 pt-4 border-t border-gray-100 text-center text-xs text-gray-400">
+        Intermediado por: {form.corretores.map(c => `${c.nome} (CRECI ${c.creci})`).join(", ")}
+      </div>
+    </div>
+  );
+}
+
+// ─── WhatsApp Verification Modal ──────────────────────────────────────────────
+function WhatsAppModal({
+  form,
+  contractUrl,
+  onClose,
+}: {
+  form: ContractFormData;
+  contractUrl: string;
+  onClose: () => void;
+}) {
+  const parties = [
+    ...form.vendedores.map((v, i) => ({
+      name: v.nome,
+      phone: v.whatsapp,
+      role: form.contractType === "locacao" ? `Locador(a) ${form.vendedores.length > 1 ? i + 1 : ""}`.trim() : `Vendedor(a) ${form.vendedores.length > 1 ? i + 1 : ""}`.trim(),
+    })),
+    ...form.compradores.map((c, i) => ({
+      name: c.nome,
+      phone: c.whatsapp,
+      role: form.contractType === "locacao" ? `Locatário(a) ${form.compradores.length > 1 ? i + 1 : ""}`.trim() : `Comprador(a) ${form.compradores.length > 1 ? i + 1 : ""}`.trim(),
+    })),
+    ...form.corretores.map((b, i) => ({
+      name: b.nome,
+      phone: b.whatsapp,
+      role: `Corretor(a) ${form.corretores.length > 1 ? i + 1 : ""}`.trim(),
+    })),
+  ].filter((p) => p.name);
+
+  const buildMessage = (party: { name: string; role: string }) => {
+    const typeLabel = CONTRACT_TYPE_OPTIONS.find((o) => o.value === form.contractType)?.label || "Compra e Venda";
+    return encodeURIComponent(
+      `Olá, ${party.name}! 👋\n\n` +
+      `Segue o contrato de *${typeLabel}* para sua revisão e assinatura.\n\n` +
+      `📋 *Sua participação:* ${party.role}\n` +
+      `📄 *Imóvel:* ${form.imovelDescricao || form.imovelEndereco || "conforme contrato"}\n` +
+      `💰 *Valor:* R$ ${form.valorTotal || "conforme contrato"}\n\n` +
+      `🔗 *Link do contrato:*\n${contractUrl}\n\n` +
+      `Por favor, revise o documento e confirme sua concordância. Em caso de dúvidas, entre em contato.\n\n` +
+      `Atenciosamente,\n${form.corretores[0]?.nome || "Marcello & Oliveira Imóveis"}`
+    );
+  };
+
+  const formatPhone = (phone: string) => {
+    const digits = phone.replace(/\D/g, "");
+    if (digits.startsWith("55")) return digits;
+    return `55${digits}`;
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
+        <div className="bg-green-600 px-6 py-4 flex items-center gap-3">
+          <MessageCircle className="w-6 h-6 text-white" />
+          <div>
+            <h3 className="text-white font-bold text-lg">Enviar via WhatsApp</h3>
+            <p className="text-green-100 text-sm">Notifique todas as partes sobre o contrato</p>
           </div>
         </div>
-      )}
 
-      <div className="mt-8 pt-4 border-t border-gray-100 text-center text-xs text-gray-400">
-        Intermediado por: {form.corretorNome} · CRECI {form.corretorCreci}
+        <div className="p-6">
+          <p className="text-gray-600 text-sm mb-4">
+            Clique em cada parte para abrir o WhatsApp com a mensagem pré-preenchida:
+          </p>
+
+          <div className="space-y-3">
+            {parties.map((party, i) => {
+              const hasPhone = party.phone && party.phone.replace(/\D/g, "").length >= 10;
+              const waLink = hasPhone
+                ? `https://wa.me/${formatPhone(party.phone)}?text=${buildMessage(party)}`
+                : null;
+
+              return (
+                <div key={i} className="flex items-center gap-3 p-3 border border-gray-100 rounded-xl">
+                  <div className="w-9 h-9 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
+                    <span className="text-green-700 font-bold text-sm">
+                      {party.name?.charAt(0)?.toUpperCase() || "?"}
+                    </span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-semibold text-gray-900 text-sm truncate">{party.name || "—"}</div>
+                    <div className="text-xs text-gray-500">{party.role} · {party.phone || "sem telefone"}</div>
+                  </div>
+                  {waLink ? (
+                    <a
+                      href={waLink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors flex-shrink-0"
+                    >
+                      <MessageCircle className="w-3.5 h-3.5" />
+                      Enviar
+                    </a>
+                  ) : (
+                    <span className="text-xs text-gray-400 italic flex-shrink-0">sem WhatsApp</span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {parties.length === 0 && (
+            <div className="text-center py-6 text-gray-400 text-sm">
+              Nenhuma parte encontrada. Preencha os dados do contrato.
+            </div>
+          )}
+        </div>
+
+        <div className="px-6 pb-6 flex justify-end">
+          <Button variant="outline" onClick={onClose}>Fechar</Button>
+        </div>
       </div>
     </div>
   );
@@ -324,8 +592,8 @@ export default function Contract() {
   const [showPreview, setShowPreview] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedPdfUrl, setGeneratedPdfUrl] = useState<string | null>(null);
-  const [isAiLoading, setIsAiLoading] = useState(false);
   const [prefillDealId, setPrefillDealId] = useState<number | null>(null);
+  const [showWhatsApp, setShowWhatsApp] = useState(false);
 
   // Read dealId from URL query string
   useEffect(() => {
@@ -370,159 +638,190 @@ export default function Contract() {
     const buyer = clients.find((c: any) => c.id === deal.buyerId);
     const seller = clients.find((c: any) => c.id === deal.sellerId);
     const broker = clients.find((c: any) => c.id === deal.brokerId);
+
+    const newVendedor = makeParty();
+    if (seller) {
+      Object.assign(newVendedor, {
+        nome: seller.name || "", cpf: seller.cpfCnpj || "", rg: seller.rg || "",
+        nacionalidade: seller.nationality || "brasileiro(a)",
+        estadoCivil: seller.maritalStatus || "solteiro(a)",
+        profissao: seller.profession || "", endereco: seller.address || "",
+        whatsapp: seller.phone || "",
+      });
+    }
+
+    const newComprador = makeParty();
+    if (buyer) {
+      Object.assign(newComprador, {
+        nome: buyer.name || "", cpf: buyer.cpfCnpj || "", rg: buyer.rg || "",
+        nacionalidade: buyer.nationality || "brasileiro(a)",
+        estadoCivil: buyer.maritalStatus || "solteiro(a)",
+        profissao: buyer.profession || "", endereco: buyer.address || "",
+        whatsapp: buyer.phone || "",
+      });
+    }
+
+    const newBroker = makeBroker();
+    if (broker) {
+      Object.assign(newBroker, { nome: broker.name || newBroker.nome, whatsapp: broker.phone || "" });
+    }
+
     setForm((prev) => ({
       ...prev,
       contractType: deal.type === 'locacao' ? 'locacao' : deal.type === 'permuta' ? 'permuta' : deal.type === 'financiamento' ? 'financiamento' : 'compra_venda',
-      compradorNome: buyer?.name || prev.compradorNome,
-      compradorCpf: buyer?.cpfCnpj || prev.compradorCpf,
-      compradorRg: buyer?.rg || prev.compradorRg,
-      compradorNacionalidade: buyer?.nationality || prev.compradorNacionalidade,
-      compradorEstadoCivil: buyer?.maritalStatus || prev.compradorEstadoCivil,
-      compradorProfissao: buyer?.profession || prev.compradorProfissao,
-      compradorEndereco: buyer?.address || prev.compradorEndereco,
-      vendedorNome: seller?.name || prev.vendedorNome,
-      vendedorCpf: seller?.cpfCnpj || prev.vendedorCpf,
-      vendedorRg: seller?.rg || prev.vendedorRg,
-      vendedorNacionalidade: seller?.nationality || prev.vendedorNacionalidade,
-      vendedorEstadoCivil: seller?.maritalStatus || prev.vendedorEstadoCivil,
-      vendedorProfissao: seller?.profession || prev.vendedorProfissao,
-      vendedorEndereco: seller?.address || prev.vendedorEndereco,
-      corretorNome: broker?.name || prev.corretorNome,
+      vendedores: [newVendedor],
+      compradores: [newComprador],
+      corretores: [newBroker],
       valorTotal: deal.totalValue || deal.monthlyValue || prev.valorTotal,
     }));
   }, [dealData, clientsList]);
 
   const generateMutation = trpc.contracts.generate.useMutation();
   const generateHtmlMutation = trpc.contracts.generateHtml.useMutation();
-  const aiSuggestMutation = trpc.contracts.suggestFields.useMutation();
 
-  // Helper to fill a section from a client record
-  const fillFromClient = (client: any, prefix: 'vendedor' | 'comprador' | 'corretor') => {
-    if (!client) return;
-    if (prefix === 'corretor') {
-      setForm((prev) => ({ ...prev, corretorNome: client.name || prev.corretorNome }));
-      return;
-    }
-    setForm((prev) => ({
-      ...prev,
-      [`${prefix}Nome`]: client.name || prev[`${prefix}Nome` as keyof ContractFormData],
-      [`${prefix}Cpf`]: client.cpfCnpj || prev[`${prefix}Cpf` as keyof ContractFormData],
-      [`${prefix}Rg`]: client.rg || prev[`${prefix}Rg` as keyof ContractFormData],
-      [`${prefix}Nacionalidade`]: client.nationality || prev[`${prefix}Nacionalidade` as keyof ContractFormData],
-      [`${prefix}EstadoCivil`]: client.maritalStatus || prev[`${prefix}EstadoCivil` as keyof ContractFormData],
-      [`${prefix}Profissao`]: client.profession || prev[`${prefix}Profissao` as keyof ContractFormData],
-      [`${prefix}Endereco`]: client.address || prev[`${prefix}Endereco` as keyof ContractFormData],
-    }));
-  };
-
-  const setField = (name: keyof ContractFormData, value: string) => {
+  const setField = <K extends keyof ContractFormData>(name: K, value: ContractFormData[K]) => {
     setForm((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleAiSuggest = async () => {
-    setIsAiLoading(true);
-    try {
-      const partialFields: Record<string, string> = {
-        nome_vendedor: form.vendedorNome,
-        cpf_cnpj_vendedor: form.vendedorCpf,
-        nome_comprador: form.compradorNome,
-        cpf_cnpj_comprador: form.compradorCpf,
-        descricao_imovel: form.imovelDescricao,
-        endereco_imovel: form.imovelEndereco,
-        valor_total_contrato: form.valorTotal,
-      };
-      const result = await aiSuggestMutation.mutateAsync({
-        partialFields,
-        context: `Contrato de ${CONTRACT_TYPE_OPTIONS.find((o) => o.value === form.contractType)?.label}`,
-      });
-      if (result.suggestions) {
-        toast.success("Sugestões da IA disponíveis! Revise os campos.");
-      }
-    } catch {
-      toast.error("Erro ao buscar sugestões da IA");
-    } finally {
-      setIsAiLoading(false);
-    }
+  // Multi-party helpers
+  const updateVendedor = (index: number, updated: PartyData) => {
+    setForm((prev) => {
+      const arr = [...prev.vendedores];
+      arr[index] = updated;
+      return { ...prev, vendedores: arr };
+    });
+  };
+  const addVendedor = () => setForm((prev) => ({ ...prev, vendedores: [...prev.vendedores, makeParty()] }));
+  const removeVendedor = (index: number) => setForm((prev) => ({
+    ...prev, vendedores: prev.vendedores.filter((_, i) => i !== index),
+  }));
+
+  const updateComprador = (index: number, updated: PartyData) => {
+    setForm((prev) => {
+      const arr = [...prev.compradores];
+      arr[index] = updated;
+      return { ...prev, compradores: arr };
+    });
+  };
+  const addComprador = () => setForm((prev) => ({ ...prev, compradores: [...prev.compradores, makeParty()] }));
+  const removeComprador = (index: number) => setForm((prev) => ({
+    ...prev, compradores: prev.compradores.filter((_, i) => i !== index),
+  }));
+
+  const updateCorretor = (index: number, updated: BrokerData) => {
+    setForm((prev) => {
+      const arr = [...prev.corretores];
+      arr[index] = updated;
+      return { ...prev, corretores: arr };
+    });
+  };
+  const addCorretor = () => setForm((prev) => ({ ...prev, corretores: [...prev.corretores, makeBroker()] }));
+  const removeCorretor = (index: number) => setForm((prev) => ({
+    ...prev, corretores: prev.corretores.filter((_, i) => i !== index),
+  }));
+
+  const buildFields = (): Record<string, string> => {
+    // Primary vendor/buyer (first in list) for legacy DOCX template compatibility
+    const v0 = form.vendedores[0] || makeParty();
+    const c0 = form.compradores[0] || makeParty();
+    const b0 = form.corretores[0] || makeBroker();
+
+    // Build multi-party strings for additional parties
+    const extraVendedores = form.vendedores.slice(1).map((v, i) =>
+      `${v.nome}, ${v.nacionalidade}, ${v.estadoCivil}${v.profissao ? `, ${v.profissao}` : ""}, CPF ${v.cpf}, RG ${v.rg}, residente em ${v.endereco}`
+    ).join("; ");
+
+    const extraCompradores = form.compradores.slice(1).map((c, i) =>
+      `${c.nome}, ${c.nacionalidade}, ${c.estadoCivil}${c.profissao ? `, ${c.profissao}` : ""}, CPF ${c.cpf}, RG ${c.rg}, residente em ${c.endereco}`
+    ).join("; ");
+
+    return {
+      nome_vendedor: v0.nome,
+      nacionalidade_vendedor: v0.nacionalidade,
+      estado_civil_vendedor: v0.estadoCivil,
+      profissao_vendedor: v0.profissao,
+      tipo_documento_vendedor: 'RG',
+      numero_documento_vendedor: v0.rg,
+      cpf_cnpj_vendedor: v0.cpf,
+      endereco_vendedor: v0.endereco,
+      vendedores_adicionais: extraVendedores || 'N/A',
+      nome_comprador: c0.nome,
+      nacionalidade_comprador: c0.nacionalidade,
+      estado_civil_comprador: c0.estadoCivil,
+      profissao_comprador: c0.profissao,
+      tipo_documento_comprador: 'RG',
+      numero_documento_comprador: c0.rg,
+      cpf_cnpj_comprador: c0.cpf,
+      endereco_comprador: c0.endereco,
+      compradores_adicionais: extraCompradores || 'N/A',
+      descricao_imovel: form.imovelDescricao,
+      endereco_imovel: form.imovelEndereco,
+      matricula_imovel: form.imovelMatricula,
+      cartorio_registro_imoveis: form.imovelCartorio,
+      itens_que_permanecerao_no_imovel: form.imovelItens || 'conforme vistoria',
+      valor_total_contrato: `R$ ${form.valorTotal}`,
+      modalidade_pagamento: form.formaPagamento,
+      valor_pagamento_avista: form.valorSinal ? `R$ ${form.valorSinal}` : 'N/A',
+      forma_pagamento_avista: form.formaPagamento,
+      data_pagamento_avista: form.dataVencimento || 'na assinatura',
+      valor_financiamento: form.valorFinanciamento ? `R$ ${form.valorFinanciamento}` : 'N/A',
+      instituicao_financeira: 'a definir',
+      descricao_imovel_permuta: form.descricaoImovelPermuta || 'N/A',
+      valor_imovel_permuta: form.valorImovelPermuta ? `R$ ${form.valorImovelPermuta}` : 'N/A',
+      ajuste_financeiro_permuta: form.ajusteFinanceiroPermuta || 'N/A',
+      prazo_entrega_posse: form.prazoEntregaPosse,
+      condicao_entrega_posse: form.condicaoEntregaPosse,
+      prazo_escritura: form.prazoEscritura,
+      responsavel_despesas: form.responsavelDespesas,
+      quantidade_exercicios_iptu: form.quantidadeExerciciosIptu,
+      prazo_certidao_objeto_pe: form.prazoCertidaoObjetoPe,
+      prazo_restituicao_valores: form.prazoRestituicaoValores,
+      percentual_comissao: '6%',
+      valor_comissao: 'conforme contrato de intermediação',
+      percentual_multa: `${form.percentualMulta}%`,
+      condicoes_distrato: form.condicoesDistrato,
+      plataforma_assinatura: form.plataformaAssinatura,
+      razao_social_imobiliaria: form.imobiliariaNome,
+      cnpj_imobiliaria: form.imobiliariaCnpj,
+      creci_imobiliaria: b0.creci,
+      endereco_imobiliaria: form.imobiliariaEndereco,
+      foro_eleito: form.foro,
+      cidade_assinatura: form.localAssinatura,
+      data_assinatura: form.dataAssinatura,
+      nome_testemunha_1: form.testemunha1Nome,
+      cpf_testemunha_1: form.testemunha1Cpf,
+      nome_testemunha_2: form.testemunha2Nome,
+      cpf_testemunha_2: form.testemunha2Cpf,
+      // Locação-specific
+      prazo_locacao: form.prazoLocacao || 'N/A',
+      dia_vencimento_aluguel: form.diaVencimentoAluguel || 'N/A',
+      tipo_garantia: form.tipoGarantia || 'N/A',
+      valor_garantia: form.valorGarantia ? `R$ ${form.valorGarantia}` : 'N/A',
+      indice_reajuste: form.indiceReajuste || 'IGPM',
+      multa_rescisao_antecipada: form.multaRescisaoAntecipada || 'N/A',
+      destinacao_imovel: form.destinacaoImovel || 'residencial',
+      tipo_contrato: form.contractType === 'locacao' ? 'LOCAÇÃO' : form.contractType === 'permuta' ? 'PERMUTA' : form.contractType === 'financiamento' ? 'FINANCIAMENTO' : 'COMPRA E VENDA',
+      // Broker
+      nome_corretor: b0.nome,
+      corretores: form.corretores.map(b => `${b.nome} (CRECI ${b.creci})`).join(", "),
+    };
   };
 
   const handleGenerate = async () => {
-    if (!form.vendedorNome || !form.compradorNome || !form.imovelEndereco || !form.valorTotal) {
+    const v0 = form.vendedores[0];
+    const c0 = form.compradores[0];
+    if (!v0?.nome || !c0?.nome || !form.imovelEndereco || !form.valorTotal) {
       toast.error("Preencha os campos obrigatórios: vendedor, comprador, imóvel e valor");
       return;
     }
 
     setIsGenerating(true);
-    const fields: Record<string, string> = {
-        nome_vendedor: form.vendedorNome,
-        nacionalidade_vendedor: form.vendedorNacionalidade,
-        estado_civil_vendedor: form.vendedorEstadoCivil,
-        profissao_vendedor: form.vendedorProfissao,
-        tipo_documento_vendedor: 'RG',
-        numero_documento_vendedor: form.vendedorRg,
-        cpf_cnpj_vendedor: form.vendedorCpf,
-        endereco_vendedor: form.vendedorEndereco,
-        nome_comprador: form.compradorNome,
-        nacionalidade_comprador: form.compradorNacionalidade,
-        estado_civil_comprador: form.compradorEstadoCivil,
-        profissao_comprador: form.compradorProfissao,
-        tipo_documento_comprador: 'RG',
-        numero_documento_comprador: form.compradorRg,
-        cpf_cnpj_comprador: form.compradorCpf,
-        endereco_comprador: form.compradorEndereco,
-        descricao_imovel: form.imovelDescricao,
-        matricula_imovel: form.imovelMatricula,
-        cartorio_registro_imoveis: form.imovelCartorio,
-        itens_que_permanecerao_no_imovel: form.imovelItens || 'conforme vistoria',
-        valor_total_contrato: `R$ ${form.valorTotal}`,
-        modalidade_pagamento: form.formaPagamento,
-        valor_pagamento_avista: form.valorSinal ? `R$ ${form.valorSinal}` : 'N/A',
-        forma_pagamento_avista: form.formaPagamento,
-        data_pagamento_avista: form.dataVencimento || 'na assinatura',
-        valor_financiamento: form.valorFinanciamento ? `R$ ${form.valorFinanciamento}` : 'N/A',
-        instituicao_financeira: 'a definir',
-        descricao_imovel_permuta: form.descricaoImovelPermuta || 'N/A',
-        valor_imovel_permuta: form.valorImovelPermuta ? `R$ ${form.valorImovelPermuta}` : 'N/A',
-        ajuste_financeiro_permuta: form.ajusteFinanceiroPermuta || 'N/A',
-        prazo_entrega_posse: form.prazoEntregaPosse,
-        condicao_entrega_posse: form.condicaoEntregaPosse,
-        prazo_escritura: form.prazoEscritura,
-        responsavel_despesas: form.responsavelDespesas,
-        quantidade_exercicios_iptu: form.quantidadeExerciciosIptu,
-        prazo_certidao_objeto_pe: form.prazoCertidaoObjetoPe,
-        prazo_restituicao_valores: form.prazoRestituicaoValores,
-        percentual_comissao: '6%',
-        valor_comissao: 'conforme contrato de intermediação',
-        percentual_multa: `${form.percentualMulta}%`,
-        condicoes_distrato: form.condicoesDistrato,
-        plataforma_assinatura: form.plataformaAssinatura,
-        razao_social_imobiliaria: form.imobiliariaNome,
-        cnpj_imobiliaria: form.imobiliariaCnpj,
-        creci_imobiliaria: form.corretorCreci,
-        endereco_imobiliaria: form.imobiliariaEndereco,
-        foro_eleito: form.foro,
-        cidade_assinatura: form.localAssinatura,
-        data_assinatura: form.dataAssinatura,
-        nome_testemunha_1: form.testemunha1Nome,
-        cpf_testemunha_1: form.testemunha1Cpf,
-        nome_testemunha_2: form.testemunha2Nome,
-        cpf_testemunha_2: form.testemunha2Cpf,
-        // Locação-specific fields
-        prazo_locacao: form.prazoLocacao || 'N/A',
-        dia_vencimento_aluguel: form.diaVencimentoAluguel || 'N/A',
-        tipo_garantia: form.tipoGarantia || 'N/A',
-        valor_garantia: form.valorGarantia ? `R$ ${form.valorGarantia}` : 'N/A',
-        indice_reajuste: form.indiceReajuste || 'IGPM',
-        multa_rescisao_antecipada: form.multaRescisaoAntecipada || 'N/A',
-        destinacao_imovel: form.destinacaoImovel || 'residencial',
-        tipo_contrato: form.contractType === 'locacao' ? 'LOCAÇÃO' : form.contractType === 'permuta' ? 'PERMUTA' : form.contractType === 'financiamento' ? 'FINANCIAMENTO' : 'COMPRA E VENDA',
-      };
+    const fields = buildFields();
     try {
       const result = await generateMutation.mutateAsync({ fields });
       setGeneratedPdfUrl(result.contractUrl);
       toast.success("Contrato gerado com sucesso!");
     } catch (error: any) {
-      // If server PDF generation fails (Chromium/weasyprint not available in production),
-      // fall back to browser print which always works
       const errMsg = (error?.message || "").toLowerCase();
       const isPdfEngineError = errMsg.includes("chromium") || errMsg.includes("weasyprint") ||
         errMsg.includes("browser") || errMsg.includes("failed to launch") ||
@@ -531,7 +830,6 @@ export default function Contract() {
       if (isPdfEngineError) {
         toast.info("Gerando contrato para impressão...");
         try {
-          // Use the server to generate the correct HTML with mascara background
           const htmlResult = await generateHtmlMutation.mutateAsync({ fields });
           const printWindow = window.open('', '_blank');
           if (printWindow) {
@@ -542,13 +840,12 @@ export default function Contract() {
             toast.error("Popup bloqueado. Permita popups para este site e tente novamente.");
           }
         } catch (_htmlErr) {
-          // Last resort: use the preview element content (no mascara)
           toast.warning("Abrindo contrato sem papel timbrado (fallback)...");
           const previewEl = document.getElementById('contract-preview-content');
           if (previewEl) {
             const printWindow = window.open('', '_blank');
             if (printWindow) {
-              printWindow.document.write(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><title>Contrato</title><style>body{font-family:Georgia,serif;font-size:11pt;line-height:1.6;margin:2.5cm;color:#111}h2{text-align:center;font-size:14pt;text-transform:uppercase;letter-spacing:1px}strong{font-weight:700}p{margin-bottom:0.8em;text-align:justify}.pl-4{padding-left:1em}.h-px{display:none}.h-0\.5{display:none}@media print{body{margin:2cm}}</style></head><body>${previewEl.innerHTML}</body></html>`);
+              printWindow.document.write(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><title>Contrato</title><style>body{font-family:Georgia,serif;font-size:11pt;line-height:1.6;margin:2.5cm;color:#111}h2{text-align:center;font-size:14pt;text-transform:uppercase;letter-spacing:1px}strong{font-weight:700}p{margin-bottom:0.8em;text-align:justify}.pl-4{padding-left:1em}@media print{body{margin:2cm}}</style></head><body>${previewEl.innerHTML}</body></html>`);
               printWindow.document.close();
               printWindow.focus();
               setTimeout(() => { printWindow.print(); }, 500);
@@ -583,6 +880,8 @@ export default function Contract() {
       </div>
     );
   }
+
+  const isLocacao = form.contractType === "locacao";
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -621,18 +920,6 @@ export default function Contract() {
             <Button
               variant="outline"
               className="gap-2"
-              onClick={handleAiSuggest}
-              disabled={isAiLoading}
-            >
-              {isAiLoading ? (
-                <><Loader2 className="w-4 h-4 animate-spin" /> IA pensando...</>
-              ) : (
-                <><RefreshCw className="w-4 h-4" /> Sugerir com IA</>
-              )}
-            </Button>
-            <Button
-              variant="outline"
-              className="gap-2"
               onClick={() => setShowPreview(!showPreview)}
             >
               <Eye className="w-4 h-4" /> {showPreview ? "Ocultar" : "Pré-visualizar"}
@@ -652,7 +939,7 @@ export default function Contract() {
                 {CONTRACT_TYPE_OPTIONS.map((opt) => (
                   <button
                     key={opt.value}
-                    onClick={() => setField("contractType", opt.value)}
+                    onClick={() => setField("contractType", opt.value as ContractType)}
                     className={`px-3 py-2 rounded-xl text-sm font-semibold transition-colors ${
                       form.contractType === opt.value
                         ? "bg-blue-600 text-white"
@@ -665,80 +952,63 @@ export default function Contract() {
               </div>
             </div>
 
-            <Section title={form.contractType === "locacao" ? "Dados do Locador" : "Dados do Vendedor"} icon={User}>
-              <div className="md:col-span-2 mb-1">
-                <label className="block text-xs font-semibold text-gray-500 mb-1">Selecionar cliente cadastrado</label>
-                <select
-                  defaultValue=""
-                  onChange={(e) => {
-                    const c = (clientsList as any[]).find((x: any) => String(x.id) === e.target.value);
-                    if (c) fillFromClient(c, 'vendedor');
-                  }}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400"
-                >
-                  <option value="">— Buscar vendedor cadastrado —</option>
-                  {(clientsList as any[]).map((c: any) => (
-                    <option key={c.id} value={c.id}>{c.name} {c.clientRole ? `(${c.clientRole})` : ''}</option>
-                  ))}
-                </select>
-              </div>
-              <Field label="Nome completo" name="vendedorNome" value={form.vendedorNome} onChange={setField} required placeholder="Nome completo" />
-              <Field label="CPF" name="vendedorCpf" value={form.vendedorCpf} onChange={setField} required placeholder="000.000.000-00" />
-              <Field label="RG" name="vendedorRg" value={form.vendedorRg} onChange={setField} placeholder="00.000.000-0" />
-              <Field label="Nacionalidade" name="vendedorNacionalidade" value={form.vendedorNacionalidade} onChange={setField} />
-              <Field label="Estado civil" name="vendedorEstadoCivil" value={form.vendedorEstadoCivil} onChange={setField}
-                options={[
-                  { value: "solteiro(a)", label: "Solteiro(a)" },
-                  { value: "casado(a)", label: "Casado(a)" },
-                  { value: "divorciado(a)", label: "Divorciado(a)" },
-                  { value: "viúvo(a)", label: "Viúvo(a)" },
-                  { value: "separado(a)", label: "Separado(a)" },
-                ]}
-              />
-              <Field label="Profissão" name="vendedorProfissao" value={form.vendedorProfissao} onChange={setField} />
-              <div className="md:col-span-2">
-                <Field label="Endereço completo" name="vendedorEndereco" value={form.vendedorEndereco} onChange={setField} placeholder="Rua, número, bairro, cidade, estado" />
-              </div>
+            {/* Vendedores / Locadores */}
+            <Section
+              title={isLocacao ? "Locadores" : "Vendedores"}
+              icon={User}
+              badge={`${form.vendedores.length} parte${form.vendedores.length > 1 ? "s" : ""}`}
+            >
+              {form.vendedores.map((v, i) => (
+                <PartyCard
+                  key={v.id}
+                  party={v}
+                  index={i}
+                  label={isLocacao ? "Locador(a)" : "Vendedor(a)"}
+                  clients={clientsList as any[]}
+                  onUpdate={(updated) => updateVendedor(i, updated)}
+                  onRemove={() => removeVendedor(i)}
+                  canRemove={form.vendedores.length > 1}
+                />
+              ))}
+              <button
+                onClick={addVendedor}
+                className="w-full flex items-center justify-center gap-2 py-2.5 border-2 border-dashed border-blue-200 rounded-xl text-blue-600 hover:bg-blue-50 hover:border-blue-400 transition-colors text-sm font-semibold mt-1"
+              >
+                <Plus className="w-4 h-4" />
+                Adicionar {isLocacao ? "locador(a)" : "vendedor(a)"}
+              </button>
             </Section>
 
-            <Section title={form.contractType === "locacao" ? "Dados do Locatário" : "Dados do Comprador"} icon={User}>
-              <div className="md:col-span-2 mb-1">
-                <label className="block text-xs font-semibold text-gray-500 mb-1">Selecionar cliente cadastrado</label>
-                <select
-                  defaultValue=""
-                  onChange={(e) => {
-                    const c = (clientsList as any[]).find((x: any) => String(x.id) === e.target.value);
-                    if (c) fillFromClient(c, 'comprador');
-                  }}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400"
-                >
-                  <option value="">— Buscar comprador cadastrado —</option>
-                  {(clientsList as any[]).map((c: any) => (
-                    <option key={c.id} value={c.id}>{c.name} {c.clientRole ? `(${c.clientRole})` : ''}</option>
-                  ))}
-                </select>
-              </div>
-              <Field label="Nome completo" name="compradorNome" value={form.compradorNome} onChange={setField} required placeholder="Nome completo" />
-              <Field label="CPF" name="compradorCpf" value={form.compradorCpf} onChange={setField} required placeholder="000.000.000-00" />
-              <Field label="RG" name="compradorRg" value={form.compradorRg} onChange={setField} placeholder="00.000.000-0" />
-              <Field label="Nacionalidade" name="compradorNacionalidade" value={form.compradorNacionalidade} onChange={setField} />
-              <Field label="Estado civil" name="compradorEstadoCivil" value={form.compradorEstadoCivil} onChange={setField}
-                options={[
-                  { value: "solteiro(a)", label: "Solteiro(a)" },
-                  { value: "casado(a)", label: "Casado(a)" },
-                  { value: "divorciado(a)", label: "Divorciado(a)" },
-                  { value: "viúvo(a)", label: "Viúvo(a)" },
-                  { value: "separado(a)", label: "Separado(a)" },
-                ]}
-              />
-              <Field label="Profissão" name="compradorProfissao" value={form.compradorProfissao} onChange={setField} />
-              <div className="md:col-span-2">
-                <Field label="Endereço completo" name="compradorEndereco" value={form.compradorEndereco} onChange={setField} placeholder="Rua, número, bairro, cidade, estado" />
-              </div>
+            {/* Compradores / Locatários */}
+            <Section
+              title={isLocacao ? "Locatários" : "Compradores"}
+              icon={User}
+              badge={`${form.compradores.length} parte${form.compradores.length > 1 ? "s" : ""}`}
+            >
+              {form.compradores.map((c, i) => (
+                <PartyCard
+                  key={c.id}
+                  party={c}
+                  index={i}
+                  label={isLocacao ? "Locatário(a)" : "Comprador(a)"}
+                  clients={clientsList as any[]}
+                  onUpdate={(updated) => updateComprador(i, updated)}
+                  onRemove={() => removeComprador(i)}
+                  canRemove={form.compradores.length > 1}
+                />
+              ))}
+              <button
+                onClick={addComprador}
+                className="w-full flex items-center justify-center gap-2 py-2.5 border-2 border-dashed border-blue-200 rounded-xl text-blue-600 hover:bg-blue-50 hover:border-blue-400 transition-colors text-sm font-semibold mt-1"
+              >
+                <Plus className="w-4 h-4" />
+                Adicionar {isLocacao ? "locatário(a)" : "comprador(a)"}
+              </button>
             </Section>
 
+            {/* Imóvel */}
             <Section title="Dados do Imóvel" icon={Home}>
-              <div className="md:col-span-2 mb-1">
+              <div className="mb-3">
                 <label className="block text-xs font-semibold text-gray-500 mb-1">Selecionar imóvel cadastrado</label>
                 <select
                   defaultValue=""
@@ -756,159 +1026,176 @@ export default function Contract() {
                   ))}
                 </select>
               </div>
-              <div className="md:col-span-2">
-                <Field label="Descrição do imóvel" name="imovelDescricao" value={form.imovelDescricao} onChange={setField} required placeholder="Ex: Apartamento, 3 quartos, 2 banheiros" />
-              </div>
-              <div className="md:col-span-2">
-                <Field label="Endereço do imóvel" name="imovelEndereco" value={form.imovelEndereco} onChange={setField} required placeholder="Endereço completo do imóvel" />
-              </div>
-              <Field label="Matrícula" name="imovelMatricula" value={form.imovelMatricula} onChange={setField} placeholder="Nº da matrícula" />
-              <Field label="Cartório de Registro" name="imovelCartorio" value={form.imovelCartorio} onChange={setField} placeholder="Nome do cartório" />
-              <Field label="Área total (m²)" name="imovelAreaTotal" value={form.imovelAreaTotal} onChange={setField} placeholder="Ex: 98,50" />
-              <div className="md:col-span-2">
-                <Field label="Itens que permanecem no imóvel" name="imovelItens" value={form.imovelItens} onChange={setField} placeholder="Ex: Armários embutidos, ar-condicionado..." />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <Field label="Descrição do imóvel" value={form.imovelDescricao} onChange={(v) => setField("imovelDescricao", v)} required placeholder="Ex: Apartamento, 3 quartos, 2 banheiros" className="md:col-span-2" />
+                <Field label="Endereço do imóvel" value={form.imovelEndereco} onChange={(v) => setField("imovelEndereco", v)} required placeholder="Endereço completo do imóvel" className="md:col-span-2" />
+                <Field label="Matrícula" value={form.imovelMatricula} onChange={(v) => setField("imovelMatricula", v)} placeholder="Nº da matrícula" />
+                <Field label="Cartório de Registro" value={form.imovelCartorio} onChange={(v) => setField("imovelCartorio", v)} placeholder="Nome do cartório" />
+                <Field label="Área total (m²)" value={form.imovelAreaTotal} onChange={(v) => setField("imovelAreaTotal", v)} placeholder="Ex: 98,50" />
+                <Field label="Itens que permanecem no imóvel" value={form.imovelItens} onChange={(v) => setField("imovelItens", v)} placeholder="Ex: Armários embutidos, ar-condicionado..." className="md:col-span-2" />
               </div>
             </Section>
 
+            {/* Financeiro */}
             <Section title="Dados Financeiros" icon={DollarSign}>
-              <Field label={form.contractType === "locacao" ? "Valor do aluguel mensal (R$)" : "Valor total (R$)"} name="valorTotal" value={form.valorTotal} onChange={setField} required placeholder={form.contractType === "locacao" ? "Ex: 2500" : "Ex: 485000"} />
-              {form.contractType !== "locacao" && (
-                <Field label="Valor do sinal (R$)" name="valorSinal" value={form.valorSinal} onChange={setField} placeholder="Ex: 50000" />
-              )}
-              {(form.contractType === "compra_venda" || form.contractType === "financiamento") && (
-                <Field label="Valor financiado (R$)" name="valorFinanciamento" value={form.valorFinanciamento} onChange={setField} placeholder="Ex: 350000" />
-              )}
-              {form.contractType !== "locacao" && (
-                <Field label="Forma de pagamento" name="formaPagamento" value={form.formaPagamento} onChange={setField}
-                  options={[
-                    { value: "À vista", label: "À vista" },
-                    { value: "Financiamento bancário", label: "Financiamento bancário" },
-                    { value: "Parcelado", label: "Parcelado" },
-                    { value: "Permuta", label: "Permuta" },
-                  ]}
-                />
-              )}
-              {form.contractType !== "locacao" && (
-                <Field label="Data de vencimento" name="dataVencimento" value={form.dataVencimento} onChange={setField} type="date" />
-              )}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <Field label={isLocacao ? "Valor do aluguel mensal (R$)" : "Valor total (R$)"} value={form.valorTotal} onChange={(v) => setField("valorTotal", v)} required placeholder={isLocacao ? "Ex: 2500" : "Ex: 485000"} />
+                {!isLocacao && (
+                  <Field label="Valor do sinal (R$)" value={form.valorSinal} onChange={(v) => setField("valorSinal", v)} placeholder="Ex: 50000" />
+                )}
+                {(form.contractType === "compra_venda" || form.contractType === "financiamento") && (
+                  <Field label="Valor financiado (R$)" value={form.valorFinanciamento} onChange={(v) => setField("valorFinanciamento", v)} placeholder="Ex: 350000" />
+                )}
+                {!isLocacao && (
+                  <Field label="Forma de pagamento" value={form.formaPagamento} onChange={(v) => setField("formaPagamento", v)}
+                    options={[
+                      { value: "À vista", label: "À vista" },
+                      { value: "Financiamento bancário", label: "Financiamento bancário" },
+                      { value: "Parcelado", label: "Parcelado" },
+                      { value: "Permuta", label: "Permuta" },
+                    ]}
+                  />
+                )}
+                {!isLocacao && (
+                  <Field label="Data de vencimento" value={form.dataVencimento} onChange={(v) => setField("dataVencimento", v)} type="date" />
+                )}
+              </div>
             </Section>
 
-            {/* Locação-specific section */}
-            {form.contractType === "locacao" && (
+            {/* Locação-specific */}
+            {isLocacao && (
               <Section title="Condições de Locação" icon={Scale} defaultOpen={true}>
-                <Field label="Prazo de locação" name="prazoLocacao" value={form.prazoLocacao} onChange={setField} placeholder="Ex: 30 meses" required />
-                <Field label="Dia de vencimento do aluguel" name="diaVencimentoAluguel" value={form.diaVencimentoAluguel} onChange={setField} placeholder="Ex: 10" />
-                <Field label="Destinação do imóvel" name="destinacaoImovel" value={form.destinacaoImovel} onChange={setField}
-                  options={[
-                    { value: "residencial", label: "Residencial" },
-                    { value: "comercial", label: "Comercial" },
-                    { value: "misto", label: "Misto" },
-                  ]}
-                />
-                <Field label="Índice de reajuste" name="indiceReajuste" value={form.indiceReajuste} onChange={setField}
-                  options={[
-                    { value: "IGPM", label: "IGP-M" },
-                    { value: "IPCA", label: "IPCA" },
-                    { value: "INPC", label: "INPC" },
-                    { value: "IPC", label: "IPC" },
-                  ]}
-                />
-                <Field label="Tipo de garantia" name="tipoGarantia" value={form.tipoGarantia} onChange={setField}
-                  options={[
-                    { value: "caução", label: "Caução (depósito)" },
-                    { value: "fiador", label: "Fiador" },
-                    { value: "seguro-fiança", label: "Seguro-fiança" },
-                    { value: "título de capitalização", label: "Título de capitalização" },
-                    { value: "sem garantia", label: "Sem garantia" },
-                  ]}
-                />
-                {(form.tipoGarantia === "caução" || form.tipoGarantia === "título de capitalização") && (
-                  <Field label="Valor da garantia (R$)" name="valorGarantia" value={form.valorGarantia} onChange={setField} placeholder="Ex: 7500 (3x aluguel)" />
-                )}
-                <Field label="Multa por rescisão antecipada" name="multaRescisaoAntecipada" value={form.multaRescisaoAntecipada} onChange={setField} placeholder="Ex: 3 alugueis proporcionais" />
-                <Field label="Percentual de multa (%)" name="percentualMulta" value={form.percentualMulta} onChange={setField} placeholder="Ex: 10" />
-                <Field label="Foro eleito" name="foro" value={form.foro} onChange={setField} placeholder="Ex: Brasília, Distrito Federal" className="md:col-span-2" />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <Field label="Prazo de locação" value={form.prazoLocacao} onChange={(v) => setField("prazoLocacao", v)} placeholder="Ex: 30 meses" required />
+                  <Field label="Dia de vencimento do aluguel" value={form.diaVencimentoAluguel} onChange={(v) => setField("diaVencimentoAluguel", v)} placeholder="Ex: 10" />
+                  <Field label="Destinação do imóvel" value={form.destinacaoImovel} onChange={(v) => setField("destinacaoImovel", v)}
+                    options={[
+                      { value: "residencial", label: "Residencial" },
+                      { value: "comercial", label: "Comercial" },
+                      { value: "misto", label: "Misto" },
+                    ]}
+                  />
+                  <Field label="Índice de reajuste" value={form.indiceReajuste} onChange={(v) => setField("indiceReajuste", v)}
+                    options={[
+                      { value: "IGPM", label: "IGP-M" },
+                      { value: "IPCA", label: "IPCA" },
+                      { value: "INPC", label: "INPC" },
+                      { value: "IPC", label: "IPC" },
+                    ]}
+                  />
+                  <Field label="Tipo de garantia" value={form.tipoGarantia} onChange={(v) => setField("tipoGarantia", v)}
+                    options={[
+                      { value: "caução", label: "Caução (depósito)" },
+                      { value: "fiador", label: "Fiador" },
+                      { value: "seguro-fiança", label: "Seguro-fiança" },
+                      { value: "título de capitalização", label: "Título de capitalização" },
+                      { value: "sem garantia", label: "Sem garantia" },
+                    ]}
+                  />
+                  {(form.tipoGarantia === "caução" || form.tipoGarantia === "título de capitalização") && (
+                    <Field label="Valor da garantia (R$)" value={form.valorGarantia} onChange={(v) => setField("valorGarantia", v)} placeholder="Ex: 7500 (3x aluguel)" />
+                  )}
+                  <Field label="Multa por rescisão antecipada" value={form.multaRescisaoAntecipada} onChange={(v) => setField("multaRescisaoAntecipada", v)} placeholder="Ex: 3 alugueis proporcionais" />
+                  <Field label="Percentual de multa (%)" value={form.percentualMulta} onChange={(v) => setField("percentualMulta", v)} placeholder="Ex: 10" />
+                  <Field label="Foro eleito" value={form.foro} onChange={(v) => setField("foro", v)} placeholder="Ex: Brasília, Distrito Federal" className="md:col-span-2" />
+                </div>
               </Section>
             )}
 
+            {/* Testemunhas */}
             <Section title="Testemunhas" icon={Users} defaultOpen={false}>
-              <Field label="Testemunha 1 – Nome" name="testemunha1Nome" value={form.testemunha1Nome} onChange={setField} placeholder="Nome completo" />
-              <Field label="Testemunha 1 – CPF" name="testemunha1Cpf" value={form.testemunha1Cpf} onChange={setField} placeholder="000.000.000-00" />
-              <Field label="Testemunha 2 – Nome" name="testemunha2Nome" value={form.testemunha2Nome} onChange={setField} placeholder="Nome completo" />
-              <Field label="Testemunha 2 – CPF" name="testemunha2Cpf" value={form.testemunha2Cpf} onChange={setField} placeholder="000.000.000-00" />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <Field label="Testemunha 1 – Nome" value={form.testemunha1Nome} onChange={(v) => setField("testemunha1Nome", v)} placeholder="Nome completo" />
+                <Field label="Testemunha 1 – CPF" value={form.testemunha1Cpf} onChange={(v) => setField("testemunha1Cpf", v)} placeholder="000.000.000-00" />
+                <Field label="Testemunha 2 – Nome" value={form.testemunha2Nome} onChange={(v) => setField("testemunha2Nome", v)} placeholder="Nome completo" />
+                <Field label="Testemunha 2 – CPF" value={form.testemunha2Cpf} onChange={(v) => setField("testemunha2Cpf", v)} placeholder="000.000.000-00" />
+              </div>
             </Section>
 
-            <Section title="Corretor & Assinatura" icon={FileText} defaultOpen={false}>
-              <div className="md:col-span-2 mb-1">
-                <label className="block text-xs font-semibold text-gray-500 mb-1">Selecionar corretor cadastrado</label>
-                <select
-                  defaultValue=""
-                  onChange={(e) => {
-                    const c = (clientsList as any[]).find((x: any) => String(x.id) === e.target.value);
-                    if (c) fillFromClient(c, 'corretor');
-                  }}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400"
-                >
-                  <option value="">— Buscar corretor cadastrado —</option>
-                  {(clientsList as any[]).filter((c: any) => c.clientRole === 'corretor').map((c: any) => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
-                  ))}
-                  {(clientsList as any[]).filter((c: any) => c.clientRole !== 'corretor').length > 0 && (
-                    <optgroup label="Outros clientes">
-                      {(clientsList as any[]).filter((c: any) => c.clientRole !== 'corretor').map((c: any) => (
-                        <option key={c.id} value={c.id}>{c.name} ({c.clientRole || 'sem categoria'})</option>
-                      ))}
-                    </optgroup>
-                  )}
-                </select>
+            {/* Corretores */}
+            <Section
+              title="Corretores & Assinatura"
+              icon={FileText}
+              defaultOpen={false}
+              badge={`${form.corretores.length} corretor${form.corretores.length > 1 ? "es" : ""}`}
+            >
+              {form.corretores.map((b, i) => (
+                <BrokerCard
+                  key={b.id}
+                  broker={b}
+                  index={i}
+                  clients={clientsList as any[]}
+                  onUpdate={(updated) => updateCorretor(i, updated)}
+                  onRemove={() => removeCorretor(i)}
+                  canRemove={form.corretores.length > 1}
+                />
+              ))}
+              <button
+                onClick={addCorretor}
+                className="w-full flex items-center justify-center gap-2 py-2.5 border-2 border-dashed border-blue-200 rounded-xl text-blue-600 hover:bg-blue-50 hover:border-blue-400 transition-colors text-sm font-semibold mt-1 mb-3"
+              >
+                <Plus className="w-4 h-4" />
+                Adicionar corretor
+              </button>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <Field label="Local de assinatura" value={form.localAssinatura} onChange={(v) => setField("localAssinatura", v)} />
+                <Field label="Data de assinatura" value={form.dataAssinatura} onChange={(v) => setField("dataAssinatura", v)} />
+                <Field label="Plataforma de assinatura" value={form.plataformaAssinatura} onChange={(v) => setField("plataformaAssinatura", v)}
+                  options={[
+                    { value: "Clicksign", label: "Clicksign" },
+                    { value: "DocuSign", label: "DocuSign" },
+                    { value: "Assinatura física", label: "Assinatura física" },
+                  ]}
+                />
               </div>
-              <Field label="Local de assinatura" name="localAssinatura" value={form.localAssinatura} onChange={setField} />
-              <Field label="Data de assinatura" name="dataAssinatura" value={form.dataAssinatura} onChange={setField} />
-              <Field label="Nome do corretor" name="corretorNome" value={form.corretorNome} onChange={setField} />
-              <Field label="CRECI" name="corretorCreci" value={form.corretorCreci} onChange={setField} />
-              <Field label="Plataforma de assinatura" name="plataformaAssinatura" value={form.plataformaAssinatura} onChange={setField}
-                options={[
-                  { value: "Clicksign", label: "Clicksign" },
-                  { value: "DocuSign", label: "DocuSign" },
-                  { value: "Assinatura física", label: "Assinatura física" },
-                ]}
-              />
             </Section>
+
+            {/* Imobiliária */}
             <Section title="Imobiliária" icon={Building2} defaultOpen={false}>
-              <Field label="Razão social" name="imobiliariaNome" value={form.imobiliariaNome} onChange={setField} />
-              <Field label="CNPJ" name="imobiliariaCnpj" value={form.imobiliariaCnpj} onChange={setField} placeholder="00.000.000/0001-00" />
-              <Field label="Endereço da imobiliária" name="imobiliariaEndereco" value={form.imobiliariaEndereco} onChange={setField} className="md:col-span-2" />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <Field label="Razão social" value={form.imobiliariaNome} onChange={(v) => setField("imobiliariaNome", v)} />
+                <Field label="CNPJ" value={form.imobiliariaCnpj} onChange={(v) => setField("imobiliariaCnpj", v)} placeholder="00.000.000/0001-00" />
+                <Field label="Endereço da imobiliária" value={form.imobiliariaEndereco} onChange={(v) => setField("imobiliariaEndereco", v)} className="md:col-span-2" />
+              </div>
             </Section>
-{form.contractType !== "locacao" && (
-            <Section title="Cláusulas Contratuais" icon={Scale} defaultOpen={false}>
-              <Field label="Prazo de entrega da posse" name="prazoEntregaPosse" value={form.prazoEntregaPosse} onChange={setField} placeholder="Ex: 30 dias após assinatura" />
-              <Field label="Condição de entrega" name="condicaoEntregaPosse" value={form.condicaoEntregaPosse} onChange={setField} placeholder="Ex: livre e desembaraçado" />
-              <Field label="Prazo para escritura" name="prazoEscritura" value={form.prazoEscritura} onChange={setField} placeholder="Ex: 60 dias após quitação" />
-              <Field label="Prazo de restituíção (distrato)" name="prazoRestituicaoValores" value={form.prazoRestituicaoValores} onChange={setField} placeholder="Ex: 30 dias" />
-              <Field label="Prazo certidão objeto e pé" name="prazoCertidaoObjetoPe" value={form.prazoCertidaoObjetoPe} onChange={setField} placeholder="Ex: 30 dias" />
-              <Field label="Qtd. exercícios IPTU" name="quantidadeExerciciosIptu" value={form.quantidadeExerciciosIptu} onChange={setField} placeholder="Ex: 1" />
-              <Field label="Responsável pelas despesas" name="responsavelDespesas" value={form.responsavelDespesas} onChange={setField}
-                options={[
-                  { value: "comprador", label: "Comprador" },
-                  { value: "vendedor", label: "Vendedor" },
-                  { value: "ambos", label: "Ambos" },
-                ]}
-              />
-              <Field label="Percentual de multa (%)" name="percentualMulta" value={form.percentualMulta} onChange={setField} placeholder="Ex: 10" />
-              <Field label="Condições de distrato" name="condicoesDistrato" value={form.condicoesDistrato} onChange={setField} className="md:col-span-2" />
-              <Field label="Foro eleito" name="foro" value={form.foro} onChange={setField} placeholder="Ex: Brasília, Distrito Federal" className="md:col-span-2" />
-            </Section>
+
+            {/* Cláusulas */}
+            {!isLocacao && (
+              <Section title="Cláusulas Contratuais" icon={Scale} defaultOpen={false}>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <Field label="Prazo de entrega da posse" value={form.prazoEntregaPosse} onChange={(v) => setField("prazoEntregaPosse", v)} placeholder="Ex: 30 dias após assinatura" />
+                  <Field label="Condição de entrega" value={form.condicaoEntregaPosse} onChange={(v) => setField("condicaoEntregaPosse", v)} placeholder="Ex: livre e desembaraçado" />
+                  <Field label="Prazo para escritura" value={form.prazoEscritura} onChange={(v) => setField("prazoEscritura", v)} placeholder="Ex: 60 dias após quitação" />
+                  <Field label="Prazo de restituição (distrato)" value={form.prazoRestituicaoValores} onChange={(v) => setField("prazoRestituicaoValores", v)} placeholder="Ex: 30 dias" />
+                  <Field label="Prazo certidão objeto e pé" value={form.prazoCertidaoObjetoPe} onChange={(v) => setField("prazoCertidaoObjetoPe", v)} placeholder="Ex: 30 dias" />
+                  <Field label="Qtd. exercícios IPTU" value={form.quantidadeExerciciosIptu} onChange={(v) => setField("quantidadeExerciciosIptu", v)} placeholder="Ex: 1" />
+                  <Field label="Responsável pelas despesas" value={form.responsavelDespesas} onChange={(v) => setField("responsavelDespesas", v)}
+                    options={[
+                      { value: "comprador", label: "Comprador" },
+                      { value: "vendedor", label: "Vendedor" },
+                      { value: "ambos", label: "Ambos" },
+                    ]}
+                  />
+                  <Field label="Percentual de multa (%)" value={form.percentualMulta} onChange={(v) => setField("percentualMulta", v)} placeholder="Ex: 10" />
+                  <Field label="Condições de distrato" value={form.condicoesDistrato} onChange={(v) => setField("condicoesDistrato", v)} className="md:col-span-2" />
+                  <Field label="Foro eleito" value={form.foro} onChange={(v) => setField("foro", v)} placeholder="Ex: Brasília, Distrito Federal" className="md:col-span-2" />
+                </div>
+              </Section>
             )}
+
+            {/* Permuta */}
             {form.contractType === "permuta" && (
               <Section title="Dados da Permuta" icon={Repeat2} defaultOpen={true}>
-                <Field label="Descrição do imóvel permutado" name="descricaoImovelPermuta" value={form.descricaoImovelPermuta} onChange={setField} className="md:col-span-2" />
-                <Field label="Valor do imóvel permutado (R$)" name="valorImovelPermuta" value={form.valorImovelPermuta} onChange={setField} placeholder="Ex: 300000" />
-                <Field label="Ajuste financeiro" name="ajusteFinanceiroPermuta" value={form.ajusteFinanceiroPermuta} onChange={setField} placeholder="Ex: R$ 50.000 a pagar" />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <Field label="Descrição do imóvel permutado" value={form.descricaoImovelPermuta} onChange={(v) => setField("descricaoImovelPermuta", v)} className="md:col-span-2" />
+                  <Field label="Valor do imóvel permutado (R$)" value={form.valorImovelPermuta} onChange={(v) => setField("valorImovelPermuta", v)} placeholder="Ex: 300000" />
+                  <Field label="Ajuste financeiro" value={form.ajusteFinanceiroPermuta} onChange={(v) => setField("ajusteFinanceiroPermuta", v)} placeholder="Ex: R$ 50.000 a pagar" />
+                </div>
               </Section>
             )}
 
             {/* Generate button */}
-            <div className="flex items-center gap-4 mt-6">
+            <div className="flex items-center gap-4 mt-6 flex-wrap">
               {generatedPdfUrl ? (
                 <>
                   <div className="flex items-center gap-2 text-green-600 text-sm font-semibold">
@@ -919,6 +1206,12 @@ export default function Contract() {
                       <Download className="w-4 h-4" /> Baixar PDF
                     </Button>
                   </a>
+                  <Button
+                    onClick={() => setShowWhatsApp(true)}
+                    className="bg-[#25D366] hover:bg-[#1ebe5d] text-white gap-2"
+                  >
+                    <MessageCircle className="w-4 h-4" /> Enviar via WhatsApp
+                  </Button>
                   <Button
                     variant="outline"
                     onClick={() => { setGeneratedPdfUrl(null); }}
@@ -957,6 +1250,15 @@ export default function Contract() {
           )}
         </div>
       </div>
+
+      {/* WhatsApp Modal */}
+      {showWhatsApp && generatedPdfUrl && (
+        <WhatsAppModal
+          form={form}
+          contractUrl={generatedPdfUrl}
+          onClose={() => setShowWhatsApp(false)}
+        />
+      )}
     </div>
   );
 }

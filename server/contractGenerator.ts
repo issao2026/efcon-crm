@@ -339,9 +339,11 @@ function generateLocacaoBodyHtml(f: Record<string, string>): string {
 <br>
 <p><strong>LOCADOR(A):</strong></p>
 <p style="margin-left:1.5cm">${v('nome_vendedor')}, ${v('nacionalidade_vendedor', '')}${v('estado_civil_vendedor', '') ? ', ' + v('estado_civil_vendedor', '') : ''}${v('profissao_vendedor', '') ? ', ' + v('profissao_vendedor', '') : ''}, portador(a) do ${v('tipo_documento_vendedor', 'RG')} nº ${v('numero_documento_vendedor')}, inscrito(a) no CPF/CNPJ sob nº ${v('cpf_cnpj_vendedor')}, residente e domiciliado(a) em ${v('endereco_vendedor')}, doravante denominado(a) <strong>LOCADOR(A)</strong>.</p>
+${f['vendedores_adicionais'] && f['vendedores_adicionais'] !== 'N/A' ? '<p style="margin-left:1.5cm"><strong>Demais LOCADORES:</strong> ' + f['vendedores_adicionais'] + '</p>' : ''}
 <br>
 <p><strong>LOCATÁRIO(A):</strong></p>
 <p style="margin-left:1.5cm">${v('nome_comprador')}, ${v('nacionalidade_comprador', '')}${v('estado_civil_comprador', '') ? ', ' + v('estado_civil_comprador', '') : ''}${v('profissao_comprador', '') ? ', ' + v('profissao_comprador', '') : ''}, portador(a) do ${v('tipo_documento_comprador', 'RG')} nº ${v('numero_documento_comprador')}, inscrito(a) no CPF/CNPJ sob nº ${v('cpf_cnpj_comprador')}, residente e domiciliado(a) em ${v('endereco_comprador')}, doravante denominado(a) <strong>LOCATÁRIO(A)</strong>.</p>
+${f['compradores_adicionais'] && f['compradores_adicionais'] !== 'N/A' ? '<p style="margin-left:1.5cm"><strong>Demais LOCATÁRIOS:</strong> ' + f['compradores_adicionais'] + '</p>' : ''}
 <br>
 <p><strong>INTERMEDIADORA (SE APLICÁVEL):</strong></p>
 <p style="margin-left:1.5cm">${v('nome_intermediadora', 'Marcello &amp; Oliveira Negócios Imobiliários')}, inscrita no CNPJ sob nº ${v('cnpj_intermediadora', '12.345.678/0001-99')}, CRECI nº ${v('creci_intermediadora', '28.867 J')}, com endereço comercial em ${v('endereco_intermediadora', 'CRECI 28.867 J – Brasília, DF')}, doravante denominada <strong>INTERMEDIADORA</strong>.</p>
