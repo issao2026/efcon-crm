@@ -240,3 +240,9 @@
 - [x] Modal Novo Contrato (imagem7): dark, campo imóvel + e-mail/WhatsApp por vendedor/comprador/corretor, botões + Adicionar
 - [x] Backend: contracts.create procedure simplificado para o modal
 - [x] 16 testes passando
+
+## Phase 21 — Dashboard Cores + PDF Margens
+- [x] Dashboard: cores navy consistentes com a home (#060d1a, #0d1526, #0a1220)
+- [x] Dashboard: todos os cards de Acesso Rápido clicáveis (navegam para a página)
+- [x] Dashboard: clique em contrato recente ou notificação abre modal de preview
+- [x] PDF: reduzir header de 3.2cm→2.2cm, footer de 5.6cm→3.8cm, margens top 2.5cm bottom 4.2cm
