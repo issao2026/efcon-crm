@@ -898,6 +898,7 @@ Retorne um JSON com sugestões para campos vazios ou incompletos.`,
       area: z.string().optional(),
       totalValue: z.string().optional(),
       items: z.string().optional(),
+      propertyStatus: z.enum(['disponivel', 'vendido', 'alugado', 'em_negociacao']).optional(),
     })).mutation(async ({ ctx, input }) => {
       return createProperty({ ...input, userId: ctx.user.id });
     }),
@@ -917,6 +918,7 @@ Retorne um JSON com sugestões para campos vazios ou incompletos.`,
       area: z.string().optional(),
       totalValue: z.string().optional(),
       items: z.string().optional(),
+      propertyStatus: z.enum(['disponivel', 'vendido', 'alugado', 'em_negociacao']).optional(),
     })).mutation(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new Error('DB not available');
@@ -953,6 +955,61 @@ Retorne um JSON com sugestões para campos vazios ou incompletos.`,
       return { url, success: true };
     }),
   }),
+
+  // ─── Reports ────────────────────────────────────────────────────────────────
+  reports: router({
+    dealsByMonth: protectedProcedure.query(async ({ ctx }) => {
+      const db = await getDb();
+      if (!db) return [];
+      const { deals: dealsTable } = await import('../drizzle/schema');
+      const { eq, gte, and } = await import('drizzle-orm');
+      // Last 6 months
+      const sixMonthsAgo = new Date();
+      sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5);
+      sixMonthsAgo.setDate(1);
+      sixMonthsAgo.setHours(0, 0, 0, 0);
+      const rows = await db.select().from(dealsTable)
+        .where(and(eq(dealsTable.userId, ctx.user.id), gte(dealsTable.createdAt, sixMonthsAgo)));
+      // Group by month and type
+      const months: Record<string, { month: string; venda: number; locacao: number; permuta: number; financiamento: number }> = {};
+      for (let i = 5; i >= 0; i--) {
+        const d = new Date();
+        d.setMonth(d.getMonth() - i);
+        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        const label = d.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '');
+        months[key] = { month: label.charAt(0).toUpperCase() + label.slice(1), venda: 0, locacao: 0, permuta: 0, financiamento: 0 };
+      }
+      for (const row of rows) {
+        const d = new Date(row.createdAt);
+        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        if (months[key] && row.type) {
+          months[key][row.type as 'venda' | 'locacao' | 'permuta' | 'financiamento']++;
+        }
+      }
+      return Object.values(months);
+    }),
+    summary: protectedProcedure.query(async ({ ctx }) => {
+      const db = await getDb();
+      if (!db) return { totalDeals: 0, totalClients: 0, totalContracts: 0, conclusionRate: 0 };
+      const { deals: dealsTable, clients: clientsTable, contracts: contractsTable } = await import('../drizzle/schema');
+      const { eq, count } = await import('drizzle-orm');
+      const [dealCount] = await db.select({ count: count() }).from(dealsTable).where(eq(dealsTable.userId, ctx.user.id));
+      const [clientCount] = await db.select({ count: count() }).from(clientsTable).where(eq(clientsTable.userId, ctx.user.id));
+      const [contractCount] = await db.select({ count: count() }).from(contractsTable).where(eq(contractsTable.userId, ctx.user.id));
+      const [concludedCount] = await db.select({ count: count() }).from(dealsTable)
+        .where(eq(dealsTable.userId, ctx.user.id));
+      const total = dealCount?.count ?? 0;
+      const concluded = 0; // simplified
+      const rate = total > 0 ? Math.round((concluded / total) * 100) : 0;
+      return {
+        totalDeals: total,
+        totalClients: clientCount?.count ?? 0,
+        totalContracts: contractCount?.count ?? 0,
+        conclusionRate: rate,
+      };
+    }),
+  }),
+
   // ─── Import (Spreadsheet) ────────────────────────────────────────────────────
   import: router({
     // Parse a base64-encoded XLSX/CSV file and return rows as JSON (preview)

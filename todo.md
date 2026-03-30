@@ -286,3 +286,27 @@
 - [x] Botão "Enviar Todos via WhatsApp": abre todos os links em sequência
 - [x] Somente exibir modal de distribuição APÓS o PDF estar pronto (URL disponível)
 - [x] Indicador visual de status de envio por parte (✓ WA / ✓ Email)
+
+## Phase 25 — Correção de Margens PDF + Distribuição na Lista de Contratos
+- [ ] Corrigir margens Puppeteer: top 3.2cm, bottom 5.5cm (texto cortado pela máscara nas páginas 2 e 3)
+- [ ] Ajustar headerTemplate height para 3.2cm e footerTemplate para 5.5cm
+- [ ] Adicionar modal de distribuição (WhatsApp + E-mail) na página Contratos.tsx (botão "Distribuir" em cada contrato)
+- [ ] Modal Contratos: mostrar participantes (vendedor, comprador, corretor) com botões WhatsApp e E-mail
+- [ ] Explicar no modal que WhatsApp usa wa.me (abre o app, sem API paga)
+- [ ] Adicionar opção "Enviar por E-mail" como alternativa ao WhatsApp
+
+## Phase 26 — Dashboard Relatórios + Clientes Detalhe + Imóveis Situação + Distribuição Contratos
+- [x] Schema: adicionar coluna propertyStatus em properties (disponivel/vendido/alugado/em_negociacao)
+- [x] Migração SQL: ALTER TABLE properties ADD COLUMN propertyStatus
+- [x] Página Imóveis: mostrar badge de situação em cada card, permitir editar situação no modal
+- [x] Página Clientes: ao clicar no card navegar para /dashboard/clientes/:id
+- [x] Relatórios: dark navy consistente (#0f1117 / #1a1d27), gráfico de barras empilhadas com dados reais do DB
+- [x] Relatórios: KPIs conectados ao backend (totalDeals, totalClients, totalContracts, conclusionRate)
+- [x] Contratos: substituir WhatsAppBatchModal por DistribuicaoModal (WhatsApp + E-mail) com link do PDF
+- [x] Contratos: nota explicativa no modal sobre como o WhatsApp funciona (wa.me, sem API paga)
+- [x] Modal Novo Imóvel: botão de upload de matrícula (PDF/imagem) com envio ao S3, preview do arquivo enviado
+- [x] Remover "Documentos" do menu principal de navegação (DashboardShell)
+- [x] Página /dashboard/clientes/:id com abas: Dados Pessoais | Documentos | Negócios
+- [x] Aba Documentos no perfil do cliente: listar docs com imagem/preview + botão upload com OCR
+- [x] NegocioDetalhe: upload+OCR de documentos inline na aba Documentos (sem redirecionar para /upload)
+- [x] Todos os formulários (Imóveis, Clientes, Negócios): campos editáveis após criação

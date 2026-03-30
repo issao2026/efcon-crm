@@ -453,15 +453,15 @@ export async function generateContractPdf(fields: ContractFields): Promise<Buffe
   const fullHtml = buildContractHtmlWithBackground(bodyHtml, mascaraUri);
 
   // Mascara layout analysis (from pixel analysis of mascara_bg.png 1241x1754px = A4):
-  //   - Header dark area: 0–3.0cm from top
-  //   - Footer dark area: starts at 24.37cm, height = 5.33cm
-  // Reduced header/footer heights to prevent text overlap with black border areas.
-  // Header: 2.2cm (shows only the top logo strip), Footer: 3.8cm (shows bottom strip).
-  // Page margins: top 2.5cm, bottom 4.2cm to keep text inside white area.
+  //   - Header dark area: 0–3.2cm from top (logo + gold stripe)
+  //   - Footer dark area: starts at ~24.2cm, height ~5.5cm (footer band + address bar)
+  // headerTemplate height must match the top margin so the mascara fills exactly the header slot.
+  // footerTemplate height must match the bottom margin.
+  // Page margins: top 3.5cm, bottom 5.8cm to keep ALL text inside the white area on every page.
 
   const headerTemplate = `<div style="
     width: 21cm;
-    height: 2.2cm;
+    height: 3.5cm;
     margin: 0;
     padding: 0;
     overflow: hidden;
@@ -475,7 +475,7 @@ export async function generateContractPdf(fields: ContractFields): Promise<Buffe
 
   const footerTemplate = `<div style="
     width: 21cm;
-    height: 3.8cm;
+    height: 5.8cm;
     margin: 0;
     padding: 0;
     overflow: hidden;
@@ -510,9 +510,9 @@ export async function generateContractPdf(fields: ContractFields): Promise<Buffe
       headerTemplate,
       footerTemplate,
       margin: {
-        top: '2.5cm',
+        top: '3.5cm',
         right: '2.2cm',
-        bottom: '4.2cm',
+        bottom: '5.8cm',
         left: '2.2cm',
       },
     });

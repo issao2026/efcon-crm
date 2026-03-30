@@ -10,6 +10,15 @@ import {
 } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
+type PropertyStatus = 'disponivel' | 'vendido' | 'alugado' | 'em_negociacao';
+
+const STATUS_CONFIG: Record<PropertyStatus, { label: string; color: string; bg: string }> = {
+  disponivel:    { label: 'Disponível',      color: 'text-green-700',  bg: 'bg-green-50 border-green-200' },
+  vendido:       { label: 'Vendido',          color: 'text-gray-500',   bg: 'bg-gray-100 border-gray-200' },
+  alugado:       { label: 'Alugado',          color: 'text-blue-700',   bg: 'bg-blue-50 border-blue-200' },
+  em_negociacao: { label: 'Em negociação',    color: 'text-amber-700',  bg: 'bg-amber-50 border-amber-200' },
+};
+
 interface PropertyForm {
   description: string;
   propertyType: string;
@@ -25,6 +34,7 @@ interface PropertyForm {
   area: string;
   totalValue: string;
   items: string;
+  propertyStatus: PropertyStatus;
 }
 
 const EMPTY_FORM: PropertyForm = {
@@ -42,6 +52,7 @@ const EMPTY_FORM: PropertyForm = {
   area: "",
   totalValue: "",
   items: "",
+  propertyStatus: "disponivel",
 };
 
 const PROPERTY_TYPES = [
@@ -240,6 +251,27 @@ function PropertyModal({
                 onChange={setField} placeholder="Nº de matrícula" />
               <Field label="Cartório de registro" name="registryOffice" value={form.registryOffice}
                 onChange={setField} placeholder="Nome do cartório" />
+            </div>
+          </div>
+
+          {/* Situação */}
+          <div>
+            <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">Situação</p>
+            <div className="flex flex-wrap gap-2">
+              {(Object.entries(STATUS_CONFIG) as [PropertyStatus, typeof STATUS_CONFIG[PropertyStatus]][]).map(([key, cfg]) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setForm(prev => ({ ...prev, propertyStatus: key }))}
+                  className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${
+                    form.propertyStatus === key
+                      ? `${cfg.bg} ${cfg.color} ring-2 ring-offset-1 ring-current`
+                      : 'bg-white border-gray-200 text-gray-500 hover:border-gray-300'
+                  }`}
+                >
+                  {cfg.label}
+                </button>
+              ))}
             </div>
           </div>
 
@@ -460,7 +492,16 @@ export default function Imoveis() {
       area: p.area || "",
       totalValue: p.totalValue ? String(p.totalValue) : "",
       items: p.items || "",
+      propertyStatus: ((p as any).propertyStatus as PropertyStatus) || "disponivel",
     });
+  };
+
+  const handleStatusChange = async (id: number, status: PropertyStatus) => {
+    try {
+      await updateMutation.mutateAsync({ id, propertyStatus: status });
+    } catch {
+      // error handled by mutation
+    }
   };
 
   const handleDelete = async (id: number) => {
@@ -569,6 +610,29 @@ export default function Imoveis() {
                             {p.propertyType}
                           </span>
                         )}
+                        {/* Status badge with inline dropdown */}
+                        {(() => {
+                          const st = ((p as any).propertyStatus as PropertyStatus) || 'disponivel';
+                          const cfg = STATUS_CONFIG[st];
+                          return (
+                            <div className="relative group">
+                              <span className={`px-2 py-0.5 text-xs rounded-full font-medium border cursor-pointer ${cfg.bg} ${cfg.color}`}>
+                                {cfg.label} ▾
+                              </span>
+                              <div className="absolute left-0 top-full mt-1 z-20 bg-white border border-gray-200 rounded-xl shadow-lg py-1 hidden group-hover:block min-w-[140px]">
+                                {(Object.entries(STATUS_CONFIG) as [PropertyStatus, typeof STATUS_CONFIG[PropertyStatus]][]).map(([key, c]) => (
+                                  <button
+                                    key={key}
+                                    onClick={(e) => { e.stopPropagation(); handleStatusChange(p.id, key); }}
+                                    className={`w-full text-left px-3 py-1.5 text-xs font-medium hover:bg-gray-50 ${c.color} ${st === key ? 'font-bold' : ''}`}
+                                  >
+                                    {c.label}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        })()}
                         {hasMatricula && (
                           <span className="px-2 py-0.5 bg-green-50 text-green-700 text-xs rounded-full font-medium flex items-center gap-1">
                             <CheckCircle2 className="w-3 h-3" /> Matrícula

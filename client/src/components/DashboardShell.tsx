@@ -21,11 +21,11 @@ const navItems = [
   { icon: Briefcase, label: "Negócios", href: "/dashboard/negocios" },
   { icon: Users, label: "Clientes", href: "/dashboard/clientes" },
   { icon: Home, label: "Imóveis", href: "/dashboard/imoveis" },
-  { icon: FileText, label: "Documentos", href: "/dashboard/documentos" },
   { icon: FileOutput, label: "Contratos", href: "/dashboard/contratos" },
 ];
 
 const moreItems = [
+  { icon: FileText, label: "Documentos", href: "/dashboard/documentos" },
   { icon: FolderOpen, label: "Grupos de Docs", href: "/dashboard/grupos" },
   { icon: DollarSign, label: "Financeiro", href: "/dashboard/financeiro" },
   { icon: BarChart3, label: "Relatórios", href: "/dashboard/relatorios" },

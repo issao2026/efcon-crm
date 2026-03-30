@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useRoute, useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { DashboardShell } from "@/components/DashboardShell";
@@ -11,6 +11,7 @@ import {
   ArrowLeft, User, Mail, Phone, MapPin, FileText, Building2,
   Edit2, Save, X, Loader2, Calendar, Briefcase, Users,
   CreditCard, Hash, Heart, Globe, ChevronRight, Plus, Link2,
+  Upload, Eye, CheckCircle2, Sparkles,
 } from "lucide-react";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -70,6 +71,44 @@ export default function ClienteDetalhe() {
   const [showLinkDeal, setShowLinkDeal] = useState(false);
   const [linkDealId, setLinkDealId] = useState<string>("");
   const [linkDealRole, setLinkDealRole] = useState<"buyer" | "seller" | "broker">("buyer");
+  const [uploadingDoc, setUploadingDoc] = useState(false);
+  const [ocrRunning, setOcrRunning] = useState<number | null>(null);
+  const docFileRef = useRef<HTMLInputElement>(null);
+  const [docType, setDocType] = useState<string>("rg");
+
+  const uploadDocMutation = trpc.documents.upload.useMutation({
+    onSuccess: () => {
+      toast.success("Documento enviado!");
+      setUploadingDoc(false);
+      refetch();
+    },
+    onError: (e) => { toast.error(e.message); setUploadingDoc(false); },
+  });
+  const runOcrMutation = trpc.documents.processOcr.useMutation({
+    onSuccess: () => {
+      toast.success("OCR concluído! Dados extraídos.");
+      setOcrRunning(null);
+      refetch();
+    },
+    onError: (e: { message: string }) => { toast.error(e.message); setOcrRunning(null); },
+  });
+
+  const handleDocUpload = async (file: File) => {
+    setUploadingDoc(true);
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      const base64 = (e.target?.result as string).split(",")[1];
+      await uploadDocMutation.mutateAsync({
+        clientId,
+        name: file.name.replace(/\.[^.]+$/, ""),
+        fileBase64: base64,
+        mimeType: file.type,
+        fileSize: file.size,
+        docType: docType as any,
+      });
+    };
+    reader.readAsDataURL(file);
+  };
 
   const { data: client, isLoading, refetch } = trpc.clients.getById.useQuery(
     { id: clientId },
@@ -368,36 +407,105 @@ export default function ClienteDetalhe() {
 
       {/* Tab: Documentos */}
       {activeTab === "documentos" && (
-        <div className="bg-white rounded-2xl border border-border p-6">
-          {docs.length === 0 ? (
-            <div className="text-center py-12">
-              <FileText className="w-10 h-10 text-gray-200 mx-auto mb-3" />
-              <p className="text-sm text-muted-foreground">Nenhum documento vinculado a este cliente.</p>
-              <Button size="sm" variant="outline" className="mt-3" onClick={() => navigate("/dashboard/documentos")}>
-                Ir para Documentos
+        <div className="bg-white rounded-2xl border border-border p-6 space-y-4">
+          {/* Upload bar */}
+          <div className="flex flex-wrap items-center gap-3 pb-4 border-b border-gray-100">
+            <div className="flex-1 min-w-[160px]">
+              <label className="text-xs text-muted-foreground mb-1 block">Tipo de documento</label>
+              <select
+                value={docType}
+                onChange={(e) => setDocType(e.target.value)}
+                className="w-full h-9 rounded-lg border border-gray-200 text-sm px-2 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+              >
+                {Object.entries(DOC_TYPE_LABELS).map(([k, v]) => (
+                  <option key={k} value={k}>{v}</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex items-end gap-2">
+              <Button
+                size="sm"
+                onClick={() => docFileRef.current?.click()}
+                disabled={uploadingDoc}
+                className="bg-blue-600 hover:bg-blue-700 text-white gap-1.5"
+              >
+                {uploadingDoc ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
+                {uploadingDoc ? "Enviando..." : "Enviar documento"}
               </Button>
+              <input
+                ref={docFileRef}
+                type="file"
+                accept="image/*,.pdf"
+                className="hidden"
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) handleDocUpload(f); e.target.value = ""; }}
+              />
+            </div>
+            <p className="text-xs text-muted-foreground w-full">PDF, JPG, PNG — máx. 10 MB. O OCR extrai os dados automaticamente.</p>
+          </div>
+
+          {docs.length === 0 ? (
+            <div className="text-center py-10">
+              <FileText className="w-10 h-10 text-gray-200 mx-auto mb-3" />
+              <p className="text-sm text-muted-foreground">Nenhum documento enviado ainda.</p>
+              <p className="text-xs text-gray-400 mt-1">Envie RG, CPF, CNH ou comprovante de residência acima.</p>
             </div>
           ) : (
             <div className="space-y-2">
               {docs.map((doc: any) => (
                 <div
                   key={doc.id}
-                  onClick={() => setSelectedDocId(doc.id)}
-                  className="flex items-center gap-3 p-3 rounded-lg border border-border hover:bg-gray-50 cursor-pointer transition-colors"
+                  className="flex items-center gap-3 p-3 rounded-lg border border-border hover:bg-gray-50 transition-colors"
                 >
-                  <FileText className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium text-gray-900 truncate">{doc.name}</div>
-                    <div className="text-xs text-muted-foreground">{DOC_TYPE_LABELS[doc.docType] || doc.docType}</div>
+                  <div
+                    className="flex-1 flex items-center gap-3 cursor-pointer min-w-0"
+                    onClick={() => setSelectedDocId(doc.id)}
+                  >
+                    <FileText className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium text-gray-900 truncate">{doc.name}</div>
+                      <div className="text-xs text-muted-foreground">{DOC_TYPE_LABELS[doc.docType] || doc.docType}</div>
+                    </div>
                   </div>
-                  <Badge className={`text-xs flex-shrink-0 ${
-                    doc.docStatus === "validado" ? "bg-green-100 text-green-700" :
-                    doc.docStatus === "extraido" ? "bg-blue-100 text-blue-700" :
-                    doc.docStatus === "rejeitado" ? "bg-red-100 text-red-700" :
-                    "bg-gray-100 text-gray-600"
-                  }`}>
-                    {doc.docStatus}
-                  </Badge>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <Badge className={`text-xs ${
+                      doc.docStatus === "validado" ? "bg-green-100 text-green-700" :
+                      doc.docStatus === "extraido" ? "bg-blue-100 text-blue-700" :
+                      doc.docStatus === "rejeitado" ? "bg-red-100 text-red-700" :
+                      "bg-gray-100 text-gray-600"
+                    }`}>
+                      {doc.docStatus === "validado" ? <><CheckCircle2 className="w-3 h-3 inline mr-0.5" />Validado</> :
+                       doc.docStatus === "extraido" ? "OCR feito" :
+                       doc.docStatus === "rejeitado" ? "Rejeitado" : "Pendente"}
+                    </Badge>
+                    {doc.ocrStatus !== "done" && (
+                      <button
+                        onClick={() => { setOcrRunning(doc.id); runOcrMutation.mutate({ documentId: doc.id, fileUrl: doc.fileUrl || '', docType: doc.docType || 'outro' }); }}
+                        disabled={ocrRunning === doc.id}
+                        className="p-1.5 text-purple-500 hover:text-purple-700 hover:bg-purple-50 rounded-lg transition-colors"
+                        title="Executar OCR"
+                      >
+                        {ocrRunning === doc.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                      </button>
+                    )}
+                    <button
+                      onClick={() => setSelectedDocId(doc.id)}
+                      className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded-lg transition-colors"
+                      title="Ver detalhes"
+                    >
+                      <FileText className="w-3.5 h-3.5" />
+                    </button>
+                    {doc.fileUrl && (
+                      <a
+                        href={doc.fileUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                        title="Ver documento"
+                      >
+                        <Eye className="w-3.5 h-3.5" />
+                      </a>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>

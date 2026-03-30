@@ -61,6 +61,7 @@ export const properties = mysqlTable("properties", {
   items: text("items"),
   matriculaDocUrl: text("matriculaDocUrl"),
   matriculaDocKey: varchar("matriculaDocKey", { length: 500 }),
+  propertyStatus: mysqlEnum("propertyStatus", ["disponivel", "vendido", "alugado", "em_negociacao"]).default("disponivel"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });

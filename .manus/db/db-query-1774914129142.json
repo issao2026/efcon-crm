@@ -1,0 +1,9 @@
+{
+  "query": "ALTER TABLE properties ADD COLUMN IF NOT EXISTS propertyStatus ENUM('disponivel', 'vendido', 'alugado', 'em_negociacao') DEFAULT 'disponivel';",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway04.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 35WEPRGEy139WNo.root --database hqCW96Ftj9zcKD8QtxsDCe --execute ALTER TABLE properties ADD COLUMN IF NOT EXISTS propertyStatus ENUM('disponivel', 'vendido', 'alugado', 'em_negociacao') DEFAULT 'disponivel';",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 62
+}

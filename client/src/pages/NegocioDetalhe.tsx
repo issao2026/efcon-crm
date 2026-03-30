@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useParams, useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { DashboardShell } from "@/components/DashboardShell";
@@ -66,6 +66,9 @@ export default function NegocioDetalhe() {
   const [activeTab, setActiveTab] = useState<Tab>("resumo");
   const [selectedDocId, setSelectedDocId] = useState<number | null>(null);
   const [docModalOpen, setDocModalOpen] = useState(false);
+  const [uploadingDoc, setUploadingDoc] = useState(false);
+  const [newDocType, setNewDocType] = useState<string>("rg");
+  const docFileRef = useRef<HTMLInputElement>(null);
 
   const utils = trpc.useUtils();
 
@@ -86,6 +89,32 @@ export default function NegocioDetalhe() {
     },
     onError: () => toast.error("Erro ao atualizar status"),
   });
+
+  const uploadDocMutation = trpc.documents.upload.useMutation({
+    onSuccess: () => {
+      toast.success("Documento enviado! OCR em andamento...");
+      setUploadingDoc(false);
+      refetchDocs();
+    },
+    onError: (e) => { toast.error(e.message); setUploadingDoc(false); },
+  });
+
+  const handleDocUpload = async (file: File) => {
+    setUploadingDoc(true);
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      const base64 = (ev.target?.result as string).split(",")[1];
+      await uploadDocMutation.mutateAsync({
+        dealId,
+        name: file.name.replace(/\.[^.]+$/, ""),
+        fileBase64: base64,
+        mimeType: file.type,
+        fileSize: file.size,
+        docType: newDocType as any,
+      });
+    };
+    reader.readAsDataURL(file);
+  };
 
   const ocrMutation = trpc.documents.processOcr.useMutation({
     onSuccess: (result) => {
@@ -375,15 +404,38 @@ export default function NegocioDetalhe() {
 
       {activeTab === "documentos" && (
         <div className="bg-white rounded-xl border border-border overflow-hidden">
-          <div className="px-5 py-3 border-b border-border/50 flex items-center justify-between">
-            <h3 className="font-bold text-gray-900">Documentos do negócio</h3>
-            <Button
-              size="sm"
-              className="bg-blue-600 hover:bg-blue-700 text-white text-xs"
-              onClick={() => navigate(`/dashboard/upload`)}
-            >
-              <Plus className="w-3.5 h-3.5 mr-1" /> Enviar documento
-            </Button>
+          <div className="px-5 py-4 border-b border-border/50">
+            <div className="flex flex-wrap items-center gap-3">
+              <h3 className="font-bold text-gray-900 flex-1">Documentos do negócio</h3>
+              <div className="flex items-center gap-2">
+                <select
+                  value={newDocType}
+                  onChange={(e) => setNewDocType(e.target.value)}
+                  className="h-8 rounded-lg border border-gray-200 text-xs px-2 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                >
+                  {Object.entries(DOC_TYPE_LABELS).map(([k, v]) => (
+                    <option key={k} value={k}>{v}</option>
+                  ))}
+                </select>
+                <Button
+                  size="sm"
+                  className="bg-blue-600 hover:bg-blue-700 text-white text-xs h-8"
+                  onClick={() => docFileRef.current?.click()}
+                  disabled={uploadingDoc}
+                >
+                  {uploadingDoc ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" /> : <Plus className="w-3.5 h-3.5 mr-1" />}
+                  {uploadingDoc ? "Enviando..." : "Enviar"}
+                </Button>
+                <input
+                  ref={docFileRef}
+                  type="file"
+                  accept="image/*,.pdf"
+                  className="hidden"
+                  onChange={(e) => { const f = e.target.files?.[0]; if (f) handleDocUpload(f); e.target.value = ""; }}
+                />
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">PDF, JPG, PNG — máx. 10 MB. OCR extrai dados automaticamente.</p>
           </div>
           {(documents as any[]).length === 0 ? (
             <div className="text-center py-12">

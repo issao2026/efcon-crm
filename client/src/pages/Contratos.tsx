@@ -7,7 +7,7 @@ import {
   Clock, CheckCircle2, MessageCircle, Zap, Home,
   BarChart3, Settings, Bell, LogOut,
   Users, Briefcase, Download, Trash2, ChevronRight,
-  Building2,
+  Building2, Mail, Send,
 } from "lucide-react";
 
 interface Contract {
@@ -31,59 +31,142 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; dot: string 
   assinado: { label: "Concluído", color: "bg-green-500/20 text-green-400 border border-green-500/30", dot: "bg-green-400" },
 };
 
-function WhatsAppBatchModal({ contract, onClose }: { contract: Contract; onClose: () => void }) {
+function DistribuicaoModal({ contract, onClose }: { contract: Contract; onClose: () => void }) {
+  const [sent, setSent] = useState<Record<string, { wa?: boolean; email?: boolean }>>({});
+
   const parties = [
     { role: "Vendedor", name: contract.nomeVendedor },
     { role: "Comprador", name: contract.nomeComprador },
     { role: "Corretor", name: contract.nomeCorretor },
   ].filter((p) => p.name);
 
-  const msg = (name: string, role: string) =>
+  const pdfLink = contract.pdfUrl || "";
+  const hasPdf = !!pdfLink;
+
+  const waMsg = (name: string, role: string) =>
     encodeURIComponent(
-      `Olá ${name}, você tem um contrato imobiliário aguardando sua verificação e assinatura.\n\nImóvel: ${contract.descricaoImovel || "—"}\nCódigo: ${contract.code || "—"}\nSua função: ${role}\n\nAcesse o link para verificar e assinar: ${contract.pdfUrl || "Em breve"}`
+      `Olá ${name}! Segue o contrato imobiliário para sua análise e assinatura.\n\n` +
+      `🏠 Imóvel: ${contract.descricaoImovel || "—"}\n` +
+      `📄 Código: ${contract.code || "—"}\n` +
+      `👤 Sua função: ${role}\n\n` +
+      (hasPdf ? `🔗 PDF do contrato: ${pdfLink}\n\n` : "") +
+      `Por favor, verifique os dados e confirme o recebimento.`
     );
+
+  const emailSubject = encodeURIComponent(`Contrato Imobiliário — ${contract.code || "—"} — ${contract.descricaoImovel || "—"}`);
+  const emailBody = (name: string, role: string) =>
+    encodeURIComponent(
+      `Olá ${name},\n\n` +
+      `Segue o contrato imobiliário para sua análise e assinatura.\n\n` +
+      `Imóvel: ${contract.descricaoImovel || "—"}\n` +
+      `Código: ${contract.code || "—"}\n` +
+      `Sua função: ${role}\n\n` +
+      (hasPdf ? `PDF do contrato: ${pdfLink}\n\n` : "") +
+      `Atenciosamente,\nMarcello & Oliveira Imóveis`
+    );
+
+  const markSent = (name: string, channel: "wa" | "email") =>
+    setSent((prev) => ({ ...prev, [name]: { ...prev[name], [channel]: true } }));
+
+  const sendAllWa = () => {
+    parties.forEach((p) => {
+      window.open(`https://wa.me/?text=${waMsg(p.name!, p.role)}`, "_blank");
+      markSent(p.name!, "wa");
+    });
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-      <div className="bg-[#1a1d27] border border-[#2a2d3a] rounded-2xl w-full max-w-md">
+      <div className="bg-[#1a1d27] border border-[#2a2d3a] rounded-2xl w-full max-w-lg">
+        {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-[#2a2d3a]">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-[#25D366] rounded-lg flex items-center justify-center">
-              <MessageCircle className="w-4 h-4 text-white" />
+            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+              <Send className="w-4 h-4 text-white" />
             </div>
             <div>
-              <div className="text-white font-bold text-sm">WhatsApp em Lote</div>
-              <div className="text-gray-400 text-xs">{contract.code}</div>
+              <div className="text-white font-bold text-sm">Distribuir Contrato</div>
+              <div className="text-gray-400 text-xs">{contract.code} — {contract.descricaoImovel || "—"}</div>
             </div>
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors text-lg">✕</button>
         </div>
+
+        {/* PDF status */}
+        <div className={`mx-5 mt-4 px-3 py-2.5 rounded-xl text-xs font-medium flex items-center gap-2 ${
+          hasPdf ? "bg-green-500/10 border border-green-500/20 text-green-400" : "bg-yellow-500/10 border border-yellow-500/20 text-yellow-400"
+        }`}>
+          {hasPdf ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Clock className="w-3.5 h-3.5" />}
+          {hasPdf ? (
+            <>✅ PDF gerado e pronto para envio. <a href={pdfLink} target="_blank" rel="noopener noreferrer" className="underline ml-1">Visualizar</a></>
+          ) : (
+            "PDF ainda não gerado. Gere o contrato antes de distribuir."
+          )}
+        </div>
+
+        {/* Note about WhatsApp */}
+        <div className="mx-5 mt-2 px-3 py-2 rounded-xl bg-[#25D366]/5 border border-[#25D366]/10 text-xs text-gray-400">
+          <strong className="text-gray-300">Como funciona:</strong> O WhatsApp abre no seu dispositivo com a mensagem pré-preenchida — sem API paga. O e-mail abre seu cliente de e-mail padrão.
+        </div>
+
+        {/* Parties */}
         <div className="p-5 space-y-3">
           {parties.length === 0 ? (
-            <p className="text-gray-400 text-sm text-center py-4">Nenhum participante com dados de contato.</p>
+            <p className="text-gray-400 text-sm text-center py-4">Nenhum participante cadastrado neste contrato.</p>
           ) : (
             parties.map((p) => (
-              <a
-                key={p.role}
-                href={`https://wa.me/?text=${msg(p.name!, p.role)}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-3 p-3 bg-[#25D366]/10 border border-[#25D366]/20 rounded-xl hover:bg-[#25D366]/20 transition-colors"
-              >
-                <div className="w-8 h-8 bg-[#25D366] rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+              <div key={p.role} className="flex items-center gap-3 p-3 bg-[#0f1117] border border-[#2a2d3a] rounded-xl">
+                <div className="w-9 h-9 bg-blue-600/20 rounded-full flex items-center justify-center text-blue-400 text-sm font-bold flex-shrink-0">
                   {p.name?.charAt(0)?.toUpperCase()}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="text-white text-sm font-semibold truncate">{p.name}</div>
-                  <div className="text-gray-400 text-xs">{p.role}</div>
+                  <div className="text-gray-500 text-xs">{p.role}</div>
                 </div>
-                <MessageCircle className="w-4 h-4 text-[#25D366]" />
-              </a>
+                <div className="flex items-center gap-2">
+                  <a
+                    href={hasPdf ? `https://wa.me/?text=${waMsg(p.name!, p.role)}` : undefined}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={() => hasPdf && markSent(p.name!, "wa")}
+                    className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                      !hasPdf ? "opacity-40 cursor-not-allowed bg-[#25D366]/10 text-[#25D366]" :
+                      sent[p.name!]?.wa ? "bg-green-600/20 text-green-400 border border-green-500/20" :
+                      "bg-[#25D366]/10 border border-[#25D366]/20 hover:bg-[#25D366]/20 text-[#25D366]"
+                    }`}
+                  >
+                    <MessageCircle className="w-3 h-3" />
+                    {sent[p.name!]?.wa ? "✓ WA" : "WA"}
+                  </a>
+                  <a
+                    href={hasPdf ? `mailto:?subject=${emailSubject}&body=${emailBody(p.name!, p.role)}` : undefined}
+                    onClick={() => hasPdf && markSent(p.name!, "email")}
+                    className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                      !hasPdf ? "opacity-40 cursor-not-allowed bg-blue-500/10 text-blue-400" :
+                      sent[p.name!]?.email ? "bg-green-600/20 text-green-400 border border-green-500/20" :
+                      "bg-blue-500/10 border border-blue-500/20 hover:bg-blue-500/20 text-blue-400"
+                    }`}
+                  >
+                    <Mail className="w-3 h-3" />
+                    {sent[p.name!]?.email ? "✓ Email" : "Email"}
+                  </a>
+                </div>
+              </div>
             ))
           )}
         </div>
-        <div className="px-5 pb-5">
-          <button onClick={onClose} className="w-full py-2.5 rounded-xl border border-[#2a2d3a] text-gray-400 hover:text-white hover:border-gray-500 text-sm transition-colors">
+
+        {/* Footer */}
+        <div className="px-5 pb-5 flex items-center gap-3">
+          {hasPdf && parties.length > 1 && (
+            <button
+              onClick={sendAllWa}
+              className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-[#25D366]/10 border border-[#25D366]/20 hover:bg-[#25D366]/20 text-[#25D366] text-sm font-semibold transition-colors"
+            >
+              <MessageCircle className="w-4 h-4" /> Enviar Todos via WA
+            </button>
+          )}
+          <button onClick={onClose} className="flex-1 py-2.5 rounded-xl border border-[#2a2d3a] text-gray-400 hover:text-white hover:border-gray-500 text-sm transition-colors">
             Fechar
           </button>
         </div>
@@ -271,7 +354,7 @@ export default function Contratos() {
   const { user, isAuthenticated } = useAuth();
   const [search, setSearch] = useState("");
   const [showNewModal, setShowNewModal] = useState(false);
-  const [whatsappContract, setWhatsappContract] = useState<Contract | null>(null);
+  const [distribuicaoContract, setDistribuicaoContract] = useState<Contract | null>(null);
   const [menuOpen, setMenuOpen] = useState<number | null>(null);
 
   const { data: contractsData, refetch } = trpc.contracts.list.useQuery(undefined, { enabled: isAuthenticated, retry: false });
@@ -435,8 +518,8 @@ export default function Contratos() {
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <button onClick={() => setWhatsappContract(contract)} className="flex items-center gap-1.5 bg-[#25D366]/10 border border-[#25D366]/20 hover:bg-[#25D366]/20 text-[#25D366] text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors">
-                        <MessageCircle className="w-3.5 h-3.5" /> <span className="hidden sm:inline">WhatsApp em Lote</span>
+                      <button onClick={() => setDistribuicaoContract(contract)} className="flex items-center gap-1.5 bg-blue-600/10 border border-blue-500/20 hover:bg-blue-600/20 text-blue-400 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors">
+                        <Send className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Distribuir</span>
                       </button>
                       <Link href={`/dashboard/contrato?contractId=${contract.id}`}>
                         <button className="flex items-center gap-1.5 bg-[#1a1d27] border border-[#2a2d3a] hover:border-blue-500/50 text-gray-300 hover:text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors">
@@ -473,7 +556,7 @@ export default function Contratos() {
       </div>
 
       {showNewModal && <NewContractModal onClose={() => setShowNewModal(false)} onCreated={() => refetch()} />}
-      {whatsappContract && <WhatsAppBatchModal contract={whatsappContract} onClose={() => setWhatsappContract(null)} />}
+      {distribuicaoContract && <DistribuicaoModal contract={distribuicaoContract} onClose={() => setDistribuicaoContract(null)} />}
       {menuOpen !== null && <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(null)} />}
     </div>
   );
