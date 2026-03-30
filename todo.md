@@ -246,3 +246,27 @@
 - [x] Dashboard: todos os cards de Acesso Rápido clicáveis (navegam para a página)
 - [x] Dashboard: clique em contrato recente ou notificação abre modal de preview
 - [x] PDF: reduzir header de 3.2cm→2.2cm, footer de 5.6cm→3.8cm, margens top 2.5cm bottom 4.2cm
+
+## Phase 22 — Clientes, Imóveis, Documentos, Contrato melhorado
+- [ ] Schema DB: tabela clients (nome, cpf, email, whatsapp, papel, foto)
+- [ ] Schema DB: tabela client_documents (clientId, tipo, s3Key, url, ocrData, ocrStatus)
+- [ ] Schema DB: tabela properties (descricao, endereco, matricula, tipo, valor, s3Key matricula)
+- [ ] Backend: procedures clients.list, clients.create, clients.get, clients.delete
+- [ ] Backend: procedures clients.uploadDocument, clients.getDocuments
+- [ ] Backend: procedures properties.list, properties.create, properties.get, properties.delete
+- [ ] Página /dashboard/clientes: cards com avatar, nome, CPF, papel, botões Documentos/Negócios
+- [ ] Página /dashboard/imoveis: lista com cards, busca, upload de matrícula
+- [ ] Modal Novo Contrato: aba "Imóvel Cadastrado" vs "Novo Imóvel/Upload"
+- [ ] Dashboard: card Clientes Cadastrados no Acesso Rápido
+- [ ] Top nav: adicionar link Clientes e Imóveis
+- [ ] PDF: ajuste fino margens (header/footer dentro da área branca)
+
+## Phase 22 — Clientes, Imóveis, Upload Matrícula, Modal Contrato (CONCLUÍDO)
+- [x] Colunas matriculaDocUrl/matriculaDocKey em properties e whatsapp em clients
+- [x] Procedures: clients.uploadDocument, clients.delete, properties.uploadMatricula
+- [x] Página Clientes: cards dark navy, busca, upload de documentos por cliente (RG, CPF, CNH, etc.)
+- [x] Página Imóveis: upload de matrícula com modal, botão "Enviar Matrícula" em cada card
+- [x] Modal Novo Contrato: toggle Imóvel Cadastrado vs Digitar Descrição
+- [x] Dashboard: cards Clientes Cadastrados e Imóveis no Acesso Rápido
+- [x] PDF: padding page-content reduzido (3.2cm top, 5.5cm bottom) para texto dentro da área branca
+- [x] 16 testes passando

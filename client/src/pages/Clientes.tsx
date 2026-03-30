@@ -1,357 +1,622 @@
-import { useState } from "react";
-import { useLocation } from "wouter";
+import { useState, useRef } from "react";
 import { trpc } from "@/lib/trpc";
-import { DashboardShell } from "@/components/DashboardShell";
-import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import {
-  Plus, Users, Search, Phone, Mail, FileText, Building2, Loader2,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Users,
+  Plus,
+  Search,
+  FileText,
+  Briefcase,
+  Upload,
+  Trash2,
+  MoreVertical,
+  X,
+  Eye,
+  Download,
+  Phone,
+  Mail,
+  User,
 } from "lucide-react";
-import { useCep } from "@/hooks/useCep";
+import { Link } from "wouter";
 
-const CLIENT_ROLE_LABELS: Record<string, string> = {
-  comprador: "Comprador", vendedor: "Vendedor", locatario: "Locatário",
-  locador: "Locador", fiador: "Fiador", corretor: "Corretor",
+const ROLE_LABELS: Record<string, string> = {
+  comprador: "Comprador",
+  vendedor: "Vendedor",
+  locador: "Locador",
+  locatario: "Locatário",
+  fiador: "Fiador",
+  corretor: "Corretor",
 };
 
-const CLIENT_ROLE_COLORS: Record<string, string> = {
-  comprador: "bg-blue-100 text-blue-700",
-  vendedor: "bg-green-100 text-green-700",
-  locatario: "bg-purple-100 text-purple-700",
-  locador: "bg-orange-100 text-orange-700",
-  fiador: "bg-gray-100 text-gray-700",
-  corretor: "bg-yellow-100 text-yellow-700",
+const ROLE_COLORS: Record<string, string> = {
+  comprador: "bg-blue-500/20 text-blue-300 border-blue-500/30",
+  vendedor: "bg-green-500/20 text-green-300 border-green-500/30",
+  locador: "bg-purple-500/20 text-purple-300 border-purple-500/30",
+  locatario: "bg-orange-500/20 text-orange-300 border-orange-500/30",
+  fiador: "bg-yellow-500/20 text-yellow-300 border-yellow-500/30",
+  corretor: "bg-cyan-500/20 text-cyan-300 border-cyan-500/30",
 };
 
-type ClientRole = "comprador" | "vendedor" | "locatario" | "locador" | "fiador" | "corretor";
+const DOC_TYPE_LABELS: Record<string, string> = {
+  rg: "RG",
+  cpf: "CPF",
+  cnh: "CNH",
+  comprovante_residencia: "Comprovante de Residência",
+  matricula: "Matrícula",
+  iptu: "IPTU",
+  certidao: "Certidão",
+  contrato: "Contrato",
+  outro: "Outro",
+};
 
-interface NewClientForm {
-  name: string;
-  cpfCnpj: string;
-  email: string;
-  phone: string;
-  clientRole: ClientRole;
-  zipCode: string;
-  street: string;
-  number: string;
-  complement: string;
-  neighborhood: string;
-  city: string;
-  state: string;
+function getInitials(name: string) {
+  return name
+    .split(" ")
+    .slice(0, 2)
+    .map((n) => n[0])
+    .join("")
+    .toUpperCase();
 }
 
-const EMPTY_FORM: NewClientForm = {
-  name: "", cpfCnpj: "", email: "", phone: "", clientRole: "comprador",
-  zipCode: "", street: "", number: "", complement: "", neighborhood: "", city: "", state: "",
+type ClientType = {
+  id: number;
+  name: string;
+  cpfCnpj?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  whatsapp?: string | null;
+  clientRole?: string | null;
+  address?: string | null;
+  rg?: string | null;
+  birthDate?: string | null;
+  maritalStatus?: string | null;
+  nationality?: string | null;
+  profession?: string | null;
+  motherName?: string | null;
+  fatherName?: string | null;
 };
 
 export default function Clientes() {
-  const [, navigate] = useLocation();
-  const [searchQuery, setSearchQuery] = useState("");
-  const [showNewClient, setShowNewClient] = useState(false);
-  const [newClient, setNewClient] = useState<NewClientForm>(EMPTY_FORM);
-  const { lookup: lookupCep, loading: cepLoading } = useCep();
+  const [search, setSearch] = useState("");
+  const [showNewClientModal, setShowNewClientModal] = useState(false);
+  const [showDocsModal, setShowDocsModal] = useState<ClientType | null>(null);
+  const [showUploadDocModal, setShowUploadDocModal] = useState(false);
+  const [uploadDocType, setUploadDocType] = useState<string>("rg");
+  const [uploadDocFile, setUploadDocFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const { data: clients = [], isLoading, refetch } = trpc.clients.list.useQuery();
-  const createClient = trpc.clients.create.useMutation({
+  const [newClient, setNewClient] = useState({
+    name: "",
+    cpfCnpj: "",
+    rg: "",
+    email: "",
+    phone: "",
+    whatsapp: "",
+    address: "",
+    birthDate: "",
+    maritalStatus: "",
+    nationality: "",
+    profession: "",
+    motherName: "",
+    fatherName: "",
+    clientRole: "comprador" as string,
+  });
+
+  const { data: clients = [], refetch } = trpc.clients.list.useQuery();
+  const { data: clientDocs = [], refetch: refetchDocs } = trpc.clients.getDocuments.useQuery(
+    { clientId: showDocsModal?.id ?? 0 },
+    { enabled: !!showDocsModal }
+  );
+
+  const createMutation = trpc.clients.create.useMutation({
     onSuccess: () => {
-      toast.success("Cliente cadastrado com sucesso!");
-      setShowNewClient(false);
-      setNewClient(EMPTY_FORM);
+      toast.success("Cliente criado com sucesso!");
+      setShowNewClientModal(false);
+      setNewClient({ name: "", cpfCnpj: "", rg: "", email: "", phone: "", whatsapp: "", address: "", birthDate: "", maritalStatus: "", nationality: "", profession: "", motherName: "", fatherName: "", clientRole: "comprador" });
       refetch();
     },
-    onError: () => toast.error("Erro ao cadastrar cliente"),
+    onError: (e) => toast.error("Erro ao criar cliente: " + e.message),
   });
 
-  const filtered = (clients as any[]).filter((c) => {
-    if (!searchQuery) return true;
-    const q = searchQuery.toLowerCase();
-    return c.name?.toLowerCase().includes(q) || c.email?.toLowerCase().includes(q) || c.cpfCnpj?.includes(q);
+  const deleteMutation = trpc.clients.delete.useMutation({
+    onSuccess: () => { toast.success("Cliente removido"); refetch(); },
+    onError: (e) => toast.error("Erro ao remover: " + e.message),
   });
 
-  const handleCepBlur = () => {
-    lookupCep(newClient.zipCode, (data) => {
-      setNewClient((prev) => ({
-        ...prev,
-        street: data.logradouro || prev.street,
-        neighborhood: data.bairro || prev.neighborhood,
-        city: data.localidade || prev.city,
-        state: data.uf || prev.state,
-      }));
-    });
-  };
+  const uploadDocMutation = trpc.clients.uploadDocument.useMutation({
+    onSuccess: () => {
+      toast.success("Documento enviado com sucesso!");
+      setShowUploadDocModal(false);
+      setUploadDocFile(null);
+      refetchDocs();
+    },
+    onError: (e) => toast.error("Erro no upload: " + e.message),
+  });
 
-  const handleCreate = () => {
-    if (!newClient.name) { toast.error("Informe o nome"); return; }
-    // Build address string from parts
-    const addressParts = [
-      newClient.street,
-      newClient.number ? `nº ${newClient.number}` : "",
-      newClient.complement,
-      newClient.neighborhood,
-      newClient.city,
-      newClient.state,
-      newClient.zipCode,
-    ].filter(Boolean);
-    const address = addressParts.length > 0 ? addressParts.join(", ") : undefined;
-    createClient.mutate({ ...newClient, address });
-  };
+  const filtered = (clients as ClientType[]).filter((c) => {
+    const q = search.toLowerCase();
+    return (
+      c.name.toLowerCase().includes(q) ||
+      (c.cpfCnpj ?? "").toLowerCase().includes(q) ||
+      (c.email ?? "").toLowerCase().includes(q)
+    );
+  });
+
+  async function handleUploadDoc() {
+    if (!uploadDocFile || !showDocsModal) return;
+    setUploading(true);
+    try {
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        const base64 = (e.target?.result as string).split(",")[1];
+        await uploadDocMutation.mutateAsync({
+          clientId: showDocsModal.id,
+          name: uploadDocFile.name,
+          docType: uploadDocType as any,
+          fileBase64: base64,
+          mimeType: uploadDocFile.type,
+          fileSize: uploadDocFile.size,
+        });
+        setUploading(false);
+      };
+      reader.readAsDataURL(uploadDocFile);
+    } catch {
+      setUploading(false);
+    }
+  }
 
   return (
-    <DashboardShell
-      searchPlaceholder="Buscar clientes..."
-      headerRight={
-        <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white gap-2" onClick={() => setShowNewClient(true)}>
-          <Plus className="w-4 h-4" /> Novo cliente
-        </Button>
-      }
-    >
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-black text-gray-900">Clientes</h1>
-          <p className="text-muted-foreground text-sm mt-0.5">{(clients as any[]).length} clientes cadastrados</p>
-        </div>
-      </div>
-
-      {/* Search */}
-      <div className="bg-white rounded-xl border border-border p-4 mb-4">
-        <div className="relative max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <input
-            type="text"
-            placeholder="Buscar por nome, CPF, e-mail..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 bg-gray-50 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-          />
-        </div>
-      </div>
-
-      {/* Client Grid */}
-      {isLoading ? (
-        <div className="text-center py-12 text-muted-foreground text-sm">Carregando...</div>
-      ) : filtered.length === 0 ? (
-        <div className="bg-white rounded-xl border border-border text-center py-16">
-          <Users className="w-10 h-10 text-gray-200 mx-auto mb-3" />
-          <p className="text-muted-foreground text-sm mb-4">Nenhum cliente encontrado</p>
-          <Button size="sm" variant="outline" onClick={() => setShowNewClient(true)}>
-            <Plus className="w-4 h-4 mr-1" /> Cadastrar primeiro cliente
+    <div className="min-h-screen" style={{ background: "#060d1a" }}>
+      <div className="max-w-7xl mx-auto px-6 py-8">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h1 className="text-3xl font-bold text-white">Clientes</h1>
+            <p className="text-slate-400 mt-1">
+              {filtered.length} cliente{filtered.length !== 1 ? "s" : ""} cadastrado{filtered.length !== 1 ? "s" : ""}
+            </p>
+          </div>
+          <Button
+            onClick={() => setShowNewClientModal(true)}
+            className="bg-blue-600 hover:bg-blue-500 text-white gap-2"
+          >
+            <Plus className="w-4 h-4" />
+            Novo cliente
           </Button>
         </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filtered.map((client: any) => {
-            const roleKey = client.clientRole || client.clientType || "comprador";
-            return (
+
+        {/* Search */}
+        <div className="relative mb-6">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          <Input
+            placeholder="Buscar por nome, CPF, e-mail..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-10 bg-[#0d1526] border-[#1e2d47] text-white placeholder:text-slate-500"
+          />
+        </div>
+
+        {/* Clients Grid */}
+        {filtered.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-24 text-center">
+            <div className="w-16 h-16 rounded-full bg-[#0d1526] flex items-center justify-center mb-4">
+              <Users className="w-8 h-8 text-slate-500" />
+            </div>
+            <p className="text-slate-400 text-lg">Nenhum cliente encontrado</p>
+            <p className="text-slate-500 text-sm mt-1">Cadastre o primeiro cliente para começar</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filtered.map((client) => (
               <div
                 key={client.id}
-                className="bg-white rounded-xl border border-border p-5 hover:shadow-md transition-shadow cursor-pointer"
-                onClick={() => navigate(`/dashboard/clientes/${client.id}`)}
+                className="rounded-xl border border-[#1e2d47] p-5 hover:border-blue-500/40 transition-all"
+                style={{ background: "#0d1526" }}
               >
-                <div className="flex items-start justify-between mb-3">
+                <div className="flex items-start justify-between mb-4">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-700 font-bold text-sm">
-                      {client.name?.charAt(0)?.toUpperCase() || "?"}
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-600 to-blue-800 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                      {getInitials(client.name)}
                     </div>
-                    <div>
-                      <div className="font-semibold text-gray-900 text-sm">{client.name}</div>
-                      {client.cpfCnpj && <div className="text-xs text-muted-foreground">{client.cpfCnpj}</div>}
+                    <div className="min-w-0">
+                      <p className="text-white font-semibold text-sm truncate">{client.name}</p>
+                      {client.cpfCnpj && (
+                        <p className="text-slate-500 text-xs">{client.cpfCnpj}</p>
+                      )}
                     </div>
                   </div>
-                  <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${CLIENT_ROLE_COLORS[roleKey] || "bg-gray-100 text-gray-700"}`}>
-                    {CLIENT_ROLE_LABELS[roleKey] || roleKey}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    {client.clientRole && (
+                      <Badge className={`text-xs border ${ROLE_COLORS[client.clientRole] ?? "bg-slate-700 text-slate-300"}`}>
+                        {ROLE_LABELS[client.clientRole] ?? client.clientRole}
+                      </Badge>
+                    )}
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-400 hover:text-white">
+                          <MoreVertical className="w-4 h-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent className="bg-[#0d1526] border-[#1e2d47] text-white">
+                        <DropdownMenuItem
+                          className="text-red-400 hover:text-red-300 cursor-pointer"
+                          onClick={() => deleteMutation.mutate({ id: client.id })}
+                        >
+                          <Trash2 className="w-4 h-4 mr-2" />
+                          Excluir
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
                 </div>
-                <div className="space-y-1.5">
+
+                <div className="space-y-1 mb-4">
                   {client.email && (
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <Mail className="w-3.5 h-3.5" /> {client.email}
+                    <div className="flex items-center gap-2 text-slate-400 text-xs">
+                      <Mail className="w-3 h-3 flex-shrink-0" />
+                      <span className="truncate">{client.email}</span>
                     </div>
                   )}
-                  {client.phone && (
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <Phone className="w-3.5 h-3.5" /> {client.phone}
+                  {(client.phone || client.whatsapp) && (
+                    <div className="flex items-center gap-2 text-slate-400 text-xs">
+                      <Phone className="w-3 h-3 flex-shrink-0" />
+                      <span>{client.whatsapp || client.phone}</span>
                     </div>
                   )}
                 </div>
-                <div className="flex items-center gap-2 mt-4 pt-3 border-t border-border">
-                  <Button variant="outline" size="sm" className="flex-1 text-xs h-8">
-                    <FileText className="w-3.5 h-3.5 mr-1" /> Documentos
+
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1 border-[#1e2d47] text-slate-300 hover:text-white hover:bg-[#1a2540] text-xs gap-1"
+                    onClick={() => setShowDocsModal(client)}
+                  >
+                    <FileText className="w-3 h-3" />
+                    Documentos
                   </Button>
-                  <Button variant="outline" size="sm" className="flex-1 text-xs h-8">
-                    <Building2 className="w-3.5 h-3.5 mr-1" /> Negócios
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1 border-[#1e2d47] text-slate-300 hover:text-white hover:bg-[#1a2540] text-xs gap-1"
+                    asChild
+                  >
+                    <Link href="/dashboard/negocios">
+                      <Briefcase className="w-3 h-3" />
+                      Negócios
+                    </Link>
                   </Button>
                 </div>
               </div>
-            );
-          })}
-        </div>
-      )}
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* New Client Modal */}
-      {showNewClient && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto">
-            <h2 className="text-lg font-bold text-gray-900 mb-4">Novo Cliente</h2>
-            <div className="space-y-4">
-              {/* Role */}
+      <Dialog open={showNewClientModal} onOpenChange={setShowNewClientModal}>
+        <DialogContent className="bg-[#0d1526] border-[#1e2d47] text-white max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-white flex items-center gap-2">
+              <User className="w-5 h-5 text-blue-400" />
+              Novo Cliente
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 mt-2">
+            <div>
+              <label className="text-xs text-slate-400 mb-1 block">Nome completo *</label>
+              <Input
+                placeholder="Nome completo"
+                value={newClient.name}
+                onChange={(e) => setNewClient({ ...newClient, name: e.target.value })}
+                className="bg-[#060d1a] border-[#1e2d47] text-white"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-xs font-semibold text-gray-600 uppercase tracking-wide block mb-1">Tipo *</label>
-                <div className="grid grid-cols-3 gap-2">
-                  {(["comprador", "vendedor", "locatario", "locador", "fiador"] as ClientRole[]).map((t) => (
-                    <button
-                      key={t}
-                      onClick={() => setNewClient({ ...newClient, clientRole: t })}
-                      className={`px-2 py-1.5 text-xs font-semibold rounded-lg border-2 transition-colors ${
-                        newClient.clientRole === t ? "border-blue-600 bg-blue-50 text-blue-700" : "border-gray-200 text-gray-600 hover:border-gray-300"
-                      }`}
-                    >
-                      {CLIENT_ROLE_LABELS[t]}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Name */}
-              <div>
-                <label className="text-xs font-semibold text-gray-600 uppercase tracking-wide block mb-1">Nome completo *</label>
-                <input
-                  type="text"
-                  placeholder="Nome do cliente"
-                  value={newClient.name}
-                  onChange={(e) => setNewClient({ ...newClient, name: e.target.value })}
-                  className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                />
-              </div>
-
-              {/* CPF/CNPJ */}
-              <div>
-                <label className="text-xs font-semibold text-gray-600 uppercase tracking-wide block mb-1">CPF / CNPJ</label>
-                <input
-                  type="text"
+                <label className="text-xs text-slate-400 mb-1 block">CPF/CNPJ</label>
+                <Input
                   placeholder="000.000.000-00"
                   value={newClient.cpfCnpj}
                   onChange={(e) => setNewClient({ ...newClient, cpfCnpj: e.target.value })}
-                  className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  className="bg-[#060d1a] border-[#1e2d47] text-white"
                 />
               </div>
-
-              {/* Email + Phone */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs font-semibold text-gray-600 uppercase tracking-wide block mb-1">E-mail</label>
-                  <input
-                    type="email"
-                    placeholder="email@exemplo.com"
-                    value={newClient.email}
-                    onChange={(e) => setNewClient({ ...newClient, email: e.target.value })}
-                    className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-semibold text-gray-600 uppercase tracking-wide block mb-1">Telefone</label>
-                  <input
-                    type="text"
-                    placeholder="(11) 99999-9999"
-                    value={newClient.phone}
-                    onChange={(e) => setNewClient({ ...newClient, phone: e.target.value })}
-                    className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                  />
-                </div>
-              </div>
-
-              {/* Address section */}
               <div>
-                <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Endereço</p>
-                <div className="grid grid-cols-3 gap-3 mb-3">
-                  <div className="relative">
-                    <label className="text-xs font-semibold text-gray-600 uppercase tracking-wide block mb-1">CEP</label>
-                    <input
-                      type="text"
-                      placeholder="00000-000"
-                      maxLength={9}
-                      value={newClient.zipCode}
-                      onChange={(e) => setNewClient({ ...newClient, zipCode: e.target.value })}
-                      onBlur={handleCepBlur}
-                      className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                    />
-                    {cepLoading && (
-                      <div className="absolute right-3 top-8">
-                        <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
-                      </div>
-                    )}
-                  </div>
-                  <div className="col-span-2">
-                    <label className="text-xs font-semibold text-gray-600 uppercase tracking-wide block mb-1">Logradouro</label>
-                    <input
-                      type="text"
-                      placeholder="Rua, Av., etc."
-                      value={newClient.street}
-                      onChange={(e) => setNewClient({ ...newClient, street: e.target.value })}
-                      className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                    />
-                  </div>
-                </div>
-                <div className="grid grid-cols-4 gap-3">
-                  <div>
-                    <label className="text-xs font-semibold text-gray-600 uppercase tracking-wide block mb-1">Nº</label>
-                    <input
-                      type="text"
-                      placeholder="Nº"
-                      value={newClient.number}
-                      onChange={(e) => setNewClient({ ...newClient, number: e.target.value })}
-                      className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs font-semibold text-gray-600 uppercase tracking-wide block mb-1">Compl.</label>
-                    <input
-                      type="text"
-                      placeholder="Apto"
-                      value={newClient.complement}
-                      onChange={(e) => setNewClient({ ...newClient, complement: e.target.value })}
-                      className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs font-semibold text-gray-600 uppercase tracking-wide block mb-1">Bairro</label>
-                    <input
-                      type="text"
-                      placeholder="Bairro"
-                      value={newClient.neighborhood}
-                      onChange={(e) => setNewClient({ ...newClient, neighborhood: e.target.value })}
-                      className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs font-semibold text-gray-600 uppercase tracking-wide block mb-1">Cidade</label>
-                    <input
-                      type="text"
-                      placeholder="Cidade"
-                      value={newClient.city}
-                      onChange={(e) => setNewClient({ ...newClient, city: e.target.value })}
-                      className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                    />
-                  </div>
-                </div>
+                <label className="text-xs text-slate-400 mb-1 block">RG</label>
+                <Input
+                  placeholder="RG"
+                  value={newClient.rg}
+                  onChange={(e) => setNewClient({ ...newClient, rg: e.target.value })}
+                  className="bg-[#060d1a] border-[#1e2d47] text-white"
+                />
               </div>
             </div>
-
-            <div className="flex gap-3 mt-6">
-              <Button variant="outline" className="flex-1" onClick={() => { setShowNewClient(false); setNewClient(EMPTY_FORM); }}>
+            <div>
+              <label className="text-xs text-slate-400 mb-1 block">E-mail</label>
+              <Input
+                placeholder="email@exemplo.com"
+                value={newClient.email}
+                onChange={(e) => setNewClient({ ...newClient, email: e.target.value })}
+                className="bg-[#060d1a] border-[#1e2d47] text-white"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs text-slate-400 mb-1 block">Telefone</label>
+                <Input
+                  placeholder="(11) 99999-9999"
+                  value={newClient.phone}
+                  onChange={(e) => setNewClient({ ...newClient, phone: e.target.value })}
+                  className="bg-[#060d1a] border-[#1e2d47] text-white"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-slate-400 mb-1 block">WhatsApp</label>
+                <Input
+                  placeholder="(11) 99999-9999"
+                  value={newClient.whatsapp}
+                  onChange={(e) => setNewClient({ ...newClient, whatsapp: e.target.value })}
+                  className="bg-[#060d1a] border-[#1e2d47] text-white"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="text-xs text-slate-400 mb-1 block">Papel</label>
+              <Select value={newClient.clientRole} onValueChange={(v) => setNewClient({ ...newClient, clientRole: v })}>
+                <SelectTrigger className="bg-[#060d1a] border-[#1e2d47] text-white">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-[#0d1526] border-[#1e2d47] text-white">
+                  {Object.entries(ROLE_LABELS).map(([v, l]) => (
+                    <SelectItem key={v} value={v}>{l}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-xs text-slate-400 mb-1 block">Endereço</label>
+              <Input
+                placeholder="Rua, número, bairro, cidade"
+                value={newClient.address}
+                onChange={(e) => setNewClient({ ...newClient, address: e.target.value })}
+                className="bg-[#060d1a] border-[#1e2d47] text-white"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs text-slate-400 mb-1 block">Data de nascimento</label>
+                <Input
+                  placeholder="DD/MM/AAAA"
+                  value={newClient.birthDate}
+                  onChange={(e) => setNewClient({ ...newClient, birthDate: e.target.value })}
+                  className="bg-[#060d1a] border-[#1e2d47] text-white"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-slate-400 mb-1 block">Estado civil</label>
+                <Input
+                  placeholder="Solteiro(a)"
+                  value={newClient.maritalStatus}
+                  onChange={(e) => setNewClient({ ...newClient, maritalStatus: e.target.value })}
+                  className="bg-[#060d1a] border-[#1e2d47] text-white"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs text-slate-400 mb-1 block">Profissão</label>
+                <Input
+                  placeholder="Profissão"
+                  value={newClient.profession}
+                  onChange={(e) => setNewClient({ ...newClient, profession: e.target.value })}
+                  className="bg-[#060d1a] border-[#1e2d47] text-white"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-slate-400 mb-1 block">Nacionalidade</label>
+                <Input
+                  placeholder="Brasileiro(a)"
+                  value={newClient.nationality}
+                  onChange={(e) => setNewClient({ ...newClient, nationality: e.target.value })}
+                  className="bg-[#060d1a] border-[#1e2d47] text-white"
+                />
+              </div>
+            </div>
+            <div className="flex gap-3 pt-2">
+              <Button
+                variant="outline"
+                className="flex-1 border-[#1e2d47] text-slate-300"
+                onClick={() => setShowNewClientModal(false)}
+              >
                 Cancelar
               </Button>
               <Button
-                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
-                onClick={handleCreate}
-                disabled={createClient.isPending}
+                className="flex-1 bg-blue-600 hover:bg-blue-500 text-white"
+                onClick={() => createMutation.mutate(newClient as any)}
+                disabled={!newClient.name || createMutation.isPending}
               >
-                {createClient.isPending ? "Cadastrando..." : "Cadastrar"}
+                {createMutation.isPending ? "Criando..." : "Criar Cliente"}
               </Button>
             </div>
           </div>
-        </div>
-      )}
-    </DashboardShell>
+        </DialogContent>
+      </Dialog>
+
+      {/* Documents Modal */}
+      <Dialog open={!!showDocsModal} onOpenChange={(o) => !o && setShowDocsModal(null)}>
+        <DialogContent className="bg-[#0d1526] border-[#1e2d47] text-white max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-white flex items-center gap-2">
+              <FileText className="w-5 h-5 text-blue-400" />
+              Documentos — {showDocsModal?.name}
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="mt-2">
+            <div className="flex justify-between items-center mb-4">
+              <p className="text-slate-400 text-sm">{(clientDocs as any[]).length} documento(s) enviado(s)</p>
+              <Button
+                size="sm"
+                className="bg-blue-600 hover:bg-blue-500 text-white gap-2"
+                onClick={() => setShowUploadDocModal(true)}
+              >
+                <Upload className="w-4 h-4" />
+                Enviar documento
+              </Button>
+            </div>
+
+            {(clientDocs as any[]).length === 0 ? (
+              <div className="flex flex-col items-center py-12 text-center">
+                <FileText className="w-12 h-12 text-slate-600 mb-3" />
+                <p className="text-slate-400">Nenhum documento enviado</p>
+                <p className="text-slate-500 text-sm">Envie RG, CPF, CNH, matrícula e outros documentos</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {(clientDocs as any[]).map((doc: any) => (
+                  <div
+                    key={doc.id}
+                    className="flex items-center justify-between p-3 rounded-lg border border-[#1e2d47] hover:border-blue-500/30 transition-colors"
+                    style={{ background: "#060d1a" }}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded bg-blue-500/20 flex items-center justify-center">
+                        <FileText className="w-4 h-4 text-blue-400" />
+                      </div>
+                      <div>
+                        <p className="text-white text-sm font-medium">{doc.name}</p>
+                        <p className="text-slate-500 text-xs">{DOC_TYPE_LABELS[doc.docType] ?? doc.docType}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge className={
+                        doc.ocrStatus === "done"
+                          ? "bg-green-500/20 text-green-300 border-green-500/30"
+                          : doc.ocrStatus === "processing"
+                          ? "bg-yellow-500/20 text-yellow-300 border-yellow-500/30"
+                          : "bg-slate-500/20 text-slate-300 border-slate-500/30"
+                      }>
+                        {doc.ocrStatus === "done" ? "OCR Concluído" : doc.ocrStatus === "processing" ? "Processando" : "Pendente"}
+                      </Badge>
+                      {doc.fileUrl && (
+                        <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer">
+                          <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-400 hover:text-white">
+                            <Eye className="w-4 h-4" />
+                          </Button>
+                        </a>
+                      )}
+                      {doc.fileUrl && (
+                        <a href={doc.fileUrl} download>
+                          <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-400 hover:text-white">
+                            <Download className="w-4 h-4" />
+                          </Button>
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Upload Document Modal */}
+      <Dialog open={showUploadDocModal} onOpenChange={setShowUploadDocModal}>
+        <DialogContent className="bg-[#0d1526] border-[#1e2d47] text-white max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-white flex items-center gap-2">
+              <Upload className="w-5 h-5 text-blue-400" />
+              Enviar Documento
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 mt-2">
+            <div>
+              <label className="text-xs text-slate-400 mb-1 block">Tipo de documento</label>
+              <Select value={uploadDocType} onValueChange={setUploadDocType}>
+                <SelectTrigger className="bg-[#060d1a] border-[#1e2d47] text-white">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-[#0d1526] border-[#1e2d47] text-white">
+                  {Object.entries(DOC_TYPE_LABELS).map(([v, l]) => (
+                    <SelectItem key={v} value={v}>{l}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-xs text-slate-400 mb-1 block">Arquivo</label>
+              <div
+                className="border-2 border-dashed border-[#1e2d47] rounded-lg p-6 text-center cursor-pointer hover:border-blue-500/50 transition-colors"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                {uploadDocFile ? (
+                  <div className="flex items-center justify-center gap-2 text-green-400">
+                    <FileText className="w-5 h-5" />
+                    <span className="text-sm">{uploadDocFile.name}</span>
+                    <button onClick={(e) => { e.stopPropagation(); setUploadDocFile(null); }}>
+                      <X className="w-4 h-4 text-slate-400 hover:text-white" />
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <Upload className="w-8 h-8 text-slate-500 mx-auto mb-2" />
+                    <p className="text-slate-400 text-sm">Clique para selecionar arquivo</p>
+                    <p className="text-slate-500 text-xs mt-1">JPG, PNG, PDF — máx. 10 MB</p>
+                  </>
+                )}
+              </div>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*,.pdf"
+                className="hidden"
+                onChange={(e) => setUploadDocFile(e.target.files?.[0] ?? null)}
+              />
+            </div>
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                className="flex-1 border-[#1e2d47] text-slate-300"
+                onClick={() => setShowUploadDocModal(false)}
+              >
+                Cancelar
+              </Button>
+              <Button
+                className="flex-1 bg-blue-600 hover:bg-blue-500 text-white"
+                onClick={handleUploadDoc}
+                disabled={!uploadDocFile || uploading}
+              >
+                {uploading ? "Enviando..." : "Enviar"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 }

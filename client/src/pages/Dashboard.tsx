@@ -4,7 +4,7 @@ import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { getLoginUrl } from "@/const";
 import {
-  FileText, BarChart3, Settings, User,
+  FileText, BarChart3, Settings, User, Users,
   Bell, Plus, ChevronRight, Clock, AlertTriangle,
   CheckCircle2, Moon, Sun, Zap, LogOut, Home, X,
 } from "lucide-react";
@@ -190,9 +190,9 @@ export default function Dashboard() {
 
   const quickLinks = [
     { href: "/dashboard/contratos", label: "Contratos", desc: "Gerenciar contratos imobiliários", icon: FileText, iconBg: "bg-blue-600", hoverBorder: "hover:border-blue-500/60" },
-    { href: "/dashboard/relatorios", label: "Relatórios", desc: "Análises e métricas do sistema", icon: BarChart3, iconBg: "bg-green-600", hoverBorder: "hover:border-green-500/60" },
+    { href: "/dashboard/clientes", label: "Clientes Cadastrados", desc: "Ver e gerenciar clientes", icon: Users, iconBg: "bg-cyan-600", hoverBorder: "hover:border-cyan-500/60" },
+    { href: "/dashboard/imoveis", label: "Imóveis", desc: "Catálogo de imóveis cadastrados", icon: Home, iconBg: "bg-green-600", hoverBorder: "hover:border-green-500/60" },
     { href: "/dashboard/configuracoes", label: "Configurações", desc: "Usuários, segurança e sistema", icon: Settings, iconBg: "bg-purple-600", hoverBorder: "hover:border-purple-500/60" },
-    { href: "/dashboard/clientes", label: "Meu Perfil", desc: "Ver e editar informações pessoais", icon: User, iconBg: "bg-orange-500", hoverBorder: "hover:border-orange-500/60" },
   ];
 
   return (

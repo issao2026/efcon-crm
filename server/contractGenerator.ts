@@ -582,8 +582,11 @@ export async function generateContractHtml(fields: ContractFields): Promise<stri
   .page-content {
     position: relative;
     z-index: 1;
-    /* Top: 3.2cm header + 1cm gap; Bottom: 5.5cm footer + 0.5cm gap; Sides: 2.2cm */
-    padding: 4.2cm 2.2cm 6.0cm 2.2cm;
+    /* Mascara header ~3.0cm, footer ~5.3cm from top/bottom of page.
+     * padding-top: 3.2cm clears the header dark band.
+     * padding-bottom: 5.5cm clears the footer dark band.
+     * Sides: 2.2cm for readability. */
+    padding: 3.2cm 2.2cm 5.5cm 2.2cm;
     min-height: 29.7cm;
   }
   h1, h2, h3 {

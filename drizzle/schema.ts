@@ -37,6 +37,7 @@ export const clients = mysqlTable("clients", {
   motherName: varchar("motherName", { length: 255 }),
   fatherName: varchar("fatherName", { length: 255 }),
   clientRole: mysqlEnum("clientRole", ["comprador", "vendedor", "locador", "locatario", "fiador", "corretor"]).default("comprador"),
+  whatsapp: varchar("whatsapp", { length: 30 }),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
@@ -58,6 +59,8 @@ export const properties = mysqlTable("properties", {
   area: varchar("area", { length: 50 }),
   totalValue: decimal("totalValue", { precision: 15, scale: 2 }),
   items: text("items"),
+  matriculaDocUrl: text("matriculaDocUrl"),
+  matriculaDocKey: varchar("matriculaDocKey", { length: 500 }),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });

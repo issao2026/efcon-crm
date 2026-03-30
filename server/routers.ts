@@ -300,6 +300,7 @@ export const appRouter = router({
       motherName: z.string().optional(),
       fatherName: z.string().optional(),
       clientRole: z.enum(['comprador', 'vendedor', 'locador', 'locatario', 'fiador', 'corretor']).optional(),
+      whatsapp: z.string().optional(),
     })).mutation(async ({ ctx, input }) => {
       const result = await createClient({ ...input, userId: ctx.user.id });
       return { id: result.insertId, success: true };
@@ -320,9 +321,55 @@ export const appRouter = router({
         motherName: z.string().optional(),
         fatherName: z.string().optional(),
         clientRole: z.enum(['comprador', 'vendedor', 'locador', 'locatario', 'fiador', 'corretor']).optional(),
+        whatsapp: z.string().optional(),
       }),
     })).mutation(async ({ input }) => {
       return updateClient(input.id, input.data);
+    }),
+    delete: protectedProcedure.input(z.object({ id: z.number() })).mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new Error('DB not available');
+      const { clients: clientsTable } = await import('../drizzle/schema');
+      const { eq, and } = await import('drizzle-orm');
+      await db.delete(clientsTable).where(and(eq(clientsTable.id, input.id), eq(clientsTable.userId, ctx.user.id)));
+      return { success: true };
+    }),
+    uploadDocument: protectedProcedure.input(z.object({
+      clientId: z.number(),
+      name: z.string(),
+      docType: z.enum(['rg', 'cpf', 'cnh', 'comprovante_residencia', 'matricula', 'iptu', 'certidao', 'contrato', 'outro']),
+      fileBase64: z.string(),
+      mimeType: z.string(),
+      fileSize: z.number(),
+    })).mutation(async ({ ctx, input }) => {
+      const { storagePut } = await import('./storage');
+      const buf = Buffer.from(input.fileBase64, 'base64');
+      const ext = input.mimeType.split('/')[1] || 'bin';
+      const key = `client-docs/${ctx.user.id}/${input.clientId}/${Date.now()}-${input.docType}.${ext}`;
+      const { url } = await storagePut(key, buf, input.mimeType);
+      const db = await getDb();
+      if (!db) throw new Error('DB not available');
+      const { documents: docsTable } = await import('../drizzle/schema');
+      const result = await db.insert(docsTable).values({
+        userId: ctx.user.id,
+        clientId: input.clientId,
+        name: input.name,
+        docType: input.docType,
+        fileUrl: url,
+        fileKey: key,
+        mimeType: input.mimeType,
+        fileSize: input.fileSize,
+        ocrStatus: 'pending',
+        docStatus: 'pendente',
+      });
+      return { id: (result as any).insertId, url, success: true };
+    }),
+    getDocuments: protectedProcedure.input(z.object({ clientId: z.number() })).query(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) return [];
+      const { documents: docsTable } = await import('../drizzle/schema');
+      const { eq, and } = await import('drizzle-orm');
+      return db.select().from(docsTable).where(and(eq(docsTable.clientId, input.clientId), eq(docsTable.userId, ctx.user.id)));
     }),
   }),
 
@@ -879,7 +926,7 @@ Retorne um JSON com sugestões para campos vazios ou incompletos.`,
       await db.update(propsTable).set(data).where(and(eq(propsTable.id, id), eq(propsTable.userId, ctx.user.id)));
       return { success: true };
     }),
-     delete: protectedProcedure.input(z.object({ id: z.number() })).mutation(async ({ ctx, input }) => {
+      delete: protectedProcedure.input(z.object({ id: z.number() })).mutation(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new Error('DB not available');
       const { properties: propsTable } = await import('../drizzle/schema');
@@ -887,8 +934,25 @@ Retorne um JSON com sugestões para campos vazios ou incompletos.`,
       await db.delete(propsTable).where(and(eq(propsTable.id, input.id), eq(propsTable.userId, ctx.user.id)));
       return { success: true };
     }),
+    uploadMatricula: protectedProcedure.input(z.object({
+      propertyId: z.number(),
+      fileBase64: z.string(),
+      mimeType: z.string(),
+      fileName: z.string(),
+    })).mutation(async ({ ctx, input }) => {
+      const { storagePut } = await import('./storage');
+      const buf = Buffer.from(input.fileBase64, 'base64');
+      const ext = input.mimeType.split('/')[1] || 'bin';
+      const key = `property-docs/${ctx.user.id}/${input.propertyId}/matricula-${Date.now()}.${ext}`;
+      const { url } = await storagePut(key, buf, input.mimeType);
+      const db = await getDb();
+      if (!db) throw new Error('DB not available');
+      const { properties: propsTable } = await import('../drizzle/schema');
+      const { eq, and } = await import('drizzle-orm');
+      await db.update(propsTable).set({ matriculaDocUrl: url, matriculaDocKey: key }).where(and(eq(propsTable.id, input.propertyId), eq(propsTable.userId, ctx.user.id)));
+      return { url, success: true };
+    }),
   }),
-
   // ─── Import (Spreadsheet) ────────────────────────────────────────────────────
   import: router({
     // Parse a base64-encoded XLSX/CSV file and return rows as JSON (preview)

@@ -7,6 +7,7 @@ import {
   Clock, CheckCircle2, MessageCircle, Zap, Home,
   BarChart3, Settings, Bell, LogOut,
   Users, Briefcase, Download, Trash2, ChevronRight,
+  Building2,
 } from "lucide-react";
 
 interface Contract {
@@ -93,11 +94,14 @@ function WhatsAppBatchModal({ contract, onClose }: { contract: Contract; onClose
 
 function NewContractModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
   const [imovel, setImovel] = useState("");
+  const [propertyMode, setPropertyMode] = useState<"select" | "manual">("select");
+  const [selectedPropertyId, setSelectedPropertyId] = useState<number | null>(null);
   const [vendedores, setVendedores] = useState([{ email: "", whatsapp: "" }]);
   const [compradores, setCompradores] = useState([{ email: "", whatsapp: "" }]);
   const [corretores, setCorretores] = useState([{ email: "", whatsapp: "" }]);
 
   const utils = trpc.useUtils();
+  const { data: properties = [] } = trpc.properties.list.useQuery();
   const createMutation = trpc.contracts.create.useMutation({
     onSuccess: () => { utils.contracts.list.invalidate(); onCreated(); onClose(); },
   });
@@ -144,9 +148,14 @@ function NewContractModal({ onClose, onCreated }: { onClose: () => void; onCreat
   );
 
   const handleCreate = () => {
-    if (!imovel.trim()) return;
+    const descricao = propertyMode === "select" && selectedPropertyId
+      ? (properties as any[]).find((p: any) => p.id === selectedPropertyId)?.description ||
+        (properties as any[]).find((p: any) => p.id === selectedPropertyId)?.street ||
+        `Imóvel #${selectedPropertyId}`
+      : imovel.trim();
+    if (!descricao) return;
     createMutation.mutate({
-      descricaoImovel: imovel,
+      descricaoImovel: descricao,
       nomeVendedor: vendedores[0]?.email || undefined,
       nomeComprador: compradores[0]?.email || undefined,
       nomeCorretor: corretores[0]?.email || undefined,
@@ -166,13 +175,80 @@ function NewContractModal({ onClose, onCreated }: { onClose: () => void; onCreat
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
           <div>
             <div className="flex items-center gap-2 mb-3">
-              <FileText className="w-4 h-4 text-gray-400" />
+              <Building2 className="w-4 h-4 text-gray-400" />
               <span className="text-white font-semibold text-sm">Identificação do Imóvel</span>
             </div>
-            <input type="text" placeholder="Ex: Apartamento 302 - Ed. Solar das Flores *" value={imovel}
-              onChange={(e) => setImovel(e.target.value)}
-              className="w-full bg-[#0f1117] border border-blue-500 rounded-xl px-3 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-blue-400" />
-            <p className="text-gray-600 text-xs mt-1">O endereço completo será preenchido na etapa de detalhes pelo corretor.</p>
+            {/* Toggle: select vs manual */}
+            <div className="flex rounded-xl overflow-hidden border border-[#2a2d3a] mb-3">
+              <button
+                onClick={() => setPropertyMode("select")}
+                className={`flex-1 py-2 text-xs font-semibold transition-colors ${
+                  propertyMode === "select"
+                    ? "bg-blue-600 text-white"
+                    : "bg-[#0f1117] text-gray-400 hover:text-gray-200"
+                }`}
+              >
+                Imóvel Cadastrado
+              </button>
+              <button
+                onClick={() => setPropertyMode("manual")}
+                className={`flex-1 py-2 text-xs font-semibold transition-colors ${
+                  propertyMode === "manual"
+                    ? "bg-blue-600 text-white"
+                    : "bg-[#0f1117] text-gray-400 hover:text-gray-200"
+                }`}
+              >
+                Digitar Descrição
+              </button>
+            </div>
+            {propertyMode === "select" ? (
+              (properties as any[]).length === 0 ? (
+                <div className="bg-[#0f1117] border border-[#2a2d3a] rounded-xl px-3 py-3 text-center">
+                  <p className="text-gray-500 text-xs">Nenhum imóvel cadastrado.</p>
+                  <button
+                    onClick={() => setPropertyMode("manual")}
+                    className="text-blue-400 text-xs hover:underline mt-1"
+                  >
+                    Digitar descrição manualmente
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-1.5 max-h-40 overflow-y-auto">
+                  {(properties as any[]).map((p: any) => {
+                    const label = p.description || p.street || `Imóvel #${p.id}`;
+                    const sub = [p.city, p.state].filter(Boolean).join(", ");
+                    const isSelected = selectedPropertyId === p.id;
+                    return (
+                      <button
+                        key={p.id}
+                        onClick={() => setSelectedPropertyId(isSelected ? null : p.id)}
+                        className={`w-full text-left px-3 py-2.5 rounded-xl border transition-colors ${
+                          isSelected
+                            ? "border-blue-500 bg-blue-500/10 text-white"
+                            : "border-[#2a2d3a] bg-[#0f1117] text-gray-300 hover:border-blue-400"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <Home className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+                          <span className="text-sm font-medium truncate">{label}</span>
+                          {p.propertyType && (
+                            <span className="ml-auto text-xs text-gray-500 flex-shrink-0">{p.propertyType}</span>
+                          )}
+                        </div>
+                        {sub && <p className="text-xs text-gray-500 mt-0.5 ml-5">{sub}</p>}
+                      </button>
+                    );
+                  })}
+                </div>
+              )
+            ) : (
+              <>
+                <input type="text" placeholder="Ex: Apartamento 302 - Ed. Solar das Flores *" value={imovel}
+                  onChange={(e) => setImovel(e.target.value)}
+                  className="w-full bg-[#0f1117] border border-blue-500 rounded-xl px-3 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-blue-400" />
+                <p className="text-gray-600 text-xs mt-1">O endereço completo será preenchido na etapa de detalhes pelo corretor.</p>
+              </>
+            )}
           </div>
           <PartySection title="Vendedores" icon={Users} rows={vendedores} setter={setVendedores} addLabel="Adicionar Vendedor" />
           <PartySection title="Compradores" icon={Users} rows={compradores} setter={setCompradores} addLabel="Adicionar Comprador" />
@@ -180,7 +256,7 @@ function NewContractModal({ onClose, onCreated }: { onClose: () => void; onCreat
         </div>
         <div className="flex items-center gap-3 px-5 py-4 border-t border-[#2a2d3a]">
           <button onClick={onClose} className="flex-1 py-2.5 rounded-xl border border-[#2a2d3a] text-gray-400 hover:text-white text-sm font-semibold transition-colors">Cancelar</button>
-          <button onClick={handleCreate} disabled={!imovel.trim() || createMutation.isPending}
+          <button onClick={handleCreate} disabled={(propertyMode === "manual" ? !imovel.trim() : !selectedPropertyId) || createMutation.isPending}
             className="flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-bold transition-colors flex items-center justify-center gap-2">
             {createMutation.isPending ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <><ChevronRight className="w-4 h-4" /> Criar Contrato</>}
           </button>

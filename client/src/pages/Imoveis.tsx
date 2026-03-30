@@ -1,11 +1,12 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { trpc } from "@/lib/trpc";
 import { DashboardShell } from "@/components/DashboardShell";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import {
   Plus, Pencil, Trash2, Home, MapPin, FileText, Search,
-  ChevronDown, ChevronUp, X, Loader2, Building2, DollarSign
+  ChevronDown, ChevronUp, X, Loader2, Building2, DollarSign,
+  Upload, Eye, CheckCircle2
 } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -109,7 +110,7 @@ function Field({
   );
 }
 
-// ─── Modal ────────────────────────────────────────────────────────────────────
+// ─── Property Modal ────────────────────────────────────────────────────────────
 function PropertyModal({
   initial, onClose, onSave,
 }: {
@@ -279,6 +280,126 @@ function PropertyModal({
   );
 }
 
+// ─── Matricula Upload Modal ───────────────────────────────────────────────────
+function MatriculaUploadModal({
+  propertyId,
+  propertyName,
+  existingUrl,
+  onClose,
+  onSuccess,
+}: {
+  propertyId: number;
+  propertyName: string;
+  existingUrl?: string | null;
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const [file, setFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const uploadMutation = trpc.properties.uploadMatricula.useMutation({
+    onSuccess: () => {
+      toast.success("Matrícula enviada com sucesso!");
+      onSuccess();
+      onClose();
+    },
+    onError: (e) => {
+      toast.error("Erro no upload: " + e.message);
+      setUploading(false);
+    },
+  });
+
+  async function handleUpload() {
+    if (!file) return;
+    setUploading(true);
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      const base64 = (e.target?.result as string).split(",")[1];
+      await uploadMutation.mutateAsync({
+        propertyId,
+        fileBase64: base64,
+        mimeType: file.type,
+        fileName: file.name,
+      });
+    };
+    reader.readAsDataURL(file);
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-md">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="text-lg font-bold text-gray-900">Enviar Matrícula</h3>
+            <p className="text-xs text-gray-500 mt-0.5 truncate max-w-xs">{propertyName}</p>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {existingUrl && (
+          <div className="flex items-center gap-2 bg-green-50 border border-green-200 rounded-xl px-4 py-3 mb-4">
+            <CheckCircle2 className="w-4 h-4 text-green-600 flex-shrink-0" />
+            <span className="text-sm text-green-700 flex-1">Matrícula já enviada</span>
+            <a href={existingUrl} target="_blank" rel="noopener noreferrer"
+              className="text-xs text-blue-600 hover:underline font-medium flex items-center gap-1">
+              <Eye className="w-3.5 h-3.5" /> Ver
+            </a>
+          </div>
+        )}
+
+        <p className="text-sm text-gray-500 mb-4">
+          {existingUrl ? "Envie um novo arquivo para substituir a matrícula atual." : "Envie o documento de matrícula do imóvel (PDF, JPG ou PNG, máx. 10 MB)."}
+        </p>
+
+        <div
+          className="border-2 border-dashed border-gray-200 rounded-xl p-6 text-center cursor-pointer hover:border-blue-400 transition-colors mb-4"
+          onClick={() => fileRef.current?.click()}
+        >
+          {file ? (
+            <div className="flex items-center justify-center gap-2 text-green-600">
+              <FileText className="w-5 h-5" />
+              <span className="text-sm font-medium">{file.name}</span>
+              <button
+                onClick={(e) => { e.stopPropagation(); setFile(null); }}
+                className="text-gray-400 hover:text-gray-600 ml-1"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          ) : (
+            <>
+              <Upload className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+              <p className="text-sm text-gray-500">Clique para selecionar arquivo</p>
+              <p className="text-xs text-gray-400 mt-1">PDF, JPG, PNG — máx. 10 MB</p>
+            </>
+          )}
+        </div>
+        <input
+          ref={fileRef}
+          type="file"
+          accept="image/*,.pdf"
+          className="hidden"
+          onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+        />
+
+        <div className="flex gap-3">
+          <Button variant="outline" onClick={onClose} className="flex-1">Cancelar</Button>
+          <Button
+            onClick={handleUpload}
+            disabled={!file || uploading}
+            className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
+          >
+            {uploading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Upload className="w-4 h-4 mr-2" />}
+            {uploading ? "Enviando..." : "Enviar"}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function Imoveis() {
   const utils = trpc.useUtils();
@@ -301,6 +422,7 @@ export default function Imoveis() {
   const [editingProperty, setEditingProperty] = useState<(PropertyForm & { id: number }) | null>(null);
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
+  const [matriculaUploadProperty, setMatriculaUploadProperty] = useState<typeof properties[0] | null>(null);
 
   const filtered = properties.filter((p) => {
     const q = search.toLowerCase();
@@ -429,6 +551,7 @@ export default function Imoveis() {
               const isExpanded = expandedId === p.id;
               const address = [p.street, p.number, p.complement, p.neighborhood, p.city, p.state]
                 .filter(Boolean).join(", ");
+              const hasMatricula = !!(p as any).matriculaDocUrl;
               return (
                 <div key={p.id} className="bg-white border border-gray-100 rounded-2xl overflow-hidden">
                   {/* Row */}
@@ -444,6 +567,11 @@ export default function Imoveis() {
                         {p.propertyType && (
                           <span className="px-2 py-0.5 bg-blue-50 text-blue-700 text-xs rounded-full font-medium">
                             {p.propertyType}
+                          </span>
+                        )}
+                        {hasMatricula && (
+                          <span className="px-2 py-0.5 bg-green-50 text-green-700 text-xs rounded-full font-medium flex items-center gap-1">
+                            <CheckCircle2 className="w-3 h-3" /> Matrícula
                           </span>
                         )}
                       </div>
@@ -469,7 +597,7 @@ export default function Imoveis() {
                         </span>
                       )}
                     </div>
-                    <div className="flex items-center gap-2 ml-2">
+                    <div className="flex items-center gap-1 ml-2">
                       <button
                         onClick={() => handleEdit(p)}
                         className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
@@ -477,6 +605,24 @@ export default function Imoveis() {
                       >
                         <Pencil className="w-4 h-4" />
                       </button>
+                      <button
+                        onClick={() => setMatriculaUploadProperty(p)}
+                        className={`p-2 rounded-lg transition-colors ${hasMatricula ? "text-green-500 hover:text-green-700 hover:bg-green-50" : "text-gray-400 hover:text-purple-600 hover:bg-purple-50"}`}
+                        title={hasMatricula ? "Substituir Matrícula" : "Enviar Matrícula"}
+                      >
+                        <Upload className="w-4 h-4" />
+                      </button>
+                      {hasMatricula && (
+                        <a
+                          href={(p as any).matriculaDocUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="p-2 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                          title="Ver Matrícula"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </a>
+                      )}
                       <button
                         onClick={() => setConfirmDeleteId(p.id)}
                         className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
@@ -512,6 +658,19 @@ export default function Imoveis() {
                             <p className="text-gray-800 mt-0.5">{row.value}</p>
                           </div>
                         ))}
+                        {hasMatricula && (
+                          <div>
+                            <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Documento Matrícula</span>
+                            <a
+                              href={(p as any).matriculaDocUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center gap-1.5 mt-0.5 text-blue-600 hover:underline text-sm"
+                            >
+                              <Eye className="w-3.5 h-3.5" /> Ver documento
+                            </a>
+                          </div>
+                        )}
                       </div>
                     </div>
                   )}
@@ -528,6 +687,20 @@ export default function Imoveis() {
           initial={editingProperty ?? undefined}
           onClose={() => { setShowModal(false); setEditingProperty(null); }}
           onSave={handleSave}
+        />
+      )}
+
+      {/* Matricula Upload Modal */}
+      {matriculaUploadProperty && (
+        <MatriculaUploadModal
+          propertyId={matriculaUploadProperty.id}
+          propertyName={
+            matriculaUploadProperty.description ||
+            `${matriculaUploadProperty.propertyType || "Imóvel"} – ${matriculaUploadProperty.city || "sem cidade"}`
+          }
+          existingUrl={(matriculaUploadProperty as any).matriculaDocUrl}
+          onClose={() => setMatriculaUploadProperty(null)}
+          onSuccess={() => utils.properties.list.invalidate()}
         />
       )}
 
