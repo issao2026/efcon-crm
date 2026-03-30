@@ -26,6 +26,7 @@ interface PartyData {
   profissao: string;
   endereco: string;
   whatsapp: string;
+  email: string;
 }
 
 interface BrokerData {
@@ -33,6 +34,7 @@ interface BrokerData {
   nome: string;
   creci: string;
   whatsapp: string;
+  email: string;
 }
 
 interface ContractFormData {
@@ -95,12 +97,12 @@ interface ContractFormData {
 const makeParty = (): PartyData => ({
   id: Math.random().toString(36).slice(2),
   nome: "", cpf: "", rg: "", nacionalidade: "brasileiro(a)",
-  estadoCivil: "solteiro(a)", profissao: "", endereco: "", whatsapp: "",
+  estadoCivil: "solteiro(a)", profissao: "", endereco: "", whatsapp: "", email: "",
 });
 
 const makeBroker = (): BrokerData => ({
   id: Math.random().toString(36).slice(2),
-  nome: "Marcello & Oliveira", creci: "28.867 J", whatsapp: "",
+  nome: "Marcello & Oliveira", creci: "28.867 J", whatsapp: "", email: "",
 });
 
 const INITIAL_FORM: ContractFormData = {
@@ -238,6 +240,7 @@ function PartyCard({
       profissao: client.profession || party.profissao,
       endereco: client.address || party.endereco,
       whatsapp: client.phone || party.whatsapp,
+      email: client.email || party.email,
     });
   };
 
@@ -296,6 +299,13 @@ function PartyCard({
           placeholder="(61) 99999-9999"
           type="tel"
         />
+        <Field
+          label="E-mail"
+          value={party.email}
+          onChange={(v) => set("email", v)}
+          placeholder="exemplo@email.com"
+          type="email"
+        />
       </div>
     </div>
   );
@@ -321,6 +331,7 @@ function BrokerCard({
       ...broker,
       nome: client.name || broker.nome,
       whatsapp: client.phone || broker.whatsapp,
+      email: client.email || broker.email,
     });
   };
 
@@ -373,6 +384,13 @@ function BrokerCard({
           onChange={(v) => set("whatsapp", v)}
           placeholder="(61) 99999-9999"
           type="tel"
+        />
+        <Field
+          label="E-mail"
+          value={broker.email}
+          onChange={(v) => set("email", v)}
+          placeholder="corretor@email.com"
+          type="email"
         />
       </div>
     </div>
@@ -469,8 +487,8 @@ function ContractPreview({ form }: { form: ContractFormData }) {
   );
 }
 
-// ─── WhatsApp Verification Modal ──────────────────────────────────────────────
-function WhatsAppModal({
+// ─── Distribuição Modal (WhatsApp + E-mail) ───────────────────────────────────────────
+function DistribuicaoModal({
   form,
   contractUrl,
   onClose,
@@ -479,91 +497,183 @@ function WhatsAppModal({
   contractUrl: string;
   onClose: () => void;
 }) {
+  const [sentStatus, setSentStatus] = useState<Record<string, 'whatsapp' | 'email' | 'both' | null>>({});
+
+  const isLocacao = form.contractType === "locacao";
+  const typeLabel = CONTRACT_TYPE_OPTIONS.find((o) => o.value === form.contractType)?.label || "Compra e Venda";
+
   const parties = [
     ...form.vendedores.map((v, i) => ({
+      id: v.id,
       name: v.nome,
       phone: v.whatsapp,
-      role: form.contractType === "locacao" ? `Locador(a) ${form.vendedores.length > 1 ? i + 1 : ""}`.trim() : `Vendedor(a) ${form.vendedores.length > 1 ? i + 1 : ""}`.trim(),
+      email: v.email,
+      role: isLocacao
+        ? `Locador(a)${form.vendedores.length > 1 ? ` ${i + 1}` : ""}`
+        : `Vendedor(a)${form.vendedores.length > 1 ? ` ${i + 1}` : ""}`,
     })),
     ...form.compradores.map((c, i) => ({
+      id: c.id,
       name: c.nome,
       phone: c.whatsapp,
-      role: form.contractType === "locacao" ? `Locatário(a) ${form.compradores.length > 1 ? i + 1 : ""}`.trim() : `Comprador(a) ${form.compradores.length > 1 ? i + 1 : ""}`.trim(),
+      email: c.email,
+      role: isLocacao
+        ? `Locatário(a)${form.compradores.length > 1 ? ` ${i + 1}` : ""}`
+        : `Comprador(a)${form.compradores.length > 1 ? ` ${i + 1}` : ""}`,
     })),
     ...form.corretores.map((b, i) => ({
+      id: b.id,
       name: b.nome,
       phone: b.whatsapp,
-      role: `Corretor(a) ${form.corretores.length > 1 ? i + 1 : ""}`.trim(),
+      email: b.email,
+      role: `Corretor(a)${form.corretores.length > 1 ? ` ${i + 1}` : ""}`,
     })),
   ].filter((p) => p.name);
 
-  const buildMessage = (party: { name: string; role: string }) => {
-    const typeLabel = CONTRACT_TYPE_OPTIONS.find((o) => o.value === form.contractType)?.label || "Compra e Venda";
-    return encodeURIComponent(
+  const formatPhone = (phone: string) => {
+    const digits = phone.replace(/\D/g, "");
+    return digits.startsWith("55") ? digits : `55${digits}`;
+  };
+
+  const buildWaMessage = (party: { name: string; role: string }) =>
+    encodeURIComponent(
       `Olá, ${party.name}! 👋\n\n` +
       `Segue o contrato de *${typeLabel}* para sua revisão e assinatura.\n\n` +
       `📋 *Sua participação:* ${party.role}\n` +
-      `📄 *Imóvel:* ${form.imovelDescricao || form.imovelEndereco || "conforme contrato"}\n` +
+      `🏠 *Imóvel:* ${form.imovelDescricao || form.imovelEndereco || "conforme contrato"}\n` +
       `💰 *Valor:* R$ ${form.valorTotal || "conforme contrato"}\n\n` +
-      `🔗 *Link do contrato:*\n${contractUrl}\n\n` +
+      `🔗 *Link do contrato (PDF):*\n${contractUrl}\n\n` +
+      `Por favor, revise o documento e confirme sua concordância.\n\n` +
+      `Atenciosamente,\n${form.corretores[0]?.nome || "Marcello & Oliveira Imóveis"}`
+    );
+
+  const buildEmailBody = (party: { name: string; role: string }) =>
+    encodeURIComponent(
+      `Olá, ${party.name},\n\n` +
+      `Segue o contrato de ${typeLabel} para sua revisão e assinatura.\n\n` +
+      `Sua participação: ${party.role}\n` +
+      `Imóvel: ${form.imovelDescricao || form.imovelEndereco || "conforme contrato"}\n` +
+      `Valor: R$ ${form.valorTotal || "conforme contrato"}\n\n` +
+      `Link do contrato (PDF):\n${contractUrl}\n\n` +
       `Por favor, revise o documento e confirme sua concordância. Em caso de dúvidas, entre em contato.\n\n` +
       `Atenciosamente,\n${form.corretores[0]?.nome || "Marcello & Oliveira Imóveis"}`
     );
-  };
 
-  const formatPhone = (phone: string) => {
-    const digits = phone.replace(/\D/g, "");
-    if (digits.startsWith("55")) return digits;
-    return `55${digits}`;
+  const handleSendAll = () => {
+    parties.forEach((party) => {
+      const hasPhone = party.phone && party.phone.replace(/\D/g, "").length >= 10;
+      if (hasPhone) {
+        window.open(`https://wa.me/${formatPhone(party.phone)}?text=${buildWaMessage(party)}`, "_blank");
+      }
+    });
+    const newStatus: Record<string, 'whatsapp'> = {};
+    parties.forEach((p) => { newStatus[p.id] = 'whatsapp'; });
+    setSentStatus(newStatus);
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
-        <div className="bg-green-600 px-6 py-4 flex items-center gap-3">
-          <MessageCircle className="w-6 h-6 text-white" />
-          <div>
-            <h3 className="text-white font-bold text-lg">Enviar via WhatsApp</h3>
-            <p className="text-green-100 text-sm">Notifique todas as partes sobre o contrato</p>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl overflow-hidden">
+        {/* Header */}
+        <div className="bg-gradient-to-r from-blue-700 to-blue-600 px-6 py-5">
+          <div className="flex items-center gap-3 mb-1">
+            <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
+              <CheckCircle2 className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h3 className="text-white font-bold text-lg leading-tight">Contrato Pronto!</h3>
+              <p className="text-blue-100 text-sm">PDF gerado com sucesso. Distribua para as partes.</p>
+            </div>
           </div>
+          <a
+            href={contractUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-3 flex items-center gap-2 bg-white/15 hover:bg-white/25 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors w-fit"
+          >
+            <Download className="w-4 h-4" /> Baixar PDF
+          </a>
         </div>
 
+        {/* Parties */}
         <div className="p-6">
-          <p className="text-gray-600 text-sm mb-4">
-            Clique em cada parte para abrir o WhatsApp com a mensagem pré-preenchida:
-          </p>
+          <div className="flex items-center justify-between mb-4">
+            <p className="text-gray-700 text-sm font-semibold">
+              Enviar contrato para {parties.length} parte{parties.length !== 1 ? "s" : ""}
+            </p>
+            <button
+              onClick={handleSendAll}
+              className="flex items-center gap-1.5 bg-[#25D366] hover:bg-[#1ebe5d] text-white text-xs font-bold px-3 py-1.5 rounded-lg transition-colors"
+            >
+              <MessageCircle className="w-3.5 h-3.5" /> Enviar Todos via WhatsApp
+            </button>
+          </div>
 
-          <div className="space-y-3">
-            {parties.map((party, i) => {
+          <div className="space-y-3 max-h-72 overflow-y-auto pr-1">
+            {parties.map((party) => {
               const hasPhone = party.phone && party.phone.replace(/\D/g, "").length >= 10;
+              const hasEmail = party.email && party.email.includes("@");
               const waLink = hasPhone
-                ? `https://wa.me/${formatPhone(party.phone)}?text=${buildMessage(party)}`
+                ? `https://wa.me/${formatPhone(party.phone)}?text=${buildWaMessage(party)}`
                 : null;
+              const emailLink = hasEmail
+                ? `mailto:${party.email}?subject=${encodeURIComponent(`Contrato de ${typeLabel} – ${form.imovelDescricao || form.imovelEndereco || "Imóvel"}`)}&body=${buildEmailBody(party)}`
+                : null;
+              const sent = sentStatus[party.id];
 
               return (
-                <div key={i} className="flex items-center gap-3 p-3 border border-gray-100 rounded-xl">
-                  <div className="w-9 h-9 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
-                    <span className="text-green-700 font-bold text-sm">
+                <div key={party.id} className="flex items-center gap-3 p-3 border border-gray-100 rounded-xl bg-gray-50/50">
+                  <div className="w-9 h-9 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                    <span className="text-blue-700 font-bold text-sm">
                       {party.name?.charAt(0)?.toUpperCase() || "?"}
                     </span>
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="font-semibold text-gray-900 text-sm truncate">{party.name || "—"}</div>
-                    <div className="text-xs text-gray-500">{party.role} · {party.phone || "sem telefone"}</div>
+                    <div className="text-xs text-gray-500">{party.role}</div>
+                    <div className="text-xs text-gray-400 mt-0.5">
+                      {party.phone || <span className="italic">sem WhatsApp</span>}
+                      {party.email && <span className="ml-2">· {party.email}</span>}
+                    </div>
                   </div>
-                  {waLink ? (
-                    <a
-                      href={waLink}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors flex-shrink-0"
-                    >
-                      <MessageCircle className="w-3.5 h-3.5" />
-                      Enviar
-                    </a>
-                  ) : (
-                    <span className="text-xs text-gray-400 italic flex-shrink-0">sem WhatsApp</span>
-                  )}
+                  <div className="flex items-center gap-1.5 flex-shrink-0">
+                    {waLink ? (
+                      <a
+                        href={waLink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={() => setSentStatus((s) => ({ ...s, [party.id]: s[party.id] === 'email' ? 'both' : 'whatsapp' }))}
+                        title="Enviar via WhatsApp"
+                        className={`flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-lg transition-colors ${
+                          sent === 'whatsapp' || sent === 'both'
+                            ? 'bg-green-100 text-green-700 border border-green-200'
+                            : 'bg-[#25D366]/10 border border-[#25D366]/30 text-[#25D366] hover:bg-[#25D366]/20'
+                        }`}
+                      >
+                        <MessageCircle className="w-3.5 h-3.5" />
+                        {sent === 'whatsapp' || sent === 'both' ? '✓ WA' : 'WhatsApp'}
+                      </a>
+                    ) : (
+                      <span className="text-xs text-gray-300 px-2">sem WA</span>
+                    )}
+                    {emailLink ? (
+                      <a
+                        href={emailLink}
+                        onClick={() => setSentStatus((s) => ({ ...s, [party.id]: s[party.id] === 'whatsapp' ? 'both' : 'email' }))}
+                        title="Enviar por e-mail"
+                        className={`flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-lg transition-colors ${
+                          sent === 'email' || sent === 'both'
+                            ? 'bg-blue-100 text-blue-700 border border-blue-200'
+                            : 'bg-blue-50 border border-blue-200 text-blue-600 hover:bg-blue-100'
+                        }`}
+                      >
+                        <FileText className="w-3.5 h-3.5" />
+                        {sent === 'email' || sent === 'both' ? '✓ Email' : 'E-mail'}
+                      </a>
+                    ) : (
+                      <span className="text-xs text-gray-300 px-2">sem email</span>
+                    )}
+                  </div>
                 </div>
               );
             })}
@@ -821,6 +931,8 @@ export default function Contract() {
       const result = await generateMutation.mutateAsync({ fields });
       setGeneratedPdfUrl(result.contractUrl);
       toast.success("Contrato gerado com sucesso!");
+      // Auto-open distribution modal after PDF is ready
+      setShowWhatsApp(true);
     } catch (error: any) {
       const errMsg = (error?.message || "").toLowerCase();
       const isPdfEngineError = errMsg.includes("chromium") || errMsg.includes("weasyprint") ||
@@ -1196,31 +1308,31 @@ export default function Contract() {
 
             {/* Generate button */}
             <div className="flex items-center gap-4 mt-6 flex-wrap">
-              {generatedPdfUrl ? (
-                <>
-                  <div className="flex items-center gap-2 text-green-600 text-sm font-semibold">
-                    <CheckCircle2 className="w-5 h-5" /> Contrato gerado com sucesso!
-                  </div>
-                  <a href={generatedPdfUrl} target="_blank" rel="noopener noreferrer">
-                    <Button className="bg-green-600 hover:bg-green-700 text-white gap-2">
-                      <Download className="w-4 h-4" /> Baixar PDF
-                    </Button>
-                  </a>
-                  <Button
-                    onClick={() => setShowWhatsApp(true)}
-                    className="bg-[#25D366] hover:bg-[#1ebe5d] text-white gap-2"
-                  >
-                    <MessageCircle className="w-4 h-4" /> Enviar via WhatsApp
+            {generatedPdfUrl ? (
+              <>
+                <div className="flex items-center gap-2 text-green-600 text-sm font-semibold">
+                  <CheckCircle2 className="w-5 h-5" /> Contrato gerado com sucesso!
+                </div>
+                <a href={generatedPdfUrl} target="_blank" rel="noopener noreferrer">
+                  <Button className="bg-green-600 hover:bg-green-700 text-white gap-2">
+                    <Download className="w-4 h-4" /> Baixar PDF
                   </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => { setGeneratedPdfUrl(null); }}
-                    className="gap-2"
-                  >
-                    <RefreshCw className="w-4 h-4" /> Novo contrato
-                  </Button>
-                </>
-              ) : (
+                </a>
+                <Button
+                  onClick={() => setShowWhatsApp(true)}
+                  className="bg-blue-600 hover:bg-blue-700 text-white gap-2"
+                >
+                  <MessageCircle className="w-4 h-4" /> Distribuir para as Partes
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => { setGeneratedPdfUrl(null); setShowWhatsApp(false); }}
+                  className="gap-2"
+                >
+                  <RefreshCw className="w-4 h-4" /> Novo contrato
+                </Button>
+              </>
+            ) : (
                 <Button
                   onClick={handleGenerate}
                   disabled={isGenerating}
@@ -1251,9 +1363,9 @@ export default function Contract() {
         </div>
       </div>
 
-      {/* WhatsApp Modal */}
+      {/* Distribuição Modal (WhatsApp + E-mail) */}
       {showWhatsApp && generatedPdfUrl && (
-        <WhatsAppModal
+        <DistribuicaoModal
           form={form}
           contractUrl={generatedPdfUrl}
           onClose={() => setShowWhatsApp(false)}

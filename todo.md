@@ -270,3 +270,19 @@
 - [x] Dashboard: cards Clientes Cadastrados e Imóveis no Acesso Rápido
 - [x] PDF: padding page-content reduzido (3.2cm top, 5.5cm bottom) para texto dentro da área branca
 - [x] 16 testes passando
+
+## Phase 23 — Template Contrato Antigo + Campo Matrícula
+- [ ] Restaurar template de contrato de compra e venda para versão antiga (seções numeradas, Marcello & Oliveira)
+- [ ] Adicionar campo matrícula no modal Novo Contrato
+- [ ] Passar matrícula para o contractGenerator ao gerar PDF
+
+## Phase 24 — Distribuição do Contrato (WhatsApp + E-mail pós-PDF)
+- [x] Adicionar campo email nas PartyData (vendedores, compradores) e BrokerData (corretores) em Contract.tsx
+- [x] Exibir campo email em PartyCard e BrokerCard no formulário
+- [x] Após gerar PDF com sucesso (generatedPdfUrl disponível), mostrar modal de distribuição automaticamente
+- [x] Modal de distribuição: lista de todas as partes (vendedores, compradores, corretores) com nome, papel, WhatsApp e e-mail
+- [x] Botão WhatsApp: abre wa.me com mensagem pré-preenchida contendo link do PDF
+- [x] Botão E-mail: abre mailto: com assunto e corpo contendo link do PDF
+- [x] Botão "Enviar Todos via WhatsApp": abre todos os links em sequência
+- [x] Somente exibir modal de distribuição APÓS o PDF estar pronto (URL disponível)
+- [x] Indicador visual de status de envio por parte (✓ WA / ✓ Email)
