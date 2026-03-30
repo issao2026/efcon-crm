@@ -222,3 +222,21 @@
 - [x] WhatsApp em Lote: enviar para todos os participantes de uma vez
 - [x] Atualizar generateLocacaoBodyHtml para exibir locadores/locatários adicionais no PDF
 - [x] Testes multi-partes (16 testes passando)
+
+## Phase 20 — Reformulação Dashboard + Contratos (Estilo Lovable)
+- [ ] Pular /comecar: redirecionar direto para /dashboard após login
+- [ ] Novo Dashboard dark: top nav (logo, Analytics, Configurações, + Novo Contrato, notificações, avatar), saudação personalizada, 3 stat cards (Total, Em Andamento, Finalizados), 4 action cards (Contratos, Relatórios, Configurações, Meu Perfil), painel de notificações à direita, banner "Criar Novo Contrato" no rodapé
+- [ ] Página de Contratos dark: 4 stat cards no topo, barra de busca + filtros, lista de contratos com cards (status badge, código CTR, nome imóvel, ícones vendedor/comprador/corretor, barra de progresso, botão WhatsApp em Lote, botão Ver, menu ⋮)
+- [ ] Modal "Novo Contrato": campo descrição do imóvel, seções Vendedores/Compradores/Corretores com e-mail + WhatsApp por participante, botões + Adicionar, botão Criar Contrato
+- [ ] Página de detalhe do contrato (imagem6): progresso, participantes com status, tabs (Prévia, Documentos, Status OCR, Padronização, Validações, Assinaturas, Histórico), painel direito (Assinatura Digital, Status em Tempo Real)
+- [ ] Atualizar schema: tabela contracts com código CTR, participantes (email, whatsapp, role, status), progresso, status
+- [ ] Backend: procedures contracts.create, contracts.list, contracts.getById, contracts.updateStatus
+
+## Phase 20 — Reformulação Dashboard + Contratos (CONCLUÍDO)
+- [x] Pular /comecar: OAuth callback redireciona para /dashboard após login
+- [x] Home.tsx: CTA "Começar grátis" redireciona para /dashboard (não /comecar)
+- [x] Dashboard.tsx: redesenho completo estilo dark Lovable (imagem3/4) — top nav, cards de ação, stats reais, painel de notificações com abas, banner CTA
+- [x] Contratos.tsx: redesenho completo estilo dark (imagem5) — stats 4 cards, busca, lista de contratos com status badge, progresso, participantes, botão WhatsApp em Lote, menu ações
+- [x] Modal Novo Contrato (imagem7): dark, campo imóvel + e-mail/WhatsApp por vendedor/comprador/corretor, botões + Adicionar
+- [x] Backend: contracts.create procedure simplificado para o modal
+- [x] 16 testes passando

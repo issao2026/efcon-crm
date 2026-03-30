@@ -811,6 +811,17 @@ Retorne um JSON com sugestões para campos vazios ou incompletos.`,
       await deleteContract(input.id, ctx.user.id);
       return { success: true };
     }),
+    create: protectedProcedure.input(z.object({
+      descricaoImovel: z.string().optional(),
+      nomeVendedor: z.string().optional(),
+      nomeComprador: z.string().optional(),
+      nomeCorretor: z.string().optional(),
+    })).mutation(async ({ ctx, input }) => {
+      const code = `CTR-${new Date().getFullYear()}-${nanoid(4).toUpperCase()}`;
+      await createContract({ ...input, userId: ctx.user.id, code, contractStatus: 'rascunho' as const });
+      await createActivity({ userId: ctx.user.id, type: 'contract', title: `Novo contrato criado: ${code}`, description: input.descricaoImovel || '' });
+      return { code };
+    }),
   }),
   // ─── Properties ─────────────────────────────────────────────────────────────
   properties: router({
