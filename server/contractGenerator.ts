@@ -411,9 +411,14 @@ ${bodyHtml}
     await page.setViewport({ width: 794, height: 1123 });
     await page.setContent(textHtml, { waitUntil: 'networkidle0', timeout: 30000 });
     const raw = await page.pdf({
+      format: 'A4',
       printBackground: false,
-      displayHeaderFooter: false,
-      preferCSSPageSize: true, // obedece o @page do CSS rigorosamente
+      // Falso cabeçalho/rodapé: força o Chromium a criar barreira física
+      // nas margens — o texto NUNCA consegue cruzar os 82mm do rodapé
+      displayHeaderFooter: true,
+      headerTemplate: '<span></span>',
+      footerTemplate: '<span></span>',
+      margin: { top: '52mm', right: '20mm', bottom: '82mm', left: '20mm' },
     });
     textPdfBuffer = Buffer.from(raw);
   } finally {
