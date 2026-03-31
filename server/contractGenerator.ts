@@ -251,11 +251,10 @@ const DEFAULTS: Record<string, string> = {
 };
 
 /**
- * Build the plain content HTML for Puppeteer PDF generation.
- * The mascara is injected via headerTemplate/footerTemplate in the pdf() call,
- * NOT in the body. This ensures the mascara appears correctly on every page.
- * The body only contains the text content with no background.
- * _mascaraUri is accepted but unused here (kept for signature compatibility).
+ * Build the full HTML for Puppeteer PDF generation.
+ * Strategy: mascara is a position:fixed full-page image (repeats on every page in Chromium headless).
+ * Body has padding-top: 40mm and padding-bottom: 60mm so text never overlaps the dark bands.
+ * page.pdf() uses NO displayHeaderFooter — margins are controlled purely by CSS padding.
  */
 function buildContractHtmlWithBackground(bodyHtml: string, _mascaraUri: string): string {
   return `<!DOCTYPE html>
@@ -512,16 +511,26 @@ export async function generateContractPdf(fields: ContractFields): Promise<Buffe
     // Set viewport to A4 at 96dpi (794×1123px) to prevent content rendering at half-width
     await page.setViewport({ width: 794, height: 1123 });
     await page.setContent(fullHtml, { waitUntil: 'networkidle0', timeout: 30000 });
+    // Mascara measurements (150dpi, 1241x1754px = A4):
+    // - Top dark band: rows 1-172 = 0-29mm. White starts at row 173 (~29mm).
+    //   We use margin.top = 34mm (safe buffer) so text starts in the white area.
+    // - Bottom dark band: starts at row 1450 = ~51mm from bottom.
+    //   We use margin.bottom = 55mm (safe buffer) so text ends in the white area.
+    //
+    // headerTemplate/footerTemplate heights MUST match margin.top/bottom exactly.
+    // The templates show the mascara image cropped to their respective bands.
+    // background-size: 210mm 297mm maps the full A4 mascara onto the template.
+    // background-position: top left shows the top portion; bottom left shows the bottom.
     const pdfBuffer = await page.pdf({
       format: 'A4',
       printBackground: true,
       displayHeaderFooter: true,
-      headerTemplate: `<style>* { margin: 0; padding: 0; box-sizing: border-box; }</style><div style="width: 210mm; height: 53.3mm; overflow: hidden; background-image: url('${mascaraUri}'); background-size: 210mm 396mm; background-repeat: no-repeat; background-position: top left; -webkit-print-color-adjust: exact; print-color-adjust: exact;"></div>`,
-      footerTemplate: `<style>* { margin: 0; padding: 0; box-sizing: border-box; }</style><div style="width: 210mm; height: 80mm; overflow: hidden; background-image: url('${mascaraUri}'); background-size: 210mm 396mm; background-repeat: no-repeat; background-position: bottom left; -webkit-print-color-adjust: exact; print-color-adjust: exact;"></div>`,
+      headerTemplate: `<style>html,body,div{margin:0;padding:0;box-sizing:border-box;}</style><div style="width:210mm;height:40mm;overflow:hidden;background-image:url('${mascaraUri}');background-size:210mm 297mm;background-repeat:no-repeat;background-position:top left;-webkit-print-color-adjust:exact;print-color-adjust:exact;"></div>`,
+      footerTemplate: `<style>html,body,div{margin:0;padding:0;box-sizing:border-box;}</style><div style="width:210mm;height:55mm;overflow:hidden;background-image:url('${mascaraUri}');background-size:210mm 297mm;background-repeat:no-repeat;background-position:bottom left;-webkit-print-color-adjust:exact;print-color-adjust:exact;"></div>`,
       margin: {
         top: '40mm',
         right: '20mm',
-        bottom: '60mm',
+        bottom: '55mm',
         left: '20mm',
       },
     });

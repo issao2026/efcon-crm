@@ -458,3 +458,9 @@
 - [x] Aplicar fator de escala 0.75 no footerTemplate: height 80mm (= 60mm ÷ 0.75)
 - [x] Ajustar background-size para 210mm 396mm (= 297mm ÷ 0.75)
 - [x] Manter margens reais: top 40mm, bottom 60mm, left/right 20mm
+
+## Phase 46 — Correção Definitiva das Margens do PDF
+- [x] Diagnosticar causa raiz: headerTemplate/footerTemplate do Puppeteer não criam margem real no conteúdo
+- [x] Medir máscara: top dark band 0-29mm, white starts 29mm; bottom dark band starts 51mm from bottom
+- [x] Solução: displayHeaderFooter:true com height=40mm no header e height=55mm no footer, margin.top=40mm, margin.bottom=55mm
+- [x] Testar PDF com margem top 40mm e bottom 55mm — texto sem sobreposição em todas as 3 páginas
