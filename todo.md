@@ -471,3 +471,19 @@
 - [ ] footerTemplate height:80mm, background-size:210mm 396mm
 - [ ] margin.top:40mm, margin.bottom:60mm no page.pdf()
 - [ ] page-break-inside:avoid em p, h1, h2, h3, div
+
+## Phase 49 — Grid 3x3 para PDF
+- [ ] Substituir generateContractPdf pela abordagem grid 3x3 (sem displayHeaderFooter, máscara como position:absolute no .bg, texto apenas na .cell-center)
+- [ ] Verificar todas as páginas sem sobreposição
+
+## Phase 50 — Máscara position:fixed + margens 45mm/65mm
+- [ ] position:fixed para máscara (cobre 100% de cada página)
+- [ ] margin.top:45mm + margin.bottom:65mm no page.pdf()
+- [ ] padding-top:45mm + padding-bottom:65mm no body
+- [ ] Verificar todas as páginas sem sobreposição
+
+## Phase 51 — Opção A: pdf-lib overlay da máscara
+- [ ] Instalar pdf-lib
+- [ ] Passo 1: Puppeteer gera PDF do texto com margin top:45mm, bottom:65mm, sem máscara
+- [ ] Passo 2: pdf-lib abre o PDF, lê a imagem da máscara e a desenha em cada página (z-index abaixo do texto)
+- [ ] Verificar todas as páginas sem sobreposição

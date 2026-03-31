@@ -458,100 +458,179 @@ async function prepareContractHtml(fields: ContractFields): Promise<{ bodyHtml: 
 
 /**
  * Generate a branded contract PDF buffer from the given fields.
+ *
+ * Strategy (Opção A — two-pass):
+ *  Pass 1: Puppeteer renders the contract HTML as a clean PDF with
+ *          margin.top=45mm and margin.bottom=65mm (no mascara in HTML).
+ *          This guarantees text never overlaps the header/footer bands.
+ *  Pass 2: pdf-lib opens the text PDF and draws the mascara PNG as a
+ *          full-page background image (behind text) on every page.
  */
 export async function generateContractPdf(fields: ContractFields): Promise<Buffer> {
   const { bodyHtml, mascaraUri } = await prepareContractHtml(fields);
 
-  // Build plain content HTML (no background — mascara goes in header/footer templates)
-  const fullHtml = buildContractHtmlWithBackground(bodyHtml, mascaraUri);
+  // ── Pass 1: render text-only PDF ────────────────────────────────────────────
+  const textHtml = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  @page { size: A4; }
+  html, body {
+    width: 210mm;
+    background: white;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 9.5pt;
+    color: #111;
+  }
+  .content {
+    padding-top: 0;
+    padding-bottom: 0;
+    padding-left: 20mm;
+    padding-right: 20mm;
+  }
+  h1, h2, h3 {
+    font-size: 9.5pt;
+    font-weight: bold;
+    margin: 0.8em 0 0.3em;
+    page-break-inside: avoid;
+  }
+  p {
+    margin: 0.35em 0;
+    line-height: 1.55;
+    text-align: justify;
+    page-break-inside: avoid;
+  }
+  strong { font-weight: bold; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0.5em 0;
+    font-size: 9pt;
+    page-break-inside: avoid;
+  }
+  td, th { border: 1px solid #ccc; padding: 4px 6px; }
+</style>
+</head>
+<body>
+<div class="content">
+  ${bodyHtml}
+</div>
+</body>
+</html>`;
 
-  // Mascara layout analysis (precise pixel scan of mascara_b64.txt, 1241x1754px = A4 @ 150dpi):
-  //   - Header dark band: rows 0–177px = 0–30mm from top (black + gold logo area)
-  //     Transition to white: rows 177–205px = 30–35mm
-  //   - Footer dark band: rows 1429–1754px = starts ~55mm from bottom (gold transition + dark bar)
-  // Puppeteer: headerTemplate/footerTemplate are overlaid on top of page content.
-  // margin.top/bottom must be > template height to push body text clear of the dark bands.
-  //
-  // IMPORTANT: Puppeteer headerTemplate height must match margin.top exactly.
-  // If headerTemplate height < margin.top, there is a white gap between header and content.
-  // If headerTemplate height > margin.top, the header overlaps the content.
-  // We use 40mm for header (30mm dark + 10mm safety) and 57mm for footer (55mm dark + 2mm safety).
-  // Extra safety margins prevent text from overlapping the dark bands on all pages.
-
-  const headerTemplate = `<div style="
-    width: 21cm;
-    height: 40mm;
-    margin: 0;
-    padding: 0;
-    overflow: hidden;
-    background-image: url('${mascaraUri}');
-    background-size: 21cm 29.7cm;
-    background-repeat: no-repeat;
-    background-position: top left;
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
-  "></div>`;
-
-  const footerTemplate = `<div style="
-    width: 21cm;
-    height: 57mm;
-    margin: 0;
-    padding: 0;
-    overflow: hidden;
-    background-image: url('${mascaraUri}');
-    background-size: 21cm 29.7cm;
-    background-repeat: no-repeat;
-    background-position: bottom left;
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
-  "></div>`;
-
-  // Render with puppeteer-core + Chromium → PDF
   const chromiumPath = findChromium();
   const browser = await puppeteer.launch({
     executablePath: chromiumPath,
-    args: [
-      '--no-sandbox',
-      '--disable-setuid-sandbox',
-      '--disable-dev-shm-usage',
-      '--disable-gpu',
-    ],
+    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'],
     headless: true,
   });
 
+  let textPdfBytes: Uint8Array;
   try {
     const page = await browser.newPage();
-    // Set viewport to A4 at 96dpi (794×1123px) to prevent content rendering at half-width
     await page.setViewport({ width: 794, height: 1123 });
-    await page.setContent(fullHtml, { waitUntil: 'networkidle0', timeout: 30000 });
-    // Mascara measurements (150dpi, 1241x1754px = A4):
-    // - Top dark band: rows 1-172 = 0-29mm. White starts at row 173 (~29mm).
-    //   We use margin.top = 34mm (safe buffer) so text starts in the white area.
-    // - Bottom dark band: starts at row 1450 = ~51mm from bottom.
-    //   We use margin.bottom = 55mm (safe buffer) so text ends in the white area.
-    //
-    // headerTemplate/footerTemplate heights MUST match margin.top/bottom exactly.
-    // The templates show the mascara image cropped to their respective bands.
-    // background-size: 210mm 297mm maps the full A4 mascara onto the template.
-    // background-position: top left shows the top portion; bottom left shows the bottom.
-    const pdfBuffer = await page.pdf({
+    await page.setContent(textHtml, { waitUntil: 'networkidle0', timeout: 30000 });
+
+    textPdfBytes = await page.pdf({
       format: 'A4',
-      printBackground: true,
-      displayHeaderFooter: true,
-      headerTemplate: `<div style="-webkit-print-color-adjust:exact; print-color-adjust:exact; width:210mm; height:40mm; overflow:hidden; margin:0; padding:0; background-image:url('${mascaraUri}'); background-size:210mm 297mm; background-repeat:no-repeat; background-position:top left;"></div>`,
-      footerTemplate: `<div style="-webkit-print-color-adjust:exact; print-color-adjust:exact; width:210mm; height:60mm; overflow:hidden; margin:0; padding:0; background-image:url('${mascaraUri}'); background-size:210mm 297mm; background-repeat:no-repeat; background-position:bottom left;"></div>`,
+      printBackground: false,
+      displayHeaderFooter: false,
       margin: {
-        top: '40mm',
+        top: '45mm',
         right: '0',
         bottom: '65mm',
         left: '0',
       },
     });
-    return Buffer.from(pdfBuffer);
   } finally {
     await browser.close();
   }
+
+  // ── Pass 2: insert mascara BEHIND text on every page using pdf-lib ────────────
+  // Strategy: load the text PDF, embed the mascara image, then for each page
+  // prepend a new content stream that draws the mascara before the existing text.
+  const { PDFDocument, PDFName, PDFRawStream, PDFRef } = await import('pdf-lib');
+
+  // Fetch mascara image bytes
+  let mascaraBytes: ArrayBuffer;
+  if (mascaraUri.startsWith('data:')) {
+    const base64 = mascaraUri.split(',')[1];
+    mascaraBytes = Buffer.from(base64, 'base64').buffer;
+  } else {
+    const resp = await fetch(mascaraUri);
+    mascaraBytes = await resp.arrayBuffer();
+  }
+
+  const pdfDoc = await PDFDocument.load(textPdfBytes);
+
+  // Determine mime type from data URI or default to PNG
+  const mimeMatch = mascaraUri.match(/^data:([^;]+)/);
+  const mime = mimeMatch ? mimeMatch[1] : 'image/png';
+
+  // Embed mascara image once in the document
+  let mascaraImage;
+  if (mime === 'image/jpeg' || mime === 'image/jpg') {
+    mascaraImage = await pdfDoc.embedJpg(mascaraBytes);
+  } else {
+    mascaraImage = await pdfDoc.embedPng(mascaraBytes);
+  }
+
+  const pages = pdfDoc.getPages();
+  for (const page of pages) {
+    const { width, height } = page.getSize();
+
+    // Get the XObject name that pdf-lib assigned to this image
+    // We'll use a unique name per page to avoid conflicts
+    const imgName = 'MascaraBg';
+
+    // Add the image XObject to the page resources
+    const resources = page.node.Resources();
+    if (!resources) throw new Error('Page has no Resources dict');
+    if (!resources.lookup(PDFName.of('XObject'))) {
+      resources.set(PDFName.of('XObject'), pdfDoc.context.obj({}));
+    }
+    const xObjects = resources.lookup(PDFName.of('XObject'));
+    if (!xObjects) throw new Error('Could not get XObject dict');
+    // @ts-ignore
+    xObjects.set(PDFName.of(imgName), mascaraImage.ref);
+
+    // Build the PDF graphics operators to draw the image full-page
+    // q = save state, cm = transform matrix, Do = draw XObject, Q = restore state
+    // Matrix: [width 0 0 height 0 0] places image at (0,0) with full page size
+    const bgStream = `q
+${width} 0 0 ${height} 0 0 cm
+/${imgName} Do
+Q
+`;
+    const bgStreamBytes = new TextEncoder().encode(bgStream);
+
+    // Create a new content stream for the background
+    const bgStreamRef = pdfDoc.context.stream(bgStreamBytes, {
+      Length: bgStreamBytes.length,
+    });
+    const bgStreamPdfRef = pdfDoc.context.register(bgStreamRef);
+
+    // Get existing content streams of the page
+    const existingContents = page.node.get(PDFName.of('Contents'));
+
+    if (!existingContents) {
+      // No existing content — just set the background stream
+      page.node.set(PDFName.of('Contents'), bgStreamPdfRef);
+    } else {
+      // Wrap existing contents in an array and prepend the background stream
+      // @ts-ignore
+      const existingRef = existingContents.ref ?? existingContents;
+      const contentsArray = pdfDoc.context.obj([bgStreamPdfRef, existingRef]);
+      page.node.set(PDFName.of('Contents'), contentsArray);
+    }
+  }
+
+  const finalBytes = await pdfDoc.save();
+  return Buffer.from(finalBytes);
 }
+
 
 /**
  * Generate a print-ready HTML string for the contract.
