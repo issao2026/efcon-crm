@@ -562,10 +562,19 @@ export async function generateContractHtml(fields: ContractFields): Promise<stri
     print-color-adjust: exact;
   }
   /*
-   * Mascara letterhead — position:fixed so it covers every printed page.
-   * @page background-image is NOT supported by Chrome/Firefox/Edge (only Puppeteer/WeasyPrint).
-   * Using a fixed <img> element is the only cross-browser way to get a background on every page.
+   * Mascara letterhead strategy (hybrid):
+   * 1. @page { background-image } — works in Puppeteer/Chromium headless (repeats on every page).
+   * 2. position:fixed <img> — fallback for Chrome/Firefox browser print (covers viewport).
+   * Both are active simultaneously; Puppeteer uses @page, browser uses fixed.
    */
+  @page {
+    size: A4;
+    margin: 0;
+    background-image: url('${mascaraUri}');
+    background-size: 100% 100%;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
   .mascara-bg {
     position: fixed;
     top: 0;

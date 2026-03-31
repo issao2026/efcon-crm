@@ -402,12 +402,21 @@ function NewContractModal({ onClose, onCreated }: { onClose: () => void; onCreat
   const saveDraft = useCallback(() => {
     const draft = {
       step, vendedores, compradores, corretores,
-      propertyMode, selectedPropertyId, imovelDesc, imovelEndereco,
+      propertyMode, selectedPropertyId,
+      imovelDesc, imovelEndereco, imovelBairro, imovelCidade,
+      imovelEstado, imovelCep, imovelTipo, imovelSituacao,
+      imovelAreaTotal, imovelAreaPrivativa, imovelAreaComum,
+      imovelValorVenal, imovelProprietario, imovelCnpjCpf,
+      imovelDataRegistro, imovelNumeroRegistro,
       matriculaText, cartorioText,
     };
     localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
     setHasDraft(true);
-  }, [step, vendedores, compradores, corretores, propertyMode, selectedPropertyId, imovelDesc, imovelEndereco, matriculaText, cartorioText]);
+  }, [step, vendedores, compradores, corretores, propertyMode, selectedPropertyId,
+    imovelDesc, imovelEndereco, imovelBairro, imovelCidade, imovelEstado, imovelCep,
+    imovelTipo, imovelSituacao, imovelAreaTotal, imovelAreaPrivativa, imovelAreaComum,
+    imovelValorVenal, imovelProprietario, imovelCnpjCpf, imovelDataRegistro, imovelNumeroRegistro,
+    matriculaText, cartorioText]);
 
   const loadDraft = useCallback(() => {
     const raw = localStorage.getItem(DRAFT_KEY);
@@ -421,6 +430,20 @@ function NewContractModal({ onClose, onCreated }: { onClose: () => void; onCreat
       if (d.selectedPropertyId) setSelectedPropertyId(d.selectedPropertyId);
       if (d.imovelDesc) setImovelDesc(d.imovelDesc);
       if (d.imovelEndereco) setImovelEndereco(d.imovelEndereco);
+      if (d.imovelBairro) setImovelBairro(d.imovelBairro);
+      if (d.imovelCidade) setImovelCidade(d.imovelCidade);
+      if (d.imovelEstado) setImovelEstado(d.imovelEstado);
+      if (d.imovelCep) setImovelCep(d.imovelCep);
+      if (d.imovelTipo) setImovelTipo(d.imovelTipo);
+      if (d.imovelSituacao) setImovelSituacao(d.imovelSituacao);
+      if (d.imovelAreaTotal) setImovelAreaTotal(d.imovelAreaTotal);
+      if (d.imovelAreaPrivativa) setImovelAreaPrivativa(d.imovelAreaPrivativa);
+      if (d.imovelAreaComum) setImovelAreaComum(d.imovelAreaComum);
+      if (d.imovelValorVenal) setImovelValorVenal(d.imovelValorVenal);
+      if (d.imovelProprietario) setImovelProprietario(d.imovelProprietario);
+      if (d.imovelCnpjCpf) setImovelCnpjCpf(d.imovelCnpjCpf);
+      if (d.imovelDataRegistro) setImovelDataRegistro(d.imovelDataRegistro);
+      if (d.imovelNumeroRegistro) setImovelNumeroRegistro(d.imovelNumeroRegistro);
       if (d.matriculaText) setMatriculaText(d.matriculaText);
       if (d.cartorioText) setCartorioText(d.cartorioText);
       if (d.step) setStep(d.step);
@@ -844,8 +867,15 @@ function NewContractModal({ onClose, onCreated }: { onClose: () => void; onCreat
                     <Building2 className="w-3.5 h-3.5 text-gray-400" />
                     <span className="text-white text-xs">{imovelDesc || <span className="text-gray-600 italic">Não informado</span>}</span>
                   </div>
+                  {imovelTipo && <div className="text-gray-400 text-xs">Tipo: <span className="text-white">{imovelTipo}</span></div>}
+                  {imovelEndereco && <div className="text-gray-400 text-xs">Endereço: <span className="text-white">{imovelEndereco}</span></div>}
+                  {imovelBairro && <div className="text-gray-400 text-xs">Bairro: <span className="text-white">{imovelBairro}</span></div>}
+                  {(imovelCidade || imovelEstado) && <div className="text-gray-400 text-xs">Cidade: <span className="text-white">{[imovelCidade, imovelEstado].filter(Boolean).join(" — ")}</span></div>}
                   {matriculaText && <div className="text-gray-400 text-xs">Matrícula: <span className="text-white">{matriculaText}</span></div>}
                   {cartorioText && <div className="text-gray-400 text-xs">Cartório: <span className="text-white">{cartorioText}</span></div>}
+                  {imovelAreaTotal && <div className="text-gray-400 text-xs">Área total: <span className="text-white">{imovelAreaTotal}</span></div>}
+                  {imovelValorVenal && <div className="text-gray-400 text-xs">Valor venal: <span className="text-white">R$ {imovelValorVenal}</span></div>}
+                  {imovelProprietario && <div className="text-gray-400 text-xs">Proprietário atual: <span className="text-white">{imovelProprietario}</span></div>}
                 </div>
               </div>
 

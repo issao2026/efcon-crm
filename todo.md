@@ -435,3 +435,8 @@
 - [ ] Substituir prompt OCR da matrícula pelo prompt especializado do usuário
 - [ ] Atualizar JSON schema com novos campos: tipo_imovel, bairro, cidade, estado, cep, area_privativa, area_comum, valor, cnpj_cpf_proprietario, data_ultimo_registro, numero_registro, situacao_imovel
 - [ ] Mapear novos campos no frontend (Contract.tsx, Imoveis.tsx, Negocios.tsx)
+
+## Phase 42 — 3 Correções do Usuário
+- [ ] Correção 1: Step 3 do wizard exibe todos os campos do imóvel (tipo, endereço, bairro, cidade, área, valor venal, proprietário)
+- [ ] Correção 2: saveDraft/loadDraft persiste os 18 campos novos do imóvel
+- [ ] Correção 3: @page background-image no template HTML para máscara repetir em todas as páginas do PDF
