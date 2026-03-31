@@ -464,3 +464,10 @@
 - [x] Medir máscara: top dark band 0-29mm, white starts 29mm; bottom dark band starts 51mm from bottom
 - [x] Solução: displayHeaderFooter:true com height=40mm no header e height=55mm no footer, margin.top=40mm, margin.bottom=55mm
 - [x] Testar PDF com margem top 40mm e bottom 55mm — texto sem sobreposição em todas as 3 páginas
+
+## Phase 47 — Correção Margens Páginas 2 e 3
+- [ ] CSS limpo com @page margin:0, sem padding no body
+- [ ] headerTemplate height:53.4mm, background-size:210mm 396mm
+- [ ] footerTemplate height:80mm, background-size:210mm 396mm
+- [ ] margin.top:40mm, margin.bottom:60mm no page.pdf()
+- [ ] page-break-inside:avoid em p, h1, h2, h3, div

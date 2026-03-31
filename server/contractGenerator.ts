@@ -262,11 +262,9 @@ function buildContractHtmlWithBackground(bodyHtml: string, _mascaraUri: string):
 <head>
 <meta charset="utf-8">
 <style>
-  * { box-sizing: border-box; }
-  @page { size: A4; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  @page { size: A4; margin: 40mm 20mm 60mm 20mm; }
   html, body {
-    margin: 0;
-    padding: 0;
     width: 210mm;
     font-family: Arial, Helvetica, sans-serif;
     font-size: 9.5pt;
@@ -276,11 +274,16 @@ function buildContractHtmlWithBackground(bodyHtml: string, _mascaraUri: string):
     font-size: 9.5pt;
     font-weight: bold;
     margin: 0.8em 0 0.3em;
+    page-break-inside: avoid;
   }
   p {
     margin: 0.35em 0;
     line-height: 1.55;
     text-align: justify;
+    page-break-inside: avoid;
+  }
+  div {
+    page-break-inside: avoid;
   }
   strong { font-weight: bold; }
   table {
@@ -288,6 +291,7 @@ function buildContractHtmlWithBackground(bodyHtml: string, _mascaraUri: string):
     border-collapse: collapse;
     margin: 0.5em 0;
     font-size: 9pt;
+    page-break-inside: avoid;
   }
   td, th {
     border: 1px solid #ccc;
@@ -525,13 +529,13 @@ export async function generateContractPdf(fields: ContractFields): Promise<Buffe
       format: 'A4',
       printBackground: true,
       displayHeaderFooter: true,
-      headerTemplate: `<style>html,body,div{margin:0;padding:0;box-sizing:border-box;}</style><div style="width:210mm;height:40mm;overflow:hidden;background-image:url('${mascaraUri}');background-size:210mm 297mm;background-repeat:no-repeat;background-position:top left;-webkit-print-color-adjust:exact;print-color-adjust:exact;"></div>`,
-      footerTemplate: `<style>html,body,div{margin:0;padding:0;box-sizing:border-box;}</style><div style="width:210mm;height:55mm;overflow:hidden;background-image:url('${mascaraUri}');background-size:210mm 297mm;background-repeat:no-repeat;background-position:bottom left;-webkit-print-color-adjust:exact;print-color-adjust:exact;"></div>`,
+      headerTemplate: `<div style="-webkit-print-color-adjust:exact; print-color-adjust:exact; width:210mm; height:40mm; overflow:hidden; margin:0; padding:0; background-image:url('${mascaraUri}'); background-size:210mm 297mm; background-repeat:no-repeat; background-position:top left;"></div>`,
+      footerTemplate: `<div style="-webkit-print-color-adjust:exact; print-color-adjust:exact; width:210mm; height:60mm; overflow:hidden; margin:0; padding:0; background-image:url('${mascaraUri}'); background-size:210mm 297mm; background-repeat:no-repeat; background-position:bottom left;"></div>`,
       margin: {
-        top: '40mm',
-        right: '20mm',
-        bottom: '55mm',
-        left: '20mm',
+        top: '0',
+        right: '0',
+        bottom: '0',
+        left: '0',
       },
     });
     return Buffer.from(pdfBuffer);
