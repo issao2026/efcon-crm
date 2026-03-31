@@ -369,3 +369,10 @@
 - [x] Fundo azul-cinza claro (bg-[#eef2f7]) em todos os inputs/selects do Contract.tsx
 - [x] Botão OCR por participante (Vendedor, Comprador, Corretor) que faz upload de RG/CPF/CNH e preenche campos automaticamente
 - [x] Botão OCR na seção Imóvel para upload de matrícula e preenchimento automático de matrícula + cartório
+
+## Phase 34 — Confirmação antes de Excluir
+
+- [x] Contratos.tsx: diálogo de confirmação antes de excluir contrato
+- [x] Clientes.tsx: diálogo de confirmação antes de excluir cliente
+- [x] Imoveis.tsx: diálogo de confirmação já existia (correto)
+- [x] Negocios.tsx: não tem exclusão implementada (sem alteração necessária)

@@ -828,6 +828,7 @@ export default function Contratos() {
   const [showNewModal, setShowNewModal] = useState(false);
   const [distribuicaoContract, setDistribuicaoContract] = useState<Contract | null>(null);
   const [menuOpen, setMenuOpen] = useState<number | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
 
   const { data: contractsData, refetch } = trpc.contracts.list.useQuery(undefined, { enabled: isAuthenticated, retry: false });
   const utils = trpc.useUtils();
@@ -1011,7 +1012,7 @@ export default function Contratos() {
                                 </button>
                               </a>
                             )}
-                            <button onClick={() => { if (contract.id) deleteMutation.mutate({ id: contract.id }); setMenuOpen(null); }}
+                            <button onClick={() => { if (contract.id) { setConfirmDeleteId(contract.id); setMenuOpen(null); } }}
                               className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-colors rounded-b-xl">
                               <Trash2 className="w-3.5 h-3.5" /> Excluir
                             </button>
@@ -1030,6 +1031,33 @@ export default function Contratos() {
       {showNewModal && <NewContractModal onClose={() => setShowNewModal(false)} onCreated={() => refetch()} />}
       {distribuicaoContract && <DistribuicaoModal contract={distribuicaoContract} onClose={() => setDistribuicaoContract(null)} />}
       {menuOpen !== null && <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(null)} />}
+
+      {/* Confirm Delete Dialog */}
+      {confirmDeleteId !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="bg-[#0d1526] border border-[#1e2d47] rounded-2xl shadow-2xl p-6 w-full max-w-sm">
+            <h3 className="text-lg font-bold text-white mb-2">Excluir contrato?</h3>
+            <p className="text-sm text-gray-400 mb-5">
+              Esta ação não pode ser desfeita. O contrato será removido permanentemente.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setConfirmDeleteId(null)}
+                className="flex-1 py-2.5 rounded-xl border border-[#2a2d3a] text-gray-300 hover:text-white hover:border-gray-500 text-sm transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={() => { deleteMutation.mutate({ id: confirmDeleteId }); setConfirmDeleteId(null); }}
+                className="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-sm font-semibold transition-colors flex items-center justify-center gap-2"
+                disabled={deleteMutation.isPending}
+              >
+                {deleteMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Excluir"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

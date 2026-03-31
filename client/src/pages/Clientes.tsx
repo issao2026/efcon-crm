@@ -107,6 +107,7 @@ type ClientType = {
 export default function Clientes() {
   const [search, setSearch] = useState("");
   const [showNewClientModal, setShowNewClientModal] = useState(false);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
   const [showDocsModal, setShowDocsModal] = useState<ClientType | null>(null);
   const [showUploadDocModal, setShowUploadDocModal] = useState(false);
   const [uploadDocType, setUploadDocType] = useState<string>("rg");
@@ -327,7 +328,7 @@ export default function Clientes() {
                       <DropdownMenuContent className="bg-[#0d1526] border-[#1e2d47] text-white">
                         <DropdownMenuItem
                           className="text-red-400 hover:text-red-300 cursor-pointer"
-                          onClick={() => deleteMutation.mutate({ id: client.id })}
+                          onClick={() => setConfirmDeleteId(client.id)}
                         >
                           <Trash2 className="w-4 h-4 mr-2" />
                           Excluir
@@ -737,6 +738,33 @@ export default function Clientes() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Confirm Delete Dialog */}
+      {confirmDeleteId !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="bg-[#0d1526] border border-[#1e2d47] rounded-2xl shadow-2xl p-6 w-full max-w-sm">
+            <h3 className="text-lg font-bold text-white mb-2">Excluir cliente?</h3>
+            <p className="text-sm text-gray-400 mb-5">
+              Esta ação não pode ser desfeita. O cliente e seus documentos serão removidos permanentemente.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setConfirmDeleteId(null)}
+                className="flex-1 py-2.5 rounded-xl border border-[#2a2d3a] text-gray-300 hover:text-white hover:border-gray-500 text-sm transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={() => { deleteMutation.mutate({ id: confirmDeleteId }); setConfirmDeleteId(null); }}
+                className="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-sm font-semibold transition-colors flex items-center justify-center gap-2"
+                disabled={deleteMutation.isPending}
+              >
+                {deleteMutation.isPending ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin inline-block" /> : "Excluir"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
