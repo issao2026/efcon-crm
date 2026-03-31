@@ -338,3 +338,12 @@
 - [x] Add document upload section in "Novo Cliente" modal (Clientes.tsx): 4 buttons for RG, CPF, CNH, Comprovante de Endereço — each triggers OCR and auto-fills name, CPF, RG, birthDate, address, motherName, fatherName
 - [x] Add matrícula upload button in "Novo Negócio" modal property section (Negocios.tsx): OCR extracts matricula number, cartório, and property description — auto-fills registration, registryOffice, propertyDescription fields
 - [x] 16 tests passing
+
+## Phase 30 — Modal Criar Novo Contrato: Busca de Clientes + OCR por Participante
+
+- [x] Matrícula: campo de texto editável + botão OCR que extrai número e cartório
+- [x] Vendedores: dropdown de busca por clientes cadastrados (auto-preenche nome, CPF, RG, email, WhatsApp) + botão OCR por participante
+- [x] Compradores: idem
+- [x] Corretores: idem
+- [x] Quando cliente cadastrado é selecionado, todos os campos do participante são preenchidos automaticamente
+- [x] Botão OCR por participante: upload de RG/CPF/CNH → extrai nome, CPF, RG → preenche campos do participante

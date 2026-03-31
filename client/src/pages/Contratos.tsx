@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useCallback } from "react";
 import { Link, useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
@@ -7,7 +7,7 @@ import {
   Clock, CheckCircle2, MessageCircle, Zap, Home,
   BarChart3, Settings, Bell, LogOut,
   Users, Briefcase, Download, Trash2, ChevronRight,
-  Building2, Mail, Send, Upload, Loader2,
+  Building2, Mail, Send, Upload, Loader2, X, UserCheck, ScanLine,
 } from "lucide-react";
 
 interface Contract {
@@ -175,38 +175,58 @@ function DistribuicaoModal({ contract, onClose }: { contract: Contract; onClose:
   );
 }
 
+// Participant data structure
+interface ParticipantData {
+  clientId?: number | null;  // if selected from registered clients
+  nome: string;
+  cpf: string;
+  rg: string;
+  email: string;
+  whatsapp: string;
+}
+
+const emptyParticipant = (): ParticipantData => ({ clientId: null, nome: "", cpf: "", rg: "", email: "", whatsapp: "" });
+
 function NewContractModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
   const [imovel, setImovel] = useState("");
   const [propertyMode, setPropertyMode] = useState<"select" | "manual">("select");
   const [selectedPropertyId, setSelectedPropertyId] = useState<number | null>(null);
-  const [vendedores, setVendedores] = useState([{ email: "", whatsapp: "" }]);
-  const [compradores, setCompradores] = useState([{ email: "", whatsapp: "" }]);
-  const [corretores, setCorretores] = useState([{ email: "", whatsapp: "" }]);
+  const [matriculaText, setMatriculaText] = useState("");
+  const [cartorioText, setCartorioText] = useState("");
   const [matriculaFile, setMatriculaFile] = useState<{ name: string; url: string } | null>(null);
-  const [matriculaOcrFields, setMatriculaOcrFields] = useState<{ matricula?: string; cartorio?: string } | null>(null);
   const [matriculaLoading, setMatriculaLoading] = useState(false);
   const matriculaInputRef = useRef<HTMLInputElement | null>(null);
 
+  const [vendedores, setVendedores] = useState<ParticipantData[]>([emptyParticipant()]);
+  const [compradores, setCompradores] = useState<ParticipantData[]>([emptyParticipant()]);
+  const [corretores, setCorretores] = useState<ParticipantData[]>([emptyParticipant()]);
+
+  const [ocrLoading, setOcrLoading] = useState<Record<string, boolean>>({});
+  const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
+  const [clientSearch, setClientSearch] = useState<Record<string, string>>({});
+  const [showClientDropdown, setShowClientDropdown] = useState<Record<string, boolean>>({});
+
   const utils = trpc.useUtils();
   const { data: properties = [] } = trpc.properties.list.useQuery();
+  const { data: allClients = [] } = trpc.clients.list.useQuery();
+  const ocrInlineMutation = trpc.documents.ocrInline.useMutation();
   const createMutation = trpc.contracts.create.useMutation({
     onSuccess: () => { utils.contracts.list.invalidate(); onCreated(); onClose(); },
   });
 
-  const addRow = (setter: React.Dispatch<React.SetStateAction<{ email: string; whatsapp: string }[]>>) =>
-    setter((prev) => [...prev, { email: "", whatsapp: "" }]);
-  const updateRow = (setter: React.Dispatch<React.SetStateAction<{ email: string; whatsapp: string }[]>>, index: number, field: "email" | "whatsapp", value: string) =>
-    setter((prev) => prev.map((r, i) => (i === index ? { ...r, [field]: value } : r)));
-  const removeRow = (setter: React.Dispatch<React.SetStateAction<{ email: string; whatsapp: string }[]>>, index: number) =>
+  const updateParticipant = useCallback((
+    setter: React.Dispatch<React.SetStateAction<ParticipantData[]>>,
+    index: number,
+    updates: Partial<ParticipantData>
+  ) => setter((prev) => prev.map((r, i) => (i === index ? { ...r, ...updates } : r))), []);
+
+  const addParticipant = (setter: React.Dispatch<React.SetStateAction<ParticipantData[]>>) =>
+    setter((prev) => [...prev, emptyParticipant()]);
+  const removeParticipant = (setter: React.Dispatch<React.SetStateAction<ParticipantData[]>>, index: number) =>
     setter((prev) => prev.filter((_, i) => i !== index));
 
-  const [ocrLoading, setOcrLoading] = useState<Record<string, boolean>>({});
-  const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
-
-  const uploadOcrMutation = trpc.documents.upload.useMutation();
-  const processOcrMutation = trpc.documents.processOcr.useMutation();
-
-  const handleMatriculaUpload = async (file: File) => {
+  // OCR for matricula
+  const handleMatriculaUpload = useCallback(async (file: File) => {
     setMatriculaLoading(true);
     try {
       const fileBase64 = await new Promise<string>((resolve, reject) => {
@@ -215,80 +235,56 @@ function NewContractModal({ onClose, onCreated }: { onClose: () => void; onCreat
         reader.onerror = reject;
         reader.readAsDataURL(file);
       });
-      const doc = await uploadOcrMutation.mutateAsync({
-        name: file.name,
-        docType: "outro",
-        fileBase64,
-        mimeType: file.type,
-        fileSize: file.size,
-      });
-      setMatriculaFile({ name: file.name, url: (doc as any).fileUrl || "" });
-      const ocr = await processOcrMutation.mutateAsync({
-        documentId: (doc as any).documentId,
-        fileUrl: (doc as any).fileUrl,
-        docType: "matricula",
-      });
-      const fields = (ocr as any)?.fields || {};
-      const matricula = fields.matricula || fields.numero_matricula || fields.registration_number || "";
-      const cartorio = fields.cartorio || fields.cartorio_registro || fields.registry_office || "";
-      if (matricula || cartorio) setMatriculaOcrFields({ matricula, cartorio });
-    } catch (err) {
-      console.error("Matrícula upload error:", err);
-    } finally {
-      setMatriculaLoading(false);
-    }
-  };
+      const res = await ocrInlineMutation.mutateAsync({ fileBase64, mimeType: file.type, fileName: file.name, docType: "matricula" });
+      const fields = res?.fields as Record<string, string> | undefined;
+      if (fields?.matricula) setMatriculaText(fields.matricula);
+      if (fields?.cartorio) setCartorioText(fields.cartorio);
+      setMatriculaFile({ name: file.name, url: res?.fileUrl || "" });
+    } catch { /* ignore */ } finally { setMatriculaLoading(false); }
+  }, [ocrInlineMutation]);
 
-  const handleDocUpload = async (
+  // OCR for participant document
+  const handleParticipantOcr = useCallback(async (
     file: File,
-    setter: React.Dispatch<React.SetStateAction<{ email: string; whatsapp: string }[]>>,
+    setter: React.Dispatch<React.SetStateAction<ParticipantData[]>>,
     index: number,
     key: string
   ) => {
     setOcrLoading((prev) => ({ ...prev, [key]: true }));
     try {
-      // Read file as base64
       const fileBase64 = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => resolve((reader.result as string).split(",")[1]);
         reader.onerror = reject;
         reader.readAsDataURL(file);
       });
+      const res = await ocrInlineMutation.mutateAsync({ fileBase64, mimeType: file.type, fileName: file.name, docType: "rg" });
+      const f = res?.fields as Record<string, string> | undefined;
+      if (f) {
+        updateParticipant(setter, index, {
+          nome: f.nome || "",
+          cpf: f.cpf || "",
+          rg: f.rg || "",
+        });
+      }
+    } catch { /* ignore */ } finally { setOcrLoading((prev) => ({ ...prev, [key]: false })); }
+  }, [ocrInlineMutation, updateParticipant]);
 
-      // Upload to S3 via tRPC (base64)
-      const doc = await uploadOcrMutation.mutateAsync({
-        name: file.name,
-        docType: "outro",
-        fileBase64,
-        mimeType: file.type,
-        fileSize: file.size,
-      });
+  // Filter clients for search
+  const filteredClients = useCallback((search: string) => {
+    if (!search || search.length < 1) return (allClients as any[]).slice(0, 8);
+    const q = search.toLowerCase();
+    return (allClients as any[]).filter((c: any) =>
+      c.name?.toLowerCase().includes(q) || c.cpfCnpj?.includes(q)
+    ).slice(0, 8);
+  }, [allClients]);
 
-      // Run OCR
-      const ocr = await processOcrMutation.mutateAsync({
-        documentId: (doc as any).documentId,
-        fileUrl: (doc as any).fileUrl,
-        docType: "documento",
-      });
-      const fields = (ocr as any)?.fields || {};
-
-      // Extract email and whatsapp from OCR fields
-      const email = fields.email || fields.e_mail || "";
-      const whatsapp = fields.whatsapp || fields.celular || fields.telefone || fields.phone || "";
-
-      if (email) updateRow(setter, index, "email", email);
-      if (whatsapp) updateRow(setter, index, "whatsapp", whatsapp);
-    } catch (err) {
-      console.error("OCR upload error:", err);
-    } finally {
-      setOcrLoading((prev) => ({ ...prev, [key]: false }));
-    }
-  };
-
-  const PartySection = ({ title, icon: Icon, rows, setter, addLabel, sectionKey }: {
+  const PartySection = ({
+    title, icon: Icon, rows, setter, addLabel, sectionKey,
+  }: {
     title: string; icon: React.ElementType;
-    rows: { email: string; whatsapp: string }[];
-    setter: React.Dispatch<React.SetStateAction<{ email: string; whatsapp: string }[]>>;
+    rows: ParticipantData[];
+    setter: React.Dispatch<React.SetStateAction<ParticipantData[]>>;
     addLabel: string;
     sectionKey: string;
   }) => (
@@ -298,19 +294,78 @@ function NewContractModal({ onClose, onCreated }: { onClose: () => void; onCreat
           <Icon className="w-4 h-4 text-gray-400" />
           <span className="text-white font-semibold text-sm">{title}</span>
         </div>
-        <button onClick={() => addRow(setter)} className="flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 transition-colors">
+        <button type="button" onClick={() => addParticipant(setter)} className="flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 transition-colors">
           <Plus className="w-3 h-3" /> {addLabel}
         </button>
       </div>
       {rows.map((row, i) => {
         const key = `${sectionKey}-${i}`;
+        const searchKey = `${key}-search`;
+        const dropdownKey = `${key}-dd`;
+        const isFromClient = !!row.clientId;
         return (
-          <div key={i} className="space-y-2 mb-3">
+          <div key={i} className="mb-4 bg-[#0f1117] border border-[#2a2d3a] rounded-xl p-3 space-y-2">
+            {/* Header row: client search + OCR button + remove */}
             <div className="flex items-center gap-2">
-              <input type="email" placeholder={`E-mail ${i + 1} *`} value={row.email}
-                onChange={(e) => updateRow(setter, i, "email", e.target.value)}
-                className="flex-1 bg-[#0f1117] border border-[#2a2d3a] rounded-xl px-3 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-blue-500" />
-              {/* Upload doc button */}
+              {/* Client search */}
+              <div className="flex-1 relative">
+                <div className="flex items-center gap-1.5 bg-[#1a1d27] border border-[#2a2d3a] rounded-lg px-2.5 py-1.5">
+                  <UserCheck className="w-3.5 h-3.5 text-gray-500 flex-shrink-0" />
+                  <input
+                    type="text"
+                    placeholder={isFromClient ? row.nome : "Buscar cliente cadastrado..."}
+                    value={clientSearch[searchKey] ?? (isFromClient ? row.nome : "")}
+                    onChange={(e) => {
+                      setClientSearch((prev) => ({ ...prev, [searchKey]: e.target.value }));
+                      setShowClientDropdown((prev) => ({ ...prev, [dropdownKey]: true }));
+                      if (!e.target.value) updateParticipant(setter, i, { clientId: null, nome: "", cpf: "", rg: "", email: "", whatsapp: "" });
+                    }}
+                    onFocus={() => setShowClientDropdown((prev) => ({ ...prev, [dropdownKey]: true }))}
+                    onBlur={() => setTimeout(() => setShowClientDropdown((prev) => ({ ...prev, [dropdownKey]: false })), 200)}
+                    className="flex-1 bg-transparent text-xs text-white placeholder-gray-600 focus:outline-none min-w-0"
+                  />
+                  {isFromClient && (
+                    <button type="button" onClick={() => {
+                      updateParticipant(setter, i, emptyParticipant());
+                      setClientSearch((prev) => ({ ...prev, [searchKey]: "" }));
+                    }} className="text-gray-500 hover:text-white">
+                      <X className="w-3 h-3" />
+                    </button>
+                  )}
+                </div>
+                {/* Dropdown */}
+                {showClientDropdown[dropdownKey] && (
+                  <div className="absolute top-full left-0 right-0 z-50 mt-1 bg-[#1a1d27] border border-[#2a2d3a] rounded-xl shadow-xl max-h-48 overflow-y-auto">
+                    {filteredClients(clientSearch[searchKey] || "").length === 0 ? (
+                      <p className="text-xs text-gray-500 px-3 py-2">Nenhum cliente encontrado</p>
+                    ) : (
+                      filteredClients(clientSearch[searchKey] || "").map((c: any) => (
+                        <button
+                          key={c.id}
+                          type="button"
+                          onMouseDown={() => {
+                            updateParticipant(setter, i, {
+                              clientId: c.id,
+                              nome: c.name || "",
+                              cpf: c.cpfCnpj || "",
+                              rg: c.rg || "",
+                              email: c.email || "",
+                              whatsapp: c.whatsapp || c.phone || "",
+                            });
+                            setClientSearch((prev) => ({ ...prev, [searchKey]: c.name }));
+                            setShowClientDropdown((prev) => ({ ...prev, [dropdownKey]: false }));
+                          }}
+                          className="w-full text-left px-3 py-2 hover:bg-[#2a2d3a] transition-colors"
+                        >
+                          <div className="text-white text-xs font-medium">{c.name}</div>
+                          {c.cpfCnpj && <div className="text-gray-500 text-xs">CPF: {c.cpfCnpj}</div>}
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
+              {/* OCR button */}
               <input
                 type="file"
                 accept="image/*,.pdf"
@@ -318,25 +373,48 @@ function NewContractModal({ onClose, onCreated }: { onClose: () => void; onCreat
                 ref={(el) => { fileInputRefs.current[key] = el; }}
                 onChange={(e) => {
                   const file = e.target.files?.[0];
-                  if (file) handleDocUpload(file, setter, i, key);
+                  if (file) handleParticipantOcr(file, setter, i, key);
                   e.target.value = "";
                 }}
               />
               <button
                 type="button"
-                title="Enviar documento para preencher automaticamente"
+                title="Enviar RG/CPF/CNH para preencher automaticamente via OCR"
                 onClick={() => fileInputRefs.current[key]?.click()}
                 disabled={ocrLoading[key]}
-                className="flex-shrink-0 w-9 h-9 flex items-center justify-center rounded-xl border border-[#2a2d3a] bg-[#0f1117] text-gray-400 hover:text-blue-400 hover:border-blue-500 transition-colors disabled:opacity-50"
+                className="flex-shrink-0 flex items-center gap-1 px-2 py-1.5 rounded-lg border border-[#2a2d3a] bg-[#1a1d27] text-xs text-gray-400 hover:text-blue-400 hover:border-blue-500 transition-colors disabled:opacity-50"
               >
-                {ocrLoading[key] ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                {ocrLoading[key] ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ScanLine className="w-3.5 h-3.5" />}
+                <span className="hidden sm:inline">{ocrLoading[key] ? "OCR..." : "OCR"}</span>
               </button>
+              {rows.length > 1 && (
+                <button type="button" onClick={() => removeParticipant(setter, i)} className="flex-shrink-0 text-gray-600 hover:text-red-400 transition-colors">
+                  <X className="w-4 h-4" />
+                </button>
+              )}
             </div>
-            <input type="tel" placeholder={`WhatsApp ${i + 1} (opcional)`} value={row.whatsapp}
-              onChange={(e) => updateRow(setter, i, "whatsapp", e.target.value)}
-              className="w-full bg-[#0f1117] border border-[#2a2d3a] rounded-xl px-3 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-blue-500" />
-            {rows.length > 1 && (
-              <button onClick={() => removeRow(setter, i)} className="text-xs text-red-400 hover:text-red-300 transition-colors">Remover</button>
+            {/* Fields */}
+            <div className="grid grid-cols-2 gap-2">
+              <input type="text" placeholder="Nome completo" value={row.nome}
+                onChange={(e) => updateParticipant(setter, i, { nome: e.target.value })}
+                className="col-span-2 bg-[#1a1d27] border border-[#2a2d3a] rounded-lg px-3 py-2 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-blue-500" />
+              <input type="text" placeholder="CPF" value={row.cpf}
+                onChange={(e) => updateParticipant(setter, i, { cpf: e.target.value })}
+                className="bg-[#1a1d27] border border-[#2a2d3a] rounded-lg px-3 py-2 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-blue-500" />
+              <input type="text" placeholder="RG" value={row.rg}
+                onChange={(e) => updateParticipant(setter, i, { rg: e.target.value })}
+                className="bg-[#1a1d27] border border-[#2a2d3a] rounded-lg px-3 py-2 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-blue-500" />
+              <input type="email" placeholder="E-mail *" value={row.email}
+                onChange={(e) => updateParticipant(setter, i, { email: e.target.value })}
+                className="bg-[#1a1d27] border border-[#2a2d3a] rounded-lg px-3 py-2 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-blue-500" />
+              <input type="tel" placeholder="WhatsApp" value={row.whatsapp}
+                onChange={(e) => updateParticipant(setter, i, { whatsapp: e.target.value })}
+                className="bg-[#1a1d27] border border-[#2a2d3a] rounded-lg px-3 py-2 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-blue-500" />
+            </div>
+            {isFromClient && (
+              <div className="flex items-center gap-1 text-xs text-green-400">
+                <CheckCircle2 className="w-3 h-3" /> Preenchido do cadastro
+              </div>
             )}
           </div>
         );
@@ -353,9 +431,9 @@ function NewContractModal({ onClose, onCreated }: { onClose: () => void; onCreat
     if (!descricao) return;
     createMutation.mutate({
       descricaoImovel: descricao,
-      nomeVendedor: vendedores[0]?.email || undefined,
-      nomeComprador: compradores[0]?.email || undefined,
-      nomeCorretor: corretores[0]?.email || undefined,
+      nomeVendedor: vendedores[0]?.nome || vendedores[0]?.email || undefined,
+      nomeComprador: compradores[0]?.nome || compradores[0]?.email || undefined,
+      nomeCorretor: corretores[0]?.nome || corretores[0]?.email || undefined,
     });
   };
 
@@ -447,9 +525,9 @@ function NewContractModal({ onClose, onCreated }: { onClose: () => void; onCreat
               </>
             )}
 
-            {/* Matrícula upload */}
-            <div className="mt-3 pt-3 border-t border-[#2a2d3a]">
-              <div className="flex items-center justify-between mb-2">
+            {/* Matrícula upload + fields */}
+            <div className="mt-3 pt-3 border-t border-[#2a2d3a] space-y-2">
+              <div className="flex items-center justify-between">
                 <span className="text-xs text-gray-400 font-medium">Matrícula do Imóvel</span>
                 <input
                   type="file"
@@ -468,33 +546,21 @@ function NewContractModal({ onClose, onCreated }: { onClose: () => void; onCreat
                   disabled={matriculaLoading}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#2a2d3a] bg-[#0f1117] text-xs text-gray-300 hover:text-blue-400 hover:border-blue-500 transition-colors disabled:opacity-50"
                 >
-                  {matriculaLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
-                  {matriculaLoading ? "Processando..." : "Enviar Matrícula"}
+                  {matriculaLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ScanLine className="w-3.5 h-3.5" />}
+                  {matriculaLoading ? "Processando OCR..." : (matriculaFile ? `✓ ${matriculaFile.name}` : "Enviar Matrícula (OCR)")}
                 </button>
               </div>
-              {matriculaFile && (
-                <div className="bg-[#0f1117] border border-[#2a2d3a] rounded-xl px-3 py-2 space-y-1">
-                  <div className="flex items-center gap-2">
-                    <FileText className="w-3.5 h-3.5 text-blue-400 flex-shrink-0" />
-                    <span className="text-xs text-gray-300 truncate">{matriculaFile.name}</span>
-                    {matriculaFile.url && (
-                      <a href={matriculaFile.url} target="_blank" rel="noreferrer" className="ml-auto text-xs text-blue-400 hover:underline flex-shrink-0">Ver</a>
-                    )}
-                  </div>
-                  {matriculaOcrFields && (matriculaOcrFields.matricula || matriculaOcrFields.cartorio) && (
-                    <div className="pt-1 border-t border-[#2a2d3a] space-y-1">
-                      {matriculaOcrFields.matricula && (
-                        <p className="text-xs text-gray-400">Matrícula: <span className="text-white font-medium">{matriculaOcrFields.matricula}</span></p>
-                      )}
-                      {matriculaOcrFields.cartorio && (
-                        <p className="text-xs text-gray-400">Cartório: <span className="text-white font-medium">{matriculaOcrFields.cartorio}</span></p>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
+              {/* Editable fields filled by OCR or manually */}
+              <div className="grid grid-cols-2 gap-2">
+                <input type="text" placeholder="Número da matrícula" value={matriculaText}
+                  onChange={(e) => setMatriculaText(e.target.value)}
+                  className="bg-[#0f1117] border border-[#2a2d3a] rounded-lg px-3 py-2 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-blue-500" />
+                <input type="text" placeholder="Cartório de Registro" value={cartorioText}
+                  onChange={(e) => setCartorioText(e.target.value)}
+                  className="bg-[#0f1117] border border-[#2a2d3a] rounded-lg px-3 py-2 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-blue-500" />
+              </div>
               {!matriculaFile && (
-                <p className="text-xs text-gray-600">Envie o PDF ou foto da matrícula para extrair os dados automaticamente via OCR.</p>
+                <p className="text-xs text-gray-600">Envie o PDF ou foto da matrícula para extrair os dados via OCR, ou preencha manualmente.</p>
               )}
             </div>
           </div>
