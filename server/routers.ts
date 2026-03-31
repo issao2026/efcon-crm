@@ -550,7 +550,7 @@ Para documentos de identidade (RG, CNH, CPF): extraia nome, cpf, rg, data_nascim
 Para CNH: também extraia profissao (campo "Categoria" ou profissão declarada), estado_civil se visível.
 Para RG: extraia profissao se constar no documento, estado_civil se visível, endereco se constar no verso.
 Para comprovante de residência: nome, endereco, cidade, estado, cep.
-Para matrícula de imóvel: descricao_imovel, matricula, cartorio.
+Para matrícula de imóvel: extraia descricao_imovel (descrição completa do imóvel), matricula (número da matrícula), cartorio (nome do cartório de registro), endereco_imovel (endereço completo do imóvel incluindo logradouro, número, bairro, cidade, estado), area_total (métrica de área em m²), proprietario_atual (nome do proprietário atual ou transmitente).
 Se o documento tiver endereço no verso, inclua no campo endereco.
 Nunca use o nome do arquivo como nome da pessoa.
 Retorne confidence (0-100) indicando a qualidade da extração.`,
@@ -588,6 +588,9 @@ Retorne confidence (0-100) indicando a qualidade da extração.`,
                 descricao_imovel: { type: 'string' },
                 matricula: { type: 'string' },
                 cartorio: { type: 'string' },
+                endereco_imovel: { type: 'string' },
+                area_total: { type: 'string' },
+                proprietario_atual: { type: 'string' },
                 tipo_documento: { type: 'string' },
                 confidence: { type: 'number' },
               },
@@ -974,8 +977,29 @@ Retorne um JSON com sugestões para campos vazios ou incompletos.`,
       totalValue: z.string().optional(),
       items: z.string().optional(),
       propertyStatus: z.enum(['disponivel', 'vendido', 'alugado', 'em_negociacao']).optional(),
+      matriculaDocBase64: z.string().optional(),
+      matriculaDocMime: z.string().optional(),
+      matriculaDocFileName: z.string().optional(),
     })).mutation(async ({ ctx, input }) => {
-      return createProperty({ ...input, userId: ctx.user.id });
+      const { matriculaDocBase64, matriculaDocMime, matriculaDocFileName, ...propertyData } = input;
+      const property = await createProperty({ ...propertyData, userId: ctx.user.id });
+      // If a matrícula file was provided, upload to S3 and save URL
+      if (matriculaDocBase64 && matriculaDocMime && property?.id) {
+        try {
+          const { storagePut } = await import('./storage');
+          const buf = Buffer.from(matriculaDocBase64, 'base64');
+          const ext = matriculaDocMime.split('/')[1] || 'bin';
+          const key = `property-docs/${ctx.user.id}/${property.id}/matricula-${Date.now()}.${ext}`;
+          const { url } = await storagePut(key, buf, matriculaDocMime);
+          const db = await getDb();
+          if (db) {
+            const { properties: propsTable } = await import('../drizzle/schema');
+            const { eq } = await import('drizzle-orm');
+            await db.update(propsTable).set({ matriculaDocUrl: url, matriculaDocKey: key }).where(eq(propsTable.id, property.id));
+          }
+        } catch (e) { /* non-fatal: property was created, just skip doc */ }
+      }
+      return property;
     }),
     update: protectedProcedure.input(z.object({
       id: z.number(),

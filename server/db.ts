@@ -95,7 +95,10 @@ export async function getProperties(userId: number) {
 export async function createProperty(data: InsertProperty) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  return db.insert(properties).values(data);
+  const result = await db.insert(properties).values(data);
+  // Return the inserted row with its generated id
+  const insertId = (result as any).insertId ?? (result as any)[0]?.insertId;
+  return { id: Number(insertId), ...data };
 }
 
 // ─── Deals ───────────────────────────────────────────────────────────────────

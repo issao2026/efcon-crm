@@ -381,3 +381,12 @@
 
 - [x] Wizard Etapa 2 (Contratos.tsx): seção matrícula expandida — botão upload OCR com preview (nome + link Ver), campos número e cartório em linha abaixo, hint text
 - [x] Modal Novo Imóvel (Imoveis.tsx): seção upload matrícula com OCR, preview do arquivo, auto-preenchimento dos campos Matrícula e Cartório de Registro
+
+## Phase 36 — Matrícula Completa: Banco + OCR Expandido + Preview Inline + Skill
+
+- [x] Schema: matriculaDocUrl já existia na tabela properties
+- [x] Procedure: create property aceita matriculaDocBase64 + mimeType + fileName, faz upload S3 e salva URL
+- [x] Imoveis.tsx: OCR envia base64 para procedure e salva matriculaDocUrl junto com o imóvel
+- [x] OCR expandido: extrai endereco_imovel, area_total, proprietario_atual da matrícula e preenche campos
+- [x] Modal preview inline: DocPreviewModal reutilizável integrado em Imoveis.tsx, Contratos.tsx e Contract.tsx
+- [x] Skill: skill efcon-ocr-wizard atualizada com fluxo completo de matrícula, DocPreviewModal e persistência S3

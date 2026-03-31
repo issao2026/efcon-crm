@@ -3,6 +3,7 @@ import { trpc } from "@/lib/trpc";
 import { DashboardShell } from "@/components/DashboardShell";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { DocPreviewModal } from "@/components/DocPreviewModal";
 import {
   Plus, Pencil, Trash2, Home, MapPin, FileText, Search,
   ChevronDown, ChevronUp, X, Loader2, Building2, DollarSign,
@@ -127,13 +128,17 @@ function PropertyModal({
 }: {
   initial?: PropertyForm & { id?: number };
   onClose: () => void;
-  onSave: (form: PropertyForm, id?: number) => Promise<void>;
+  onSave: (form: PropertyForm, id?: number, matriculaDoc?: { base64: string; mime: string; fileName: string } | null) => Promise<void>;
 }) {
   const [form, setForm] = useState<PropertyForm>(initial ?? EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [cepLoading, setCepLoading] = useState(false);
   const [matriculaFile, setMatriculaFile] = useState<{ name: string; url?: string } | null>(null);
   const [matriculaLoading, setMatriculaLoading] = useState(false);
+  const [matriculaBase64, setMatriculaBase64] = useState<string | null>(null);
+  const [matriculaMime, setMatriculaMime] = useState<string | null>(null);
+  const [matriculaFileName, setMatriculaFileName] = useState<string | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<{ url: string; name: string } | null>(null);
   const matriculaInputRef = useRef<HTMLInputElement | null>(null);
   const ocrInlineMutation = trpc.documents.ocrInline.useMutation();
 
@@ -146,13 +151,27 @@ function PropertyModal({
         reader.onerror = reject;
         reader.readAsDataURL(file);
       });
+      // Store for submission
+      setMatriculaBase64(fileBase64);
+      setMatriculaMime(file.type);
+      setMatriculaFileName(file.name);
       const res = await ocrInlineMutation.mutateAsync({ fileBase64, mimeType: file.type, fileName: file.name, docType: "matricula" });
       const fields = res?.fields as Record<string, string> | undefined;
       if (fields?.matricula) setField("registration", fields.matricula);
       if (fields?.cartorio) setField("registryOffice", fields.cartorio);
+      // New expanded fields
+      if (fields?.endereco_imovel) setField("street", fields.endereco_imovel);
+      if (fields?.area_total) setField("area", fields.area_total.replace(/[^0-9,.]/g, ""));
+      if (fields?.descricao_imovel) setField("description", fields.descricao_imovel);
       const fileUrl = (res as any)?.fileUrl as string | undefined;
       setMatriculaFile({ name: file.name, ...(fileUrl ? { url: fileUrl } : {}) });
-      toast.success("Matrícula processada com OCR!");
+      const extracted: string[] = [];
+      if (fields?.matricula) extracted.push("matrícula");
+      if (fields?.cartorio) extracted.push("cartório");
+      if (fields?.endereco_imovel) extracted.push("endereço");
+      if (fields?.area_total) extracted.push("área");
+      if (fields?.descricao_imovel) extracted.push("descrição");
+      toast.success(`OCR extraíu: ${extracted.join(", ") || "dados da matrícula"}`);
     } catch {
       toast.error("Erro ao processar OCR da matrícula");
     } finally {
@@ -194,7 +213,10 @@ function PropertyModal({
     }
     setSaving(true);
     try {
-      await onSave(form, initial?.id);
+      const doc = (matriculaBase64 && matriculaMime && matriculaFileName)
+        ? { base64: matriculaBase64, mime: matriculaMime, fileName: matriculaFileName }
+        : null;
+      await onSave(form, initial?.id, doc);
       onClose();
     } catch (err: any) {
       toast.error(err.message || "Erro ao salvar imóvel");
@@ -204,6 +226,7 @@ function PropertyModal({
   };
 
   return (
+    <>
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         {/* Header */}
@@ -291,8 +314,10 @@ function PropertyModal({
                 <FileText className="w-4 h-4 text-blue-500 flex-shrink-0" />
                 <span className="text-xs text-blue-700 truncate flex-1">{matriculaFile.name}</span>
                 {matriculaFile.url && (
-                  <a href={matriculaFile.url} target="_blank" rel="noopener noreferrer"
-                    className="text-xs text-blue-600 hover:text-blue-800 underline flex-shrink-0">Ver</a>
+                  <button type="button" onClick={() => setPreviewUrl({ url: matriculaFile.url!, name: matriculaFile.name })}
+                    className="text-xs text-blue-600 hover:text-blue-800 underline flex-shrink-0 flex items-center gap-1">
+                    <Eye className="w-3 h-3" /> Ver
+                  </button>
                 )}
                 <button type="button" onClick={() => { setMatriculaFile(null); setField("registration", ""); setField("registryOffice", ""); }}
                   className="text-gray-400 hover:text-red-500 transition-colors flex-shrink-0">
@@ -363,6 +388,11 @@ function PropertyModal({
         </form>
       </div>
     </div>
+    {/* Inline document preview */}
+    {previewUrl && (
+      <DocPreviewModal url={previewUrl.url} fileName={previewUrl.name} onClose={() => setPreviewUrl(null)} />
+    )}
+    </>
   );
 }
 
@@ -521,11 +551,14 @@ export default function Imoveis() {
     );
   });
 
-  const handleSave = async (form: PropertyForm, id?: number) => {
+  const handleSave = async (form: PropertyForm, id?: number, matriculaDoc?: { base64: string; mime: string; fileName: string } | null) => {
     if (id) {
       await updateMutation.mutateAsync({ id, ...form });
     } else {
-      await createMutation.mutateAsync(form);
+      await createMutation.mutateAsync({
+        ...form,
+        ...(matriculaDoc ? { matriculaDocBase64: matriculaDoc.base64, matriculaDocMime: matriculaDoc.mime, matriculaDocFileName: matriculaDoc.fileName } : {}),
+      });
     }
   };
 

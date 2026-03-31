@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback } from "react";
 import { Link, useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
+import { DocPreviewModal } from "@/components/DocPreviewModal";
 import { useAuth } from "@/_core/hooks/useAuth";
 import {
   FileText, Plus, Search, Filter, Eye, MoreVertical,
@@ -374,7 +375,8 @@ function NewContractModal({ onClose, onCreated }: { onClose: () => void; onCreat
   const [imovelEndereco, setImovelEndereco] = useState("");
   const [matriculaText, setMatriculaText] = useState("");
   const [cartorioText, setCartorioText] = useState("");
-  const [matriculaFile, setMatriculaFile] = useState<{ name: string } | null>(null);
+  const [matriculaFile, setMatriculaFile] = useState<{ name: string; url?: string } | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<{ url: string; name: string } | null>(null);
   const [matriculaLoading, setMatriculaLoading] = useState(false);
   const matriculaInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -555,6 +557,7 @@ function NewContractModal({ onClose, onCreated }: { onClose: () => void; onCreat
   ];
 
   return (
+    <>
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
       <div className="bg-[#1a1d27] border border-[#2a2d3a] rounded-2xl w-full max-w-lg max-h-[92vh] flex flex-col">
         {/* Header */}
@@ -735,9 +738,11 @@ function NewContractModal({ onClose, onCreated }: { onClose: () => void; onCreat
                   <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-500/10 border border-blue-500/20">
                     <FileText className="w-4 h-4 text-blue-400 flex-shrink-0" />
                     <span className="text-xs text-blue-300 truncate flex-1">{matriculaFile.name}</span>
-                    {(matriculaFile as any).url && (
-                      <a href={(matriculaFile as any).url} target="_blank" rel="noopener noreferrer"
-                        className="text-xs text-blue-400 hover:text-blue-300 underline flex-shrink-0">Ver</a>
+                    {matriculaFile.url && (
+                      <button type="button" onClick={() => setPreviewUrl({ url: matriculaFile.url!, name: matriculaFile.name })}
+                        className="text-xs text-blue-400 hover:text-blue-300 underline flex-shrink-0 flex items-center gap-1">
+                        <Eye className="w-3 h-3" /> Ver
+                      </button>
                     )}
                     <button type="button" onClick={() => { setMatriculaFile(null); setMatriculaText(""); setCartorioText(""); }}
                       className="text-gray-500 hover:text-red-400 transition-colors flex-shrink-0">
@@ -838,9 +843,12 @@ function NewContractModal({ onClose, onCreated }: { onClose: () => void; onCreat
         </div>
       </div>
     </div>
+    {previewUrl && (
+      <DocPreviewModal url={previewUrl.url} fileName={previewUrl.name} onClose={() => setPreviewUrl(null)} />
+    )}
+    </>
   );
 }
-
 export default function Contratos() {
   const [, navigate] = useLocation();
   const { user, isAuthenticated } = useAuth();

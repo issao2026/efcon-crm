@@ -5,8 +5,9 @@ import { useAuth } from "@/_core/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
+import { DocPreviewModal } from "@/components/DocPreviewModal";
 import {
-  Zap, ArrowLeft, FileOutput, Download, Eye,
+  Zap, ArrowLeft, FileOutput, Download, Eye, X,
   Loader2, CheckCircle2, User, Home, DollarSign, Users,
   ChevronDown, ChevronUp, RefreshCw, FileText, Scale, Building2, Repeat2,
   Plus, Trash2, MessageCircle, ScanLine,
@@ -867,6 +868,8 @@ export default function Contract() {
   const generateHtmlMutation = trpc.contracts.generateHtml.useMutation();
   const ocrInlineMutation = trpc.documents.ocrInline.useMutation();
   const [ocrLoadingKey, setOcrLoadingKey] = useState<string | null>(null);
+  const [ocrMatriculaFile, setOcrMatriculaFile] = useState<{ name: string; url?: string } | null>(null);
+  const [docPreview, setDocPreview] = useState<{ url: string; name: string } | null>(null);
 
   // Generic OCR handler: docType 'rg' for participants, 'matricula' for property
   const handleOcr = async (
@@ -885,8 +888,13 @@ export default function Contract() {
       const docType = key.startsWith("imovel") ? "matricula" : "rg";
       const res = await ocrInlineMutation.mutateAsync({ fileBase64, mimeType: file.type, fileName: file.name, docType });
       const f = res?.fields as Record<string, string> | undefined;
-      if (f) onResult(f);
-      else toast.error("OCR não retornou dados");
+      if (f) {
+        onResult(f);
+        if (key.startsWith("imovel")) {
+          const fileUrl = (res as any)?.fileUrl;
+          setOcrMatriculaFile({ name: file.name, url: fileUrl });
+        }
+      } else toast.error("OCR não retornou dados");
     } catch { toast.error("Erro ao processar OCR"); }
     finally { setOcrLoadingKey(null); }
   };
@@ -1279,6 +1287,8 @@ export default function Contract() {
                             imovelDescricao: fields.descricao_imovel || prev.imovelDescricao,
                             imovelMatricula: fields.matricula || prev.imovelMatricula,
                             imovelCartorio: fields.cartorio || prev.imovelCartorio,
+                            imovelEndereco: fields.endereco_imovel || prev.imovelEndereco,
+                            imovelAreaTotal: fields.area_total || prev.imovelAreaTotal,
                           }));
                           e.target.value = "";
                         });
@@ -1287,6 +1297,23 @@ export default function Contract() {
                   </label>
                 </div>
               </div>
+              {/* Matrícula file preview */}
+              {ocrMatriculaFile && (
+                <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-50 border border-blue-200 mb-2">
+                  <FileText className="w-4 h-4 text-blue-500 flex-shrink-0" />
+                  <span className="text-xs text-blue-700 truncate flex-1">{ocrMatriculaFile.name}</span>
+                  {ocrMatriculaFile.url && (
+                    <button type="button" onClick={() => setDocPreview({ url: ocrMatriculaFile.url!, name: ocrMatriculaFile.name })}
+                      className="text-xs text-blue-600 hover:text-blue-800 underline flex-shrink-0 flex items-center gap-1">
+                      <Eye className="w-3 h-3" /> Ver
+                    </button>
+                  )}
+                  <button type="button" onClick={() => setOcrMatriculaFile(null)}
+                    className="text-gray-400 hover:text-red-500 transition-colors flex-shrink-0">
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <Field label="Descrição do imóvel" value={form.imovelDescricao} onChange={(v) => setField("imovelDescricao", v)} required placeholder="Ex: Apartamento, 3 quartos, 2 banheiros" className="md:col-span-2" />
                 <Field label="Endereço do imóvel" value={form.imovelEndereco} onChange={(v) => setField("imovelEndereco", v)} required placeholder="Endereço completo do imóvel" className="md:col-span-2" />
@@ -1526,6 +1553,10 @@ export default function Contract() {
           contractUrl={generatedPdfUrl}
           onClose={() => setShowWhatsApp(false)}
         />
+      )}
+      {/* Inline document preview */}
+      {docPreview && (
+        <DocPreviewModal url={docPreview.url} fileName={docPreview.name} onClose={() => setDocPreview(null)} />
       )}
     </div>
   );
