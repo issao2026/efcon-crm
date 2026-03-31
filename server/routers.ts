@@ -546,9 +546,12 @@ Retorne confidence (0-100) indicando a qualidade da extração.`,
             content: `Você é um sistema especializado em OCR de documentos brasileiros.
 Analise a imagem do documento e extraia os dados estruturados.
 Retorne APENAS um JSON válido com os campos encontrados.
-Para documentos de identidade (RG, CNH, CPF), extraia: nome, cpf, rg, data_nascimento, nome_mae, nome_pai, orgao_emissor, categoria_cnh (se CNH).
+Para documentos de identidade (RG, CNH, CPF): extraia nome, cpf, rg, data_nascimento, nome_mae, nome_pai, orgao_emissor, categoria_cnh (se CNH).
+Para CNH: também extraia profissao (campo "Categoria" ou profissão declarada), estado_civil se visível.
+Para RG: extraia profissao se constar no documento, estado_civil se visível, endereco se constar no verso.
 Para comprovante de residência: nome, endereco, cidade, estado, cep.
 Para matrícula de imóvel: descricao_imovel, matricula, cartorio.
+Se o documento tiver endereço no verso, inclua no campo endereco.
 Nunca use o nome do arquivo como nome da pessoa.
 Retorne confidence (0-100) indicando a qualidade da extração.`,
           },
@@ -576,6 +579,8 @@ Retorne confidence (0-100) indicando a qualidade da extração.`,
                 nome_pai: { type: 'string' },
                 orgao_emissor: { type: 'string' },
                 categoria_cnh: { type: 'string' },
+                estado_civil: { type: 'string' },
+                profissao: { type: 'string' },
                 endereco: { type: 'string' },
                 cidade: { type: 'string' },
                 estado: { type: 'string' },

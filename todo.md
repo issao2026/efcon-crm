@@ -355,3 +355,11 @@
 - [x] Etapa 3: Revisão dos dados coletados + botão "Gerar Contrato" que navega para /dashboard/contrato com todos os campos pré-preenchidos
 - [x] Passar dados do wizard para Contract.tsx via localStorage
 - [x] Contract.tsx: ler dados pré-preenchidos e popular formulário automaticamente ao abrir (toast de confirmação)
+
+## Phase 32 — Melhorias no Wizard de Contrato
+
+- [x] Salvar rascunho do wizard no localStorage com botão "💾 Rascunho" e banner de retomada/descartar
+- [x] Validação por etapa: bloquear "Próximo" se campos essenciais vazios (etapa 1: ao menos 1 vendedor e 1 comprador com nome; etapa 2: imóvel identificado)
+- [x] OCR expandido: extrair estado civil, profissão e endereço do RG/CNH e preencher no ParticipantCard
+- [x] Servidor: expandir prompt do ocrInline para retornar estadoCivil, profissao, endereco
+- [x] Criar skill reutilizável do processo wizard OCR (efcon-ocr-wizard)

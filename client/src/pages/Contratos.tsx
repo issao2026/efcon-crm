@@ -183,8 +183,14 @@ interface ParticipantData {
   rg: string;
   email: string;
   whatsapp: string;
+  estadoCivil: string;
+  profissao: string;
+  endereco: string;
 }
-const emptyParticipant = (): ParticipantData => ({ clientId: null, nome: "", cpf: "", rg: "", email: "", whatsapp: "" });
+const emptyParticipant = (): ParticipantData => ({
+  clientId: null, nome: "", cpf: "", rg: "",
+  email: "", whatsapp: "", estadoCivil: "", profissao: "", endereco: "",
+});
 
 // ─── Wizard step indicator ────────────────────────────────────────────────────
 function WizardSteps({ step }: { step: 1 | 2 | 3 }) {
@@ -272,7 +278,17 @@ function ParticipantCard({
               ) : filtered.map((c: any) => (
                 <button key={c.id} type="button"
                   onMouseDown={() => {
-                    onUpdate({ clientId: c.id, nome: c.name || "", cpf: c.cpfCnpj || "", rg: c.rg || "", email: c.email || "", whatsapp: c.whatsapp || c.phone || "" });
+                    onUpdate({
+                      clientId: c.id,
+                      nome: c.name || "",
+                      cpf: c.cpfCnpj || "",
+                      rg: c.rg || "",
+                      email: c.email || "",
+                      whatsapp: c.whatsapp || c.phone || "",
+                      estadoCivil: c.maritalStatus || "",
+                      profissao: c.profession || "",
+                      endereco: c.address || "",
+                    });
                     setSearch(c.name);
                     setShowDrop(false);
                   }}
@@ -318,6 +334,15 @@ function ParticipantCard({
         <input type="tel" placeholder="WhatsApp" value={row.whatsapp}
           onChange={(e) => onUpdate({ whatsapp: e.target.value })}
           className="bg-[#1a1d27] border border-[#2a2d3a] rounded-lg px-3 py-2 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-blue-500" />
+        <input type="text" placeholder="Estado civil" value={row.estadoCivil}
+          onChange={(e) => onUpdate({ estadoCivil: e.target.value })}
+          className="bg-[#1a1d27] border border-[#2a2d3a] rounded-lg px-3 py-2 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-blue-500" />
+        <input type="text" placeholder="Profissão" value={row.profissao}
+          onChange={(e) => onUpdate({ profissao: e.target.value })}
+          className="bg-[#1a1d27] border border-[#2a2d3a] rounded-lg px-3 py-2 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-blue-500" />
+        <input type="text" placeholder="Endereço" value={row.endereco}
+          onChange={(e) => onUpdate({ endereco: e.target.value })}
+          className="col-span-2 bg-[#1a1d27] border border-[#2a2d3a] rounded-lg px-3 py-2 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-blue-500" />
       </div>
       {isFromClient && (
         <div className="flex items-center gap-1 text-xs text-green-400">
@@ -328,10 +353,14 @@ function ParticipantCard({
   );
 }
 
+const DRAFT_KEY = "efcon_wizard_draft";
+
 // ─── Main wizard modal ────────────────────────────────────────────────────────
 function NewContractModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
   const [, navigate] = useLocation();
   const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [stepError, setStepError] = useState("");
+  const [hasDraft, setHasDraft] = useState(() => !!localStorage.getItem(DRAFT_KEY));
 
   // Step 1 — Parties
   const [vendedores, setVendedores] = useState<ParticipantData[]>([emptyParticipant()]);
@@ -352,6 +381,64 @@ function NewContractModal({ onClose, onCreated }: { onClose: () => void; onCreat
   // OCR state
   const [ocrLoading, setOcrLoading] = useState<Record<string, boolean>>({});
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
+
+  // ── Draft helpers ──
+  const saveDraft = useCallback(() => {
+    const draft = {
+      step, vendedores, compradores, corretores,
+      propertyMode, selectedPropertyId, imovelDesc, imovelEndereco,
+      matriculaText, cartorioText,
+    };
+    localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+    setHasDraft(true);
+  }, [step, vendedores, compradores, corretores, propertyMode, selectedPropertyId, imovelDesc, imovelEndereco, matriculaText, cartorioText]);
+
+  const loadDraft = useCallback(() => {
+    const raw = localStorage.getItem(DRAFT_KEY);
+    if (!raw) return;
+    try {
+      const d = JSON.parse(raw);
+      if (d.vendedores) setVendedores(d.vendedores);
+      if (d.compradores) setCompradores(d.compradores);
+      if (d.corretores) setCorretores(d.corretores);
+      if (d.propertyMode) setPropertyMode(d.propertyMode);
+      if (d.selectedPropertyId) setSelectedPropertyId(d.selectedPropertyId);
+      if (d.imovelDesc) setImovelDesc(d.imovelDesc);
+      if (d.imovelEndereco) setImovelEndereco(d.imovelEndereco);
+      if (d.matriculaText) setMatriculaText(d.matriculaText);
+      if (d.cartorioText) setCartorioText(d.cartorioText);
+      if (d.step) setStep(d.step);
+      localStorage.removeItem(DRAFT_KEY);
+      setHasDraft(false);
+    } catch { /* ignore */ }
+  }, []);
+
+  const discardDraft = useCallback(() => {
+    localStorage.removeItem(DRAFT_KEY);
+    setHasDraft(false);
+  }, []);
+
+  // ── Step validation ──
+  const validateStep = useCallback((s: 1 | 2 | 3): string => {
+    if (s === 1) {
+      const hasVendedor = vendedores.some((v) => v.nome.trim());
+      const hasComprador = compradores.some((v) => v.nome.trim());
+      if (!hasVendedor) return "Informe ao menos um vendedor com nome.";
+      if (!hasComprador) return "Informe ao menos um comprador com nome.";
+    }
+    if (s === 2) {
+      const hasImovel = imovelDesc.trim() || selectedPropertyId;
+      if (!hasImovel) return "Identifique o imóvel (selecione ou descreva).";
+    }
+    return "";
+  }, [vendedores, compradores, imovelDesc, selectedPropertyId]);
+
+  const goNext = useCallback(() => {
+    const err = validateStep(step);
+    if (err) { setStepError(err); return; }
+    setStepError("");
+    setStep((s) => (s + 1) as 1 | 2 | 3);
+  }, [step, validateStep]);
 
   const { data: properties = [] } = trpc.properties.list.useQuery();
   const { data: allClients = [] } = trpc.clients.list.useQuery();
@@ -381,7 +468,16 @@ function NewContractModal({ onClose, onCreated }: { onClose: () => void; onCreat
       });
       const res = await ocrInlineMutation.mutateAsync({ fileBase64, mimeType: file.type, fileName: file.name, docType: "rg" });
       const f = res?.fields as Record<string, string> | undefined;
-      if (f) updateParticipant(setter, index, { nome: f.nome || "", cpf: f.cpf || "", rg: f.rg || "" });
+      if (f) {
+        const updates: Partial<ParticipantData> = {};
+        if (f.nome) updates.nome = f.nome;
+        if (f.cpf) updates.cpf = f.cpf;
+        if (f.rg) updates.rg = f.rg;
+        if (f.estado_civil) updates.estadoCivil = f.estado_civil;
+        if (f.profissao) updates.profissao = f.profissao;
+        if (f.endereco) updates.endereco = f.endereco;
+        updateParticipant(setter, index, updates);
+      }
     } catch { /* ignore */ } finally { setOcrLoading((prev) => ({ ...prev, [key]: false })); }
   }, [ocrInlineMutation]);
 
@@ -421,7 +517,7 @@ function NewContractModal({ onClose, onCreated }: { onClose: () => void; onCreat
     const descricao = imovelDesc.trim() || (selectedPropertyId ? `Imóvel #${selectedPropertyId}` : "");
     if (!descricao) return;
 
-    // Build prefill payload for Contract.tsx
+    // Build prefill payload for Contract.tsx (includes extended fields)
     const prefill = {
       vendedores: vendedores.filter((v) => v.nome || v.email),
       compradores: compradores.filter((v) => v.nome || v.email),
@@ -432,6 +528,8 @@ function NewContractModal({ onClose, onCreated }: { onClose: () => void; onCreat
       imovelCartorio: cartorioText,
     };
     localStorage.setItem("efcon_contract_prefill", JSON.stringify(prefill));
+    // Clear draft on finish
+    localStorage.removeItem(DRAFT_KEY);
 
     createMutation.mutate({
       descricaoImovel: descricao,
@@ -468,6 +566,20 @@ function NewContractModal({ onClose, onCreated }: { onClose: () => void; onCreat
             <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors text-lg">✕</button>
           </div>
           <WizardSteps step={step} />
+          {/* Draft restore banner */}
+          {hasDraft && (
+            <div className="mt-3 flex items-center gap-2 bg-amber-500/10 border border-amber-500/30 rounded-xl px-3 py-2">
+              <span className="text-amber-300 text-xs flex-1">⚠️ Rascunho salvo encontrado.</span>
+              <button type="button" onClick={loadDraft} className="text-xs text-amber-300 hover:text-amber-200 font-semibold underline">Retomar</button>
+              <button type="button" onClick={discardDraft} className="text-xs text-gray-500 hover:text-gray-300 ml-1">Descartar</button>
+            </div>
+          )}
+          {/* Step error */}
+          {stepError && (
+            <div className="mt-2 flex items-center gap-1.5 bg-red-500/10 border border-red-500/30 rounded-lg px-3 py-2">
+              <span className="text-red-400 text-xs">{stepError}</span>
+            </div>
+          )}
         </div>
 
         {/* Body */}
@@ -676,13 +788,19 @@ function NewContractModal({ onClose, onCreated }: { onClose: () => void; onCreat
 
         {/* Footer */}
         <div className="flex items-center gap-3 px-5 py-4 border-t border-[#2a2d3a]">
-          <button onClick={step === 1 ? onClose : () => setStep((s) => (s - 1) as 1 | 2 | 3)}
-            className="flex-1 py-2.5 rounded-xl border border-[#2a2d3a] text-gray-400 hover:text-white text-sm font-semibold transition-colors">
-            {step === 1 ? "Cancelar" : "← Voltar"}
-          </button>
+          <div className="flex items-center gap-2 flex-1">
+            <button onClick={step === 1 ? onClose : () => { setStepError(""); setStep((s) => (s - 1) as 1 | 2 | 3); }}
+              className="flex-1 py-2.5 rounded-xl border border-[#2a2d3a] text-gray-400 hover:text-white text-sm font-semibold transition-colors">
+              {step === 1 ? "Cancelar" : "← Voltar"}
+            </button>
+            <button type="button" onClick={saveDraft} title="Salvar rascunho"
+              className="px-3 py-2.5 rounded-xl border border-[#2a2d3a] text-gray-500 hover:text-amber-400 hover:border-amber-500/40 transition-colors text-xs">
+              💾 Rascunho
+            </button>
+          </div>
           {step < 3 ? (
             <button
-              onClick={() => setStep((s) => (s + 1) as 1 | 2 | 3)}
+              onClick={goNext}
               className="flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold transition-colors flex items-center justify-center gap-2">
               Próximo →
             </button>
