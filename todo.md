@@ -319,3 +319,8 @@
 ## Phase 27 — Margens PDF + Upload OCR no Modal Contrato
 - [x] contractGenerator.ts: margens Puppeteer corrigidas (top: 38mm, bottom: 60mm, headerTemplate: 30mm, footerTemplate: 52mm)
 - [x] Modal Criar Novo Contrato (Contratos.tsx): botão 📎 upload+OCR por participante para preencher e-mail/WhatsApp automaticamente
+
+## Phase 28 — Upload de Matrícula no Modal Criar Novo Contrato
+- [x] Seção "Identificação do Imóvel": botão "Enviar Matrícula" (PDF/imagem) com upload ao S3 + OCR
+- [x] OCR extrai número da matrícula e cartório de registro automaticamente
+- [x] Exibir preview do arquivo enviado (nome + ícone) e campos pré-preenchidos

@@ -182,6 +182,10 @@ function NewContractModal({ onClose, onCreated }: { onClose: () => void; onCreat
   const [vendedores, setVendedores] = useState([{ email: "", whatsapp: "" }]);
   const [compradores, setCompradores] = useState([{ email: "", whatsapp: "" }]);
   const [corretores, setCorretores] = useState([{ email: "", whatsapp: "" }]);
+  const [matriculaFile, setMatriculaFile] = useState<{ name: string; url: string } | null>(null);
+  const [matriculaOcrFields, setMatriculaOcrFields] = useState<{ matricula?: string; cartorio?: string } | null>(null);
+  const [matriculaLoading, setMatriculaLoading] = useState(false);
+  const matriculaInputRef = useRef<HTMLInputElement | null>(null);
 
   const utils = trpc.useUtils();
   const { data: properties = [] } = trpc.properties.list.useQuery();
@@ -201,6 +205,39 @@ function NewContractModal({ onClose, onCreated }: { onClose: () => void; onCreat
 
   const uploadOcrMutation = trpc.documents.upload.useMutation();
   const processOcrMutation = trpc.documents.processOcr.useMutation();
+
+  const handleMatriculaUpload = async (file: File) => {
+    setMatriculaLoading(true);
+    try {
+      const fileBase64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve((reader.result as string).split(",")[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      const doc = await uploadOcrMutation.mutateAsync({
+        name: file.name,
+        docType: "outro",
+        fileBase64,
+        mimeType: file.type,
+        fileSize: file.size,
+      });
+      setMatriculaFile({ name: file.name, url: (doc as any).fileUrl || "" });
+      const ocr = await processOcrMutation.mutateAsync({
+        documentId: (doc as any).documentId,
+        fileUrl: (doc as any).fileUrl,
+        docType: "matricula",
+      });
+      const fields = (ocr as any)?.fields || {};
+      const matricula = fields.matricula || fields.numero_matricula || fields.registration_number || "";
+      const cartorio = fields.cartorio || fields.cartorio_registro || fields.registry_office || "";
+      if (matricula || cartorio) setMatriculaOcrFields({ matricula, cartorio });
+    } catch (err) {
+      console.error("Matrícula upload error:", err);
+    } finally {
+      setMatriculaLoading(false);
+    }
+  };
 
   const handleDocUpload = async (
     file: File,
@@ -409,6 +446,57 @@ function NewContractModal({ onClose, onCreated }: { onClose: () => void; onCreat
                 <p className="text-gray-600 text-xs mt-1">O endereço completo será preenchido na etapa de detalhes pelo corretor.</p>
               </>
             )}
+
+            {/* Matrícula upload */}
+            <div className="mt-3 pt-3 border-t border-[#2a2d3a]">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs text-gray-400 font-medium">Matrícula do Imóvel</span>
+                <input
+                  type="file"
+                  accept="image/*,.pdf"
+                  className="hidden"
+                  ref={matriculaInputRef}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleMatriculaUpload(file);
+                    e.target.value = "";
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => matriculaInputRef.current?.click()}
+                  disabled={matriculaLoading}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#2a2d3a] bg-[#0f1117] text-xs text-gray-300 hover:text-blue-400 hover:border-blue-500 transition-colors disabled:opacity-50"
+                >
+                  {matriculaLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
+                  {matriculaLoading ? "Processando..." : "Enviar Matrícula"}
+                </button>
+              </div>
+              {matriculaFile && (
+                <div className="bg-[#0f1117] border border-[#2a2d3a] rounded-xl px-3 py-2 space-y-1">
+                  <div className="flex items-center gap-2">
+                    <FileText className="w-3.5 h-3.5 text-blue-400 flex-shrink-0" />
+                    <span className="text-xs text-gray-300 truncate">{matriculaFile.name}</span>
+                    {matriculaFile.url && (
+                      <a href={matriculaFile.url} target="_blank" rel="noreferrer" className="ml-auto text-xs text-blue-400 hover:underline flex-shrink-0">Ver</a>
+                    )}
+                  </div>
+                  {matriculaOcrFields && (matriculaOcrFields.matricula || matriculaOcrFields.cartorio) && (
+                    <div className="pt-1 border-t border-[#2a2d3a] space-y-1">
+                      {matriculaOcrFields.matricula && (
+                        <p className="text-xs text-gray-400">Matrícula: <span className="text-white font-medium">{matriculaOcrFields.matricula}</span></p>
+                      )}
+                      {matriculaOcrFields.cartorio && (
+                        <p className="text-xs text-gray-400">Cartório: <span className="text-white font-medium">{matriculaOcrFields.cartorio}</span></p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+              {!matriculaFile && (
+                <p className="text-xs text-gray-600">Envie o PDF ou foto da matrícula para extrair os dados automaticamente via OCR.</p>
+              )}
+            </div>
           </div>
           <PartySection title="Vendedores" icon={Users} rows={vendedores} setter={setVendedores} addLabel="Adicionar Vendedor" sectionKey="vend" />
           <PartySection title="Compradores" icon={Users} rows={compradores} setter={setCompradores} addLabel="Adicionar Comprador" sectionKey="comp" />
