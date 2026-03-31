@@ -452,16 +452,16 @@ export async function generateContractPdf(fields: ContractFields): Promise<Buffe
   // Build plain content HTML (no background — mascara goes in header/footer templates)
   const fullHtml = buildContractHtmlWithBackground(bodyHtml, mascaraUri);
 
-  // Mascara layout analysis (from pixel analysis of mascara_bg.png 1241x1754px = A4):
-  //   - Header dark area: 0–3.2cm from top (logo + gold stripe)
-  //   - Footer dark area: starts at ~24.2cm, height ~5.5cm (footer band + address bar)
-  // headerTemplate height must match the top margin so the mascara fills exactly the header slot.
-  // footerTemplate height must match the bottom margin.
-  // Page margins: top 3.5cm, bottom 5.8cm to keep ALL text inside the white area on every page.
+  // Mascara layout analysis (precise pixel scan of mascara_b64.txt, 1241x1754px = A4 @ 150dpi):
+  //   - Header dark band: rows 0–177px = 0–30mm from top (black + gold logo area)
+  //   - Footer dark band: rows 1446–1754px = 244.8–297mm = 52.2mm tall (address + slogan bar)
+  // Puppeteer: headerTemplate/footerTemplate are overlaid on top of page content.
+  // margin.top/bottom must be > template height to push body text clear of the dark bands.
+  // Using exact band heights for templates + 8mm safety buffer for margins.
 
   const headerTemplate = `<div style="
     width: 21cm;
-    height: 3.5cm;
+    height: 30mm;
     margin: 0;
     padding: 0;
     overflow: hidden;
@@ -475,7 +475,7 @@ export async function generateContractPdf(fields: ContractFields): Promise<Buffe
 
   const footerTemplate = `<div style="
     width: 21cm;
-    height: 5.8cm;
+    height: 52mm;
     margin: 0;
     padding: 0;
     overflow: hidden;
@@ -510,9 +510,9 @@ export async function generateContractPdf(fields: ContractFields): Promise<Buffe
       headerTemplate,
       footerTemplate,
       margin: {
-        top: '3.5cm',
+        top: '38mm',
         right: '2.2cm',
-        bottom: '5.8cm',
+        bottom: '60mm',
         left: '2.2cm',
       },
     });

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Link, useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
@@ -7,7 +7,7 @@ import {
   Clock, CheckCircle2, MessageCircle, Zap, Home,
   BarChart3, Settings, Bell, LogOut,
   Users, Briefcase, Download, Trash2, ChevronRight,
-  Building2, Mail, Send,
+  Building2, Mail, Send, Upload, Loader2,
 } from "lucide-react";
 
 interface Contract {
@@ -196,11 +196,64 @@ function NewContractModal({ onClose, onCreated }: { onClose: () => void; onCreat
   const removeRow = (setter: React.Dispatch<React.SetStateAction<{ email: string; whatsapp: string }[]>>, index: number) =>
     setter((prev) => prev.filter((_, i) => i !== index));
 
-  const PartySection = ({ title, icon: Icon, rows, setter, addLabel }: {
+  const [ocrLoading, setOcrLoading] = useState<Record<string, boolean>>({});
+  const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
+
+  const uploadOcrMutation = trpc.documents.upload.useMutation();
+  const processOcrMutation = trpc.documents.processOcr.useMutation();
+
+  const handleDocUpload = async (
+    file: File,
+    setter: React.Dispatch<React.SetStateAction<{ email: string; whatsapp: string }[]>>,
+    index: number,
+    key: string
+  ) => {
+    setOcrLoading((prev) => ({ ...prev, [key]: true }));
+    try {
+      // Read file as base64
+      const fileBase64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve((reader.result as string).split(",")[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+
+      // Upload to S3 via tRPC (base64)
+      const doc = await uploadOcrMutation.mutateAsync({
+        name: file.name,
+        docType: "outro",
+        fileBase64,
+        mimeType: file.type,
+        fileSize: file.size,
+      });
+
+      // Run OCR
+      const ocr = await processOcrMutation.mutateAsync({
+        documentId: (doc as any).documentId,
+        fileUrl: (doc as any).fileUrl,
+        docType: "documento",
+      });
+      const fields = (ocr as any)?.fields || {};
+
+      // Extract email and whatsapp from OCR fields
+      const email = fields.email || fields.e_mail || "";
+      const whatsapp = fields.whatsapp || fields.celular || fields.telefone || fields.phone || "";
+
+      if (email) updateRow(setter, index, "email", email);
+      if (whatsapp) updateRow(setter, index, "whatsapp", whatsapp);
+    } catch (err) {
+      console.error("OCR upload error:", err);
+    } finally {
+      setOcrLoading((prev) => ({ ...prev, [key]: false }));
+    }
+  };
+
+  const PartySection = ({ title, icon: Icon, rows, setter, addLabel, sectionKey }: {
     title: string; icon: React.ElementType;
     rows: { email: string; whatsapp: string }[];
     setter: React.Dispatch<React.SetStateAction<{ email: string; whatsapp: string }[]>>;
     addLabel: string;
+    sectionKey: string;
   }) => (
     <div>
       <div className="flex items-center justify-between mb-3">
@@ -212,12 +265,36 @@ function NewContractModal({ onClose, onCreated }: { onClose: () => void; onCreat
           <Plus className="w-3 h-3" /> {addLabel}
         </button>
       </div>
-      <div className="space-y-2">
-        {rows.map((row, i) => (
-          <div key={i} className="space-y-2">
-            <input type="email" placeholder={`E-mail ${i + 1} *`} value={row.email}
-              onChange={(e) => updateRow(setter, i, "email", e.target.value)}
-              className="w-full bg-[#0f1117] border border-[#2a2d3a] rounded-xl px-3 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-blue-500" />
+      {rows.map((row, i) => {
+        const key = `${sectionKey}-${i}`;
+        return (
+          <div key={i} className="space-y-2 mb-3">
+            <div className="flex items-center gap-2">
+              <input type="email" placeholder={`E-mail ${i + 1} *`} value={row.email}
+                onChange={(e) => updateRow(setter, i, "email", e.target.value)}
+                className="flex-1 bg-[#0f1117] border border-[#2a2d3a] rounded-xl px-3 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-blue-500" />
+              {/* Upload doc button */}
+              <input
+                type="file"
+                accept="image/*,.pdf"
+                className="hidden"
+                ref={(el) => { fileInputRefs.current[key] = el; }}
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) handleDocUpload(file, setter, i, key);
+                  e.target.value = "";
+                }}
+              />
+              <button
+                type="button"
+                title="Enviar documento para preencher automaticamente"
+                onClick={() => fileInputRefs.current[key]?.click()}
+                disabled={ocrLoading[key]}
+                className="flex-shrink-0 w-9 h-9 flex items-center justify-center rounded-xl border border-[#2a2d3a] bg-[#0f1117] text-gray-400 hover:text-blue-400 hover:border-blue-500 transition-colors disabled:opacity-50"
+              >
+                {ocrLoading[key] ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+              </button>
+            </div>
             <input type="tel" placeholder={`WhatsApp ${i + 1} (opcional)`} value={row.whatsapp}
               onChange={(e) => updateRow(setter, i, "whatsapp", e.target.value)}
               className="w-full bg-[#0f1117] border border-[#2a2d3a] rounded-xl px-3 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-blue-500" />
@@ -225,8 +302,8 @@ function NewContractModal({ onClose, onCreated }: { onClose: () => void; onCreat
               <button onClick={() => removeRow(setter, i)} className="text-xs text-red-400 hover:text-red-300 transition-colors">Remover</button>
             )}
           </div>
-        ))}
-      </div>
+        );
+      })}
     </div>
   );
 
@@ -333,9 +410,9 @@ function NewContractModal({ onClose, onCreated }: { onClose: () => void; onCreat
               </>
             )}
           </div>
-          <PartySection title="Vendedores" icon={Users} rows={vendedores} setter={setVendedores} addLabel="Adicionar Vendedor" />
-          <PartySection title="Compradores" icon={Users} rows={compradores} setter={setCompradores} addLabel="Adicionar Comprador" />
-          <PartySection title="Corretores" icon={Briefcase} rows={corretores} setter={setCorretores} addLabel="Adicionar Corretor" />
+          <PartySection title="Vendedores" icon={Users} rows={vendedores} setter={setVendedores} addLabel="Adicionar Vendedor" sectionKey="vend" />
+          <PartySection title="Compradores" icon={Users} rows={compradores} setter={setCompradores} addLabel="Adicionar Comprador" sectionKey="comp" />
+          <PartySection title="Corretores" icon={Briefcase} rows={corretores} setter={setCorretores} addLabel="Adicionar Corretor" sectionKey="corr" />
         </div>
         <div className="flex items-center gap-3 px-5 py-4 border-t border-[#2a2d3a]">
           <button onClick={onClose} className="flex-1 py-2.5 rounded-xl border border-[#2a2d3a] text-gray-400 hover:text-white text-sm font-semibold transition-colors">Cancelar</button>

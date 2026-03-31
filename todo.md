@@ -310,3 +310,12 @@
 - [x] Aba Documentos no perfil do cliente: listar docs com imagem/preview + botão upload com OCR
 - [x] NegocioDetalhe: upload+OCR de documentos inline na aba Documentos (sem redirecionar para /upload)
 - [x] Todos os formulários (Imóveis, Clientes, Negócios): campos editáveis após criação
+
+## Phase 27 — Correção Definitiva de Margens do PDF
+- [x] Medir altura real do cabeçalho e rodapé da máscara via análise de pixels (Python PIL): header=30mm, footer=52mm
+- [x] Corrigir margens Puppeteer: top 38mm, bottom 60mm (com buffer de segurança de 8mm)
+- [x] Corrigir headerTemplate height: 30mm, footerTemplate height: 52mm
+
+## Phase 27 — Margens PDF + Upload OCR no Modal Contrato
+- [x] contractGenerator.ts: margens Puppeteer corrigidas (top: 38mm, bottom: 60mm, headerTemplate: 30mm, footerTemplate: 52mm)
+- [x] Modal Criar Novo Contrato (Contratos.tsx): botão 📎 upload+OCR por participante para preencher e-mail/WhatsApp automaticamente
