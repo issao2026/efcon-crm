@@ -2,11 +2,10 @@
  * Contract generation using the official Marcello & Oliveira template.
  *
  * Production-compatible flow (100% Node.js, no Python/weasyprint/LibreOffice):
- *  1. Download contratopadrao.docx from CDN (cached locally)
- *  2. Fill {{placeholders}} with docxtemplater
- *  3. Convert filled .docx → HTML with mammoth
- *  4. Render with puppeteer-core + Chromium using headerTemplate/footerTemplate
- *     for the branded mascara letterhead (works correctly on ALL pages)
+ * 1. Download contratopadrao.docx from CDN (cached locally)
+ * 2. Fill {{placeholders}} with docxtemplater
+ * 3. Convert filled .docx → HTML with mammoth
+ * 4. Render with puppeteer-core + Chromium
  */
 
 import PizZip from 'pizzip';
@@ -22,26 +21,23 @@ import { tmpdir } from 'os';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-// CDN URL for the contract template DOCX
 const CONTRACT_TEMPLATE_URL =
   'https://d2xsxph8kpxj0f.cloudfront.net/310419663029938987/hqCW96Ftj9zcKD8QtxsDCe/contratopadrao_096677ae.docx';
 
-// Local cache paths
 const CACHE_DIR = join(tmpdir(), 'efcon-templates');
 const TEMPLATE_DOCX = join(CACHE_DIR, 'contratopadrao.docx');
 
-// Mascara base64 — loaded once at module init from the bundled txt file
-// Falls back to CDN URL if the local file is not available
 let _mascaraDataUri: string | null = null;
 
 function getMascaraDataUri(): string {
   if (_mascaraDataUri) return _mascaraDataUri;
-  // Try to load from local file (available in sandbox and bundled in production)
+
   const localPaths = [
     join(__dirname, 'mascara_b64.txt'),
     join(process.cwd(), 'server/mascara_b64.txt'),
     '/home/ubuntu/efcon-crm/server/mascara_b64.txt',
   ];
+
   for (const p of localPaths) {
     if (existsSync(p)) {
       const b64 = readFileSync(p, 'utf-8').trim();
@@ -49,7 +45,7 @@ function getMascaraDataUri(): string {
       return _mascaraDataUri;
     }
   }
-  // Fallback: use CDN URL (may not work in headerTemplate due to CSP)
+
   return 'https://d2xsxph8kpxj0f.cloudfront.net/310419663029938987/hqCW96Ftj9zcKD8QtxsDCe/mascara_bg_78151d47.png';
 }
 
@@ -74,7 +70,6 @@ export type ContractFields = {
   numero_documento_vendedor?: string;
   cpf_cnpj_vendedor?: string;
   endereco_vendedor?: string;
-
   nome_comprador?: string;
   nacionalidade_comprador?: string;
   estado_civil_comprador?: string;
@@ -83,39 +78,28 @@ export type ContractFields = {
   numero_documento_comprador?: string;
   cpf_cnpj_comprador?: string;
   endereco_comprador?: string;
-
   nome_intermediadora?: string;
   cnpj_intermediadora?: string;
   creci_intermediadora?: string;
   endereco_intermediadora?: string;
-
   descricao_imovel?: string;
   matricula_imovel?: string;
   cartorio_registro_imoveis?: string;
   itens_que_permanecerao_no_imovel?: string;
-
   valor_total_contrato?: string;
   modalidade_pagamento?: string;
-
-  // À vista
   valor_pagamento_avista?: string;
   forma_pagamento_avista?: string;
   data_pagamento_avista?: string;
-
-  // Financiamento
   valor_entrada_financiamento?: string;
   forma_pagamento_entrada?: string;
   data_pagamento_entrada?: string;
   valor_financiado?: string;
   instituicao_financeira?: string;
-
-  // Permuta
   descricao_imovel_permuta?: string;
   valor_imovel_permuta?: string;
   complemento_permuta?: string;
   ajuste_financeiro_permuta?: string;
-
-  // Cláusulas contratuais
   prazo_entrega_posse?: string;
   condicao_entrega_posse?: string;
   prazo_escritura?: string;
@@ -127,30 +111,21 @@ export type ContractFields = {
   condicoes_distrato?: string;
   percentual_comissao?: string;
   valor_comissao?: string;
-
-  // Imobiliária / Intermediária
   razao_social_imobiliaria?: string;
   cnpj_imobiliaria?: string;
   creci_imobiliaria?: string;
   endereco_imobiliaria?: string;
   assinatura_imobiliaria?: string;
-
-  // Assinatura e foro
   plataforma_assinatura?: string;
   foro_eleito?: string;
-
   cidade_assinatura?: string;
   data_assinatura?: string;
-
   nome_testemunha_1?: string;
   cpf_testemunha_1?: string;
   nome_testemunha_2?: string;
   cpf_testemunha_2?: string;
-
-  // Financiamento extra
   valor_financiamento?: string;
   valor_entrada_financiamento_extra?: string;
-  // Locação
   prazo_locacao?: string;
   dia_vencimento_aluguel?: string;
   tipo_garantia?: string;
@@ -170,7 +145,6 @@ const DEFAULTS: Record<string, string> = {
   numero_documento_vendedor: '___________________________',
   cpf_cnpj_vendedor: '___________________________',
   endereco_vendedor: '___________________________',
-
   nome_comprador: '___________________________',
   nacionalidade_comprador: '',
   estado_civil_comprador: '',
@@ -179,36 +153,28 @@ const DEFAULTS: Record<string, string> = {
   numero_documento_comprador: '___________________________',
   cpf_cnpj_comprador: '___________________________',
   endereco_comprador: '___________________________',
-
   nome_intermediadora: 'Marcello & Oliveira Negócios Imobiliários',
   cnpj_intermediadora: '12.345.678/0001-99',
   creci_intermediadora: '28.867 J',
   endereco_intermediadora: 'Rua Elias José Cavalcanti, 1698 – Jardim Ermida I, Jundiaí-SP',
-
   descricao_imovel: '___________________________',
   matricula_imovel: '___________________________',
   cartorio_registro_imoveis: '___________________________',
   itens_que_permanecerao_no_imovel: '',
-
   valor_total_contrato: '___________________________',
   modalidade_pagamento: '___________________________',
-
   valor_pagamento_avista: 'N/A',
   forma_pagamento_avista: 'N/A',
   data_pagamento_avista: 'N/A',
-
   valor_entrada_financiamento: 'N/A',
   forma_pagamento_entrada: 'N/A',
   data_pagamento_entrada: 'N/A',
   valor_financiado: 'N/A',
   instituicao_financeira: 'N/A',
-
   descricao_imovel_permuta: 'N/A',
   valor_imovel_permuta: 'N/A',
   complemento_permuta: 'N/A',
   ajuste_financeiro_permuta: 'N/A',
-
-  // Cláusulas contratuais
   prazo_entrega_posse: '30 dias após a assinatura',
   condicao_entrega_posse: 'livre e desembaraçado de quaisquer ônus',
   prazo_escritura: '60 dias após a quitação',
@@ -220,26 +186,19 @@ const DEFAULTS: Record<string, string> = {
   condicoes_distrato: 'conforme lei 13.786/2018',
   percentual_comissao: '6%',
   valor_comissao: 'conforme contrato de intermediação',
-
-  // Imobiliária
   razao_social_imobiliaria: 'Marcello & Oliveira Negócios Imobiliários',
   cnpj_imobiliaria: '12.345.678/0001-99',
   creci_imobiliaria: '28.867 J',
   endereco_imobiliaria: 'CRECI 28.867 J – Brasília, DF',
   assinatura_imobiliaria: 'Marcello & Oliveira Negócios Imobiliários',
-
-  // Assinatura
   plataforma_assinatura: 'Clicksign',
   foro_eleito: 'Brasília, Distrito Federal',
-
   cidade_assinatura: '___________________________',
   data_assinatura: '___________________________',
-
   nome_testemunha_1: '___________________________',
   cpf_testemunha_1: '___________________________',
   nome_testemunha_2: '___________________________',
   cpf_testemunha_2: '___________________________',
-  // Locação
   prazo_locacao: 'N/A',
   dia_vencimento_aluguel: 'N/A',
   tipo_garantia: 'N/A',
@@ -250,71 +209,112 @@ const DEFAULTS: Record<string, string> = {
   tipo_contrato: 'COMPRA E VENDA',
 };
 
-/**
- * Build the full HTML for Puppeteer PDF generation.
- * Strategy: mascara is a position:fixed full-page image (repeats on every page in Chromium headless).
-  * The margin in page.pdf() (top=40mm, bottom=60mm) reserves space for the header/footer templates.
- * The body has padding (left/right 20mm) for text indentation.
- * @page CSS is ignored by Puppeteer when displayHeaderFooter:true is active.
- */
-function buildContractHtmlWithBackground(bodyHtml: string, _mascaraUri: string): string {
-  return `<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-<meta charset="utf-8">
-<style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  @page { size: A4; }
-  html, body {
-    width: 210mm;
-    font-family: Arial, Helvetica, sans-serif;
-    font-size: 9.5pt;
-    color: #111;
-    /* padding-top pushes content below the header on the first page.
-       padding-bottom creates safe space at the end of the last page.
-       margin.top/bottom in page.pdf() controls where the templates are placed
-       and reserves space so content does not overlap header/footer on page breaks. */
-    padding-top: 40mm;
-    padding-bottom: 65mm;
-    padding-left: 20mm;
-    padding-right: 20mm;
-  }
-  h1, h2, h3 {
-    font-size: 9.5pt;
-    font-weight: bold;
-    margin: 0.8em 0 0.3em;
-    page-break-inside: avoid;
-  }
-  p {
-    margin: 0.35em 0;
-    line-height: 1.55;
-    text-align: justify;
-    page-break-inside: avoid;
-  }
-  div {
-    page-break-inside: avoid;
-  }
-  strong { font-weight: bold; }
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    margin: 0.5em 0;
-    font-size: 9pt;
-    page-break-inside: avoid;
-  }
-  td, th {
-    border: 1px solid #ccc;
-    padding: 4px 6px;
-  }
-</style>
-</head>
-<body>
-${bodyHtml}
-</body>
-</html>`;
+function generateLocacaoBodyHtml(f: Record<string, string>): string {
+  const v = (key: string, fallback = '___________________________') => f[key] || fallback;
+
+  return `
+    <p style="text-align:center"><strong>CONTRATO DE LOCAÇÃO RESIDENCIAL/COMERCIAL</strong></p>
+    <p style="text-align:center">Marcello &amp; Oliveira Negócios Imobiliários – CRECI ${v('creci_imobiliaria', '28.867 J')}</p>
+    <br>
+    <p>Pelo presente instrumento particular, as partes abaixo qualificadas celebram o presente <strong>Contrato de Locação</strong>, que se regerá pelas cláusulas e condições seguintes:</p>
+    <br>
+    <p><strong>LOCADOR(A):</strong></p>
+    <p style="margin-left:1.5cm">${v('nome_vendedor')}, ${v('nacionalidade_vendedor', '')}${v('estado_civil_vendedor', '') ? ', ' + v('estado_civil_vendedor', '') : ''}${v('profissao_vendedor', '') ? ', ' + v('profissao_vendedor', '') : ''}, portador(a) do ${v('tipo_documento_vendedor', 'RG')} nº ${v('numero_documento_vendedor')}, inscrito(a) no CPF/CNPJ sob nº ${v('cpf_cnpj_vendedor')}, residente e domiciliado(a) em ${v('endereco_vendedor')}, doravante denominado(a) <strong>LOCADOR(A)</strong>.</p>
+    <br>
+    <p><strong>LOCATÁRIO(A):</strong></p>
+    <p style="margin-left:1.5cm">${v('nome_comprador')}, ${v('nacionalidade_comprador', '')}${v('estado_civil_comprador', '') ? ', ' + v('estado_civil_comprador', '') : ''}${v('profissao_comprador', '') ? ', ' + v('profissao_comprador', '') : ''}, portador(a) do ${v('tipo_documento_comprador', 'RG')} nº ${v('numero_documento_comprador')}, inscrito(a) no CPF/CNPJ sob nº ${v('cpf_cnpj_comprador')}, residente e domiciliado(a) em ${v('endereco_comprador')}, doravante denominado(a) <strong>LOCATÁRIO(A)</strong>.</p>
+    <br>
+    <p><strong>CLÁUSULA 1ª – DO OBJETO</strong></p>
+    <p>O presente contrato tem por objeto a locação do imóvel: <strong>${v('descricao_imovel')}</strong>, matrícula nº ${v('matricula_imovel')} – ${v('cartorio_registro_imoveis')}, destinado a uso <strong>${v('destinacao_imovel', 'residencial')}</strong>.</p>
+    <br>
+    <p><strong>CLÁUSULA 2ª – DO PRAZO</strong></p>
+    <p>A locação terá prazo de <strong>${v('prazo_locacao', '___________________________')}</strong>, iniciando-se na data de assinatura deste instrumento.</p>
+    <br>
+    <p><strong>CLÁUSULA 3ª – DO ALUGUEL</strong></p>
+    <p>O valor do aluguel mensal é de <strong>${v('valor_total_contrato')}</strong>, a ser pago até o dia <strong>${v('dia_vencimento_aluguel', '___')}</strong> de cada mês, mediante ${v('modalidade_pagamento', 'transferência bancária')}.</p>
+    <br>
+    <p><strong>CLÁUSULA 4ª – DO REAJUSTE</strong></p>
+    <p>O aluguel será reajustado anualmente pelo índice <strong>${v('indice_reajuste', 'IGPM')}</strong>, conforme variação acumulada no período.</p>
+    <br>
+    <p><strong>CLÁUSULA 5ª – DA GARANTIA</strong></p>
+    <p>Como garantia locatícia, fica estabelecida: <strong>${v('tipo_garantia', '___________________________')}</strong>${v('valor_garantia', '') !== '___________________________' ? ', no valor de ' + v('valor_garantia') : ''}.</p>
+    <br>
+    <p><strong>CLÁUSULA 6ª – DAS OBRIGAÇÕES DO LOCATÁRIO</strong></p>
+    <p>O LOCATÁRIO obriga-se a: (a) pagar pontualmente o aluguel e encargos; (b) usar o imóvel conforme sua destinação; (c) conservar o imóvel em bom estado; (d) não sublocar ou ceder o imóvel sem autorização expressa do LOCADOR; (e) restituir o imóvel ao término do contrato nas mesmas condições em que o recebeu.</p>
+    <br>
+    <p><strong>CLÁUSULA 7ª – DAS OBRIGAÇÕES DO LOCADOR</strong></p>
+    <p>O LOCADOR obriga-se a: (a) entregar o imóvel em condições de uso; (b) garantir ao LOCATÁRIO o uso pacífico do imóvel; (c) responder pelos vícios ou defeitos anteriores à locação.</p>
+    <br>
+    <p><strong>CLÁUSULA 8ª – DA RESCISÃO E MULTA</strong></p>
+    <p>Em caso de rescisão antecipada pelo LOCATÁRIO, será devida multa de <strong>${v('multa_rescisao_antecipada', '___________________________')}</strong>. ${v('condicoes_distrato', '')}.</p>
+    <br>
+    <p><strong>CLÁUSULA 9ª – DO FORO</strong></p>
+    <p>Fica eleito o foro da comarca de <strong>${v('foro_eleito', 'Brasília, Distrito Federal')}</strong> para dirimir quaisquer controvérsias oriundas do presente contrato.</p>
+    <br>
+    <p>E por estarem assim justos e contratados, assinam o presente instrumento em 2 (duas) vias de igual teor e forma, na presença das testemunhas abaixo.</p>
+    <br>
+    <p>${v('cidade_assinatura')}, ${v('data_assinatura')}.</p>
+    <br><br>
+    <table style="width:100%;border:none">
+      <tr>
+        <td style="border:none;width:50%;text-align:center">___________________________<br><strong>${v('nome_vendedor')}</strong><br>LOCADOR(A)<br>CPF: ${v('cpf_cnpj_vendedor')}</td>
+        <td style="border:none;width:50%;text-align:center">___________________________<br><strong>${v('nome_comprador')}</strong><br>LOCATÁRIO(A)<br>CPF: ${v('cpf_cnpj_comprador')}</td>
+      </tr>
+    </table>
+    <br>
+    <table style="width:100%;border:none">
+      <tr>
+        <td style="border:none;width:50%;text-align:center">___________________________<br><strong>${v('razao_social_imobiliaria', 'Marcello &amp; Oliveira Imóveis')}</strong><br>INTERMEDIADORA<br>CRECI: ${v('creci_imobiliaria', '28.867 J')}</td>
+        <td style="border:none;width:50%;text-align:center"></td>
+      </tr>
+    </table>
+    <br>
+    <p><strong>Testemunhas:</strong></p>
+    <table style="width:100%;border:none">
+      <tr>
+        <td style="border:none;width:50%;text-align:center">___________________________<br>${v('nome_testemunha_1')}<br>CPF: ${v('cpf_testemunha_1')}</td>
+        <td style="border:none;width:50%;text-align:center">___________________________<br>${v('nome_testemunha_2')}<br>CPF: ${v('cpf_testemunha_2')}</td>
+      </tr>
+    </table>
+  `;
 }
 
-// Chromium executable paths to try (sandbox + production)
+async function prepareContractHtml(fields: ContractFields): Promise<{ bodyHtml: string; mascaraUri: string }> {
+  const mascaraUri = getMascaraDataUri();
+
+  const merged: Record<string, string> = {};
+  for (const [k, v] of Object.entries(DEFAULTS)) {
+    merged[k] = v ?? '';
+  }
+  for (const [k, v] of Object.entries(fields)) {
+    if (v !== undefined && v !== null && v !== '') merged[k] = String(v);
+  }
+
+  if (merged.tipo_contrato === 'LOCAÇÃO' || merged.tipo_contrato === 'LOCACAO') {
+    const bodyHtml = generateLocacaoBodyHtml(merged);
+    return { bodyHtml, mascaraUri };
+  }
+
+  await ensureTemplates();
+
+  const templateContent = readFileSync(TEMPLATE_DOCX, 'binary');
+  const zip = new PizZip(templateContent);
+  const doc = new Docxtemplater(zip, {
+    paragraphLoop: true,
+    linebreaks: true,
+    delimiters: { start: '{{', end: '}}' },
+    nullGetter: () => '',
+  });
+
+  doc.render(merged);
+  const filledDocxBuf = doc.getZip().generate({ type: 'nodebuffer' });
+
+  const mammothResult = await mammoth.convertToHtml({ buffer: filledDocxBuf });
+  const bodyHtml = mammothResult.value;
+
+  return { bodyHtml, mascaraUri };
+}
+
 const CHROMIUM_PATHS = [
   '/usr/bin/chromium-browser',
   '/usr/bin/chromium',
@@ -338,169 +338,55 @@ function findChromium(): string {
   throw new Error('Chromium not found. Install chromium-browser.');
 }
 
-/**
- * Generate the body HTML for a Locação (rental) contract.
- * Since the DOCX template is for Compra e Venda only, we generate locação HTML directly.
- */
-function generateLocacaoBodyHtml(f: Record<string, string>): string {
-  const v = (key: string, fallback = '___________________________') => f[key] || fallback;
-  return `
-<p style="text-align:center"><strong>CONTRATO DE LOCAÇÃO RESIDENCIAL/COMERCIAL</strong></p>
-<p style="text-align:center">Marcello &amp; Oliveira Negócios Imobiliários – CRECI ${v('creci_imobiliaria', '28.867 J')}</p>
-<br>
-<p>Pelo presente instrumento particular, as partes abaixo qualificadas celebram o presente <strong>Contrato de Locação</strong>, que se regerá pelas cláusulas e condições seguintes:</p>
-<br>
-<p><strong>LOCADOR(A):</strong></p>
-<p style="margin-left:1.5cm">${v('nome_vendedor')}, ${v('nacionalidade_vendedor', '')}${v('estado_civil_vendedor', '') ? ', ' + v('estado_civil_vendedor', '') : ''}${v('profissao_vendedor', '') ? ', ' + v('profissao_vendedor', '') : ''}, portador(a) do ${v('tipo_documento_vendedor', 'RG')} nº ${v('numero_documento_vendedor')}, inscrito(a) no CPF/CNPJ sob nº ${v('cpf_cnpj_vendedor')}, residente e domiciliado(a) em ${v('endereco_vendedor')}, doravante denominado(a) <strong>LOCADOR(A)</strong>.</p>
-${f['vendedores_adicionais'] && f['vendedores_adicionais'] !== 'N/A' ? '<p style="margin-left:1.5cm"><strong>Demais LOCADORES:</strong> ' + f['vendedores_adicionais'] + '</p>' : ''}
-<br>
-<p><strong>LOCATÁRIO(A):</strong></p>
-<p style="margin-left:1.5cm">${v('nome_comprador')}, ${v('nacionalidade_comprador', '')}${v('estado_civil_comprador', '') ? ', ' + v('estado_civil_comprador', '') : ''}${v('profissao_comprador', '') ? ', ' + v('profissao_comprador', '') : ''}, portador(a) do ${v('tipo_documento_comprador', 'RG')} nº ${v('numero_documento_comprador')}, inscrito(a) no CPF/CNPJ sob nº ${v('cpf_cnpj_comprador')}, residente e domiciliado(a) em ${v('endereco_comprador')}, doravante denominado(a) <strong>LOCATÁRIO(A)</strong>.</p>
-${f['compradores_adicionais'] && f['compradores_adicionais'] !== 'N/A' ? '<p style="margin-left:1.5cm"><strong>Demais LOCATÁRIOS:</strong> ' + f['compradores_adicionais'] + '</p>' : ''}
-<br>
-<p><strong>INTERMEDIADORA (SE APLICÁVEL):</strong></p>
-<p style="margin-left:1.5cm">${v('nome_intermediadora', 'Marcello &amp; Oliveira Negócios Imobiliários')}, inscrita no CNPJ sob nº ${v('cnpj_intermediadora', '12.345.678/0001-99')}, CRECI nº ${v('creci_intermediadora', '28.867 J')}, com endereço comercial em ${v('endereco_intermediadora', 'CRECI 28.867 J – Brasília, DF')}, doravante denominada <strong>INTERMEDIADORA</strong>.</p>
-<br>
-<p><strong>CLÁUSULA 1ª – DO OBJETO</strong></p>
-<p>O presente contrato tem por objeto a locação do imóvel: <strong>${v('descricao_imovel')}</strong>, matrícula nº ${v('matricula_imovel')} – ${v('cartorio_registro_imoveis')}, destinado a uso <strong>${v('destinacao_imovel', 'residencial')}</strong>.</p>
-<br>
-<p><strong>CLÁUSULA 2ª – DO PRAZO</strong></p>
-<p>A locação terá prazo de <strong>${v('prazo_locacao', '___________________________')}</strong>, iniciando-se na data de assinatura deste instrumento.</p>
-<br>
-<p><strong>CLÁUSULA 3ª – DO ALUGUEL</strong></p>
-<p>O valor do aluguel mensal é de <strong>${v('valor_total_contrato')}</strong>, a ser pago até o dia <strong>${v('dia_vencimento_aluguel', '___')}</strong> de cada mês, mediante ${v('modalidade_pagamento', 'transferência bancária')}.</p>
-<br>
-<p><strong>CLÁUSULA 4ª – DO REAJUSTE</strong></p>
-<p>O aluguel será reajustado anualmente pelo índice <strong>${v('indice_reajuste', 'IGPM')}</strong>, conforme variação acumulada no período.</p>
-<br>
-<p><strong>CLÁUSULA 5ª – DA GARANTIA</strong></p>
-<p>Como garantia locatícia, fica estabelecida: <strong>${v('tipo_garantia', '___________________________')}</strong>${v('valor_garantia', '') !== '___________________________' ? ', no valor de ' + v('valor_garantia') : ''}.</p>
-<br>
-<p><strong>CLÁUSULA 6ª – DAS OBRIGAÇÕES DO LOCATÁRIO</strong></p>
-<p>O LOCATÁRIO obriga-se a: (a) pagar pontualmente o aluguel e encargos; (b) usar o imóvel conforme sua destinação; (c) conservar o imóvel em bom estado; (d) não sublocar ou ceder o imóvel sem autorização expressa do LOCADOR; (e) restituir o imóvel ao término do contrato nas mesmas condições em que o recebeu.</p>
-<br>
-<p><strong>CLÁUSULA 7ª – DAS OBRIGAÇÕES DO LOCADOR</strong></p>
-<p>O LOCADOR obriga-se a: (a) entregar o imóvel em condições de uso; (b) garantir ao LOCATÁRIO o uso pacífico do imóvel; (c) responder pelos vícios ou defeitos anteriores à locação.</p>
-<br>
-<p><strong>CLÁUSULA 8ª – DA RESCISÃO E MULTA</strong></p>
-<p>Em caso de rescisão antecipada pelo LOCATÁRIO, será devida multa de <strong>${v('multa_rescisao_antecipada', '___________________________')}</strong>. ${v('condicoes_distrato', '')}.</p>
-<br>
-<p><strong>CLÁUSULA 9ª – DO FORO</strong></p>
-<p>Fica eleito o foro da comarca de <strong>${v('foro_eleito', 'Brasília, Distrito Federal')}</strong> para dirimir quaisquer controvérsias oriundas do presente contrato.</p>
-<br>
-<p>E por estarem assim justos e contratados, assinam o presente instrumento em 2 (duas) vias de igual teor e forma, na presença das testemunhas abaixo.</p>
-<br>
-<p>${v('cidade_assinatura')}, ${v('data_assinatura')}.</p>
-<br><br>
-<table style="width:100%;border:none">
-  <tr>
-    <td style="border:none;width:50%;text-align:center">___________________________<br><strong>${v('nome_vendedor')}</strong><br>LOCADOR(A)<br>CPF: ${v('cpf_cnpj_vendedor')}</td>
-    <td style="border:none;width:50%;text-align:center">___________________________<br><strong>${v('nome_comprador')}</strong><br>LOCATÁRIO(A)<br>CPF: ${v('cpf_cnpj_comprador')}</td>
-  </tr>
-</table>
-<br>
-<table style="width:100%;border:none">
-  <tr>
-    <td style="border:none;width:50%;text-align:center">___________________________<br><strong>${v('razao_social_imobiliaria', 'Marcello &amp; Oliveira Imóveis')}</strong><br>INTERMEDIADORA<br>CRECI: ${v('creci_imobiliaria', '28.867 J')}</td>
-    <td style="border:none;width:50%;text-align:center"></td>
-  </tr>
-</table>
-<br>
-<p><strong>Testemunhas:</strong></p>
-<table style="width:100%;border:none">
-  <tr>
-    <td style="border:none;width:50%;text-align:center">___________________________<br>${v('nome_testemunha_1')}<br>CPF: ${v('cpf_testemunha_1')}</td>
-    <td style="border:none;width:50%;text-align:center">___________________________<br>${v('nome_testemunha_2')}<br>CPF: ${v('cpf_testemunha_2')}</td>
-  </tr>
-</table>
-`;
-}
-
-/**
- * Shared helper: merge fields with defaults, fill DOCX template (or generate locação HTML), convert to HTML.
- * Returns { bodyHtml, mascaraUri }.
- */
-async function prepareContractHtml(fields: ContractFields): Promise<{ bodyHtml: string; mascaraUri: string }> {
-  const mascaraUri = getMascaraDataUri();
-
-  // Merge defaults + provided fields
-  const merged: Record<string, string> = {};
-  for (const [k, v] of Object.entries(DEFAULTS)) {
-    merged[k] = v ?? '';
-  }
-  for (const [k, v] of Object.entries(fields)) {
-    if (v !== undefined && v !== null && v !== '') merged[k] = String(v);
-  }
-
-  // For Locação contracts: generate HTML directly (no DOCX template available)
-  if (merged.tipo_contrato === 'LOCAÇÃO' || merged.tipo_contrato === 'LOCACAO') {
-    const bodyHtml = generateLocacaoBodyHtml(merged);
-    return { bodyHtml, mascaraUri };
-  }
-
-  await ensureTemplates();
-  // Step 1: Fill DOCX template with docxtemplater
-  const templateContent = readFileSync(TEMPLATE_DOCX, 'binary');
-  const zip = new PizZip(templateContent);
-  const doc = new Docxtemplater(zip, {
-    paragraphLoop: true,
-    linebreaks: true,
-    delimiters: { start: '{{', end: '}}' },
-    nullGetter: () => '',
-  });
-  doc.render(merged);
-  const filledDocxBuf = doc.getZip().generate({ type: 'nodebuffer' });
-  // Step 2: Convert filled DOCX → HTML with mammoth
-  const mammothResult = await mammoth.convertToHtml({ buffer: filledDocxBuf });
-  const bodyHtml = mammothResult.value;
-  return { bodyHtml, mascaraUri };
-}
-
-/**
- * Generate a branded contract PDF buffer from the given fields.
- *
- * Strategy (Opção A — two-pass):
- *  Pass 1: Puppeteer renders the contract HTML as a clean PDF with
- *          margin.top=45mm and margin.bottom=65mm (no mascara in HTML).
- *          This guarantees text never overlaps the header/footer bands.
- *  Pass 2: pdf-lib opens the text PDF and draws the mascara PNG as a
- *          full-page background image (behind text) on every page.
- */
 export async function generateContractPdf(fields: ContractFields): Promise<Buffer> {
   const { bodyHtml, mascaraUri } = await prepareContractHtml(fields);
 
-  // ── Pass 1: render text-only PDF ────────────────────────────────────────────
-  const textHtml = `<!DOCTYPE html>
+  const fullHtml = `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  @page { size: A4; }
+  @page { size: A4; margin: 0; }
   html, body {
     width: 210mm;
     background: white;
     font-family: Arial, Helvetica, sans-serif;
     font-size: 9.5pt;
     color: #111;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .mascara {
+    position: fixed;
+    top: 0; left: 0;
+    width: 210mm;
+    height: 297mm;
+    z-index: 0;
+    pointer-events: none;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .mascara img {
+    width: 210mm;
+    height: 297mm;
+    display: block;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
   .content {
-    padding-top: 0;
-    padding-bottom: 0;
-    padding-left: 20mm;
-    padding-right: 20mm;
+    position: relative;
+    z-index: 1;
   }
   h1, h2, h3 {
     font-size: 9.5pt;
     font-weight: bold;
     margin: 0.8em 0 0.3em;
-    page-break-inside: avoid;
   }
   p {
     margin: 0.35em 0;
     line-height: 1.55;
     text-align: justify;
-    page-break-inside: avoid;
   }
   strong { font-weight: bold; }
   table {
@@ -508,142 +394,50 @@ export async function generateContractPdf(fields: ContractFields): Promise<Buffe
     border-collapse: collapse;
     margin: 0.5em 0;
     font-size: 9pt;
-    page-break-inside: avoid;
   }
   td, th { border: 1px solid #ccc; padding: 4px 6px; }
+  p, h1, h2, h3 { page-break-inside: avoid; }
 </style>
 </head>
 <body>
+<div class="mascara" aria-hidden="true">
+  <img src="${mascaraUri}" alt="">
+</div>
 <div class="content">
-  ${bodyHtml}
+${bodyHtml}
 </div>
 </body>
 </html>`;
 
-  const chromiumPath = findChromium();
   const browser = await puppeteer.launch({
-    executablePath: chromiumPath,
+    executablePath: findChromium(),
     args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'],
     headless: true,
   });
 
-  let textPdfBytes: Uint8Array;
   try {
     const page = await browser.newPage();
     await page.setViewport({ width: 794, height: 1123 });
-    await page.setContent(textHtml, { waitUntil: 'networkidle0', timeout: 30000 });
+    await page.setContent(fullHtml, { waitUntil: 'networkidle0', timeout: 30000 });
 
-    textPdfBytes = await page.pdf({
+    const pdfBuffer = await page.pdf({
       format: 'A4',
-      printBackground: false,
+      printBackground: true,
       displayHeaderFooter: false,
       margin: {
-        top: '45mm',
-        right: '0',
-        bottom: '65mm',
-        left: '0',
+        top: '52mm',
+        right: '20mm',
+        bottom: '82mm',
+        left: '20mm',
       },
     });
+
+    return Buffer.from(pdfBuffer);
   } finally {
     await browser.close();
   }
-
-  // ── Pass 2: insert mascara BEHIND text on every page using pdf-lib ────────────
-  // Strategy: load the text PDF, embed the mascara image, then for each page
-  // prepend a new content stream that draws the mascara before the existing text.
-  const { PDFDocument, PDFName, PDFRawStream, PDFRef } = await import('pdf-lib');
-
-  // Fetch mascara image bytes
-  let mascaraBytes: ArrayBuffer;
-  if (mascaraUri.startsWith('data:')) {
-    const base64 = mascaraUri.split(',')[1];
-    mascaraBytes = Buffer.from(base64, 'base64').buffer;
-  } else {
-    const resp = await fetch(mascaraUri);
-    mascaraBytes = await resp.arrayBuffer();
-  }
-
-  const pdfDoc = await PDFDocument.load(textPdfBytes);
-
-  // Determine mime type from data URI or default to PNG
-  const mimeMatch = mascaraUri.match(/^data:([^;]+)/);
-  const mime = mimeMatch ? mimeMatch[1] : 'image/png';
-
-  // Embed mascara image once in the document
-  let mascaraImage;
-  if (mime === 'image/jpeg' || mime === 'image/jpg') {
-    mascaraImage = await pdfDoc.embedJpg(mascaraBytes);
-  } else {
-    mascaraImage = await pdfDoc.embedPng(mascaraBytes);
-  }
-
-  const pages = pdfDoc.getPages();
-  for (const page of pages) {
-    const { width, height } = page.getSize();
-
-    // Get the XObject name that pdf-lib assigned to this image
-    // We'll use a unique name per page to avoid conflicts
-    const imgName = 'MascaraBg';
-
-    // Add the image XObject to the page resources
-    const resources = page.node.Resources();
-    if (!resources) throw new Error('Page has no Resources dict');
-    if (!resources.lookup(PDFName.of('XObject'))) {
-      resources.set(PDFName.of('XObject'), pdfDoc.context.obj({}));
-    }
-    const xObjects = resources.lookup(PDFName.of('XObject'));
-    if (!xObjects) throw new Error('Could not get XObject dict');
-    // @ts-ignore
-    xObjects.set(PDFName.of(imgName), mascaraImage.ref);
-
-    // Build the PDF graphics operators to draw the image full-page
-    // q = save state, cm = transform matrix, Do = draw XObject, Q = restore state
-    // Matrix: [width 0 0 height 0 0] places image at (0,0) with full page size
-    const bgStream = `q
-${width} 0 0 ${height} 0 0 cm
-/${imgName} Do
-Q
-`;
-    const bgStreamBytes = new TextEncoder().encode(bgStream);
-
-    // Create a new content stream for the background
-    const bgStreamRef = pdfDoc.context.stream(bgStreamBytes, {
-      Length: bgStreamBytes.length,
-    });
-    const bgStreamPdfRef = pdfDoc.context.register(bgStreamRef);
-
-    // Get existing content streams of the page
-    const existingContents = page.node.get(PDFName.of('Contents'));
-
-    if (!existingContents) {
-      // No existing content — just set the background stream
-      page.node.set(PDFName.of('Contents'), bgStreamPdfRef);
-    } else {
-      // Wrap existing contents in an array and prepend the background stream
-      // @ts-ignore
-      const existingRef = existingContents.ref ?? existingContents;
-      const contentsArray = pdfDoc.context.obj([bgStreamPdfRef, existingRef]);
-      page.node.set(PDFName.of('Contents'), contentsArray);
-    }
-  }
-
-  const finalBytes = await pdfDoc.save();
-  return Buffer.from(finalBytes);
 }
 
-
-/**
- * Generate a print-ready HTML string for the contract.
- *
- * This is used as a fallback when Puppeteer/Chromium is not available in production.
- * The returned HTML:
- *  - Fills the DOCX template with the provided fields (same as the PDF path)
- *  - Embeds the mascara letterhead as a full-page @page background-image
- *  - Adds a "Print / Save as PDF" button bar visible on screen but hidden when printing
- *  - Auto-triggers window.print() after 800ms so the user can save as PDF immediately
- *
- * The frontend opens this HTML in a new window for the user to print/save.
- */
 export async function generateContractHtml(fields: ContractFields): Promise<string> {
   const { bodyHtml, mascaraUri } = await prepareContractHtml(fields);
 
@@ -653,11 +447,10 @@ export async function generateContractHtml(fields: ContractFields): Promise<stri
 <meta charset="utf-8">
 <title>Contrato – Marcello &amp; Oliveira Imóveis</title>
 <style>
-  * { box-sizing: border-box; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
   @page { size: A4; margin: 0; }
   html, body {
-    margin: 0;
-    padding: 0;
+    margin: 0; padding: 0;
     font-family: Arial, Helvetica, sans-serif;
     font-size: 9.5pt;
     color: #111;
@@ -665,26 +458,10 @@ export async function generateContractHtml(fields: ContractFields): Promise<stri
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
-  /*
-   * Mascara letterhead strategy (hybrid):
-   * 1. @page { background-image } — works in Puppeteer/Chromium headless (repeats on every page).
-   * 2. position:fixed <img> — fallback for Chrome/Firefox browser print (covers viewport).
-   * Both are active simultaneously; Puppeteer uses @page, browser uses fixed.
-   */
-  @page {
-    size: A4;
-    margin: 0;
-    background-image: url('${mascaraUri}');
-    background-size: 100% 100%;
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
-  }
   .mascara-bg {
     position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
     z-index: 0;
     pointer-events: none;
     -webkit-print-color-adjust: exact;
@@ -692,8 +469,7 @@ export async function generateContractHtml(fields: ContractFields): Promise<stri
   }
   .mascara-bg img {
     display: block;
-    width: 100%;
-    height: 100%;
+    width: 100%; height: 100%;
     object-fit: fill;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
@@ -701,12 +477,8 @@ export async function generateContractHtml(fields: ContractFields): Promise<stri
   .page-content {
     position: relative;
     z-index: 1;
-    /* Mascara header ~3.0cm, footer ~5.3cm from top/bottom of page.
-     * padding-top: 3.2cm clears the header dark band.
-     * padding-bottom: 5.5cm clears the footer dark band.
-     * Sides: 2.2cm for readability. */
-    padding: 3.2cm 2.2cm 5.5cm 2.2cm;
-    min-height: 29.7cm;
+    padding: 52mm 20mm 82mm 20mm;
+    min-height: 297mm;
   }
   h1, h2, h3 {
     font-size: 9.5pt;
@@ -725,16 +497,10 @@ export async function generateContractHtml(fields: ContractFields): Promise<stri
     margin: 0.5em 0;
     font-size: 9pt;
   }
-  td, th {
-    border: 1px solid #ccc;
-    padding: 4px 6px;
-  }
-  /* Print toolbar — visible on screen, hidden when printing */
+  td, th { border: 1px solid #ccc; padding: 4px 6px; }
   .print-bar {
     position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
+    top: 0; left: 0; right: 0;
     background: #1e40af;
     color: white;
     padding: 10px 20px;
@@ -756,17 +522,12 @@ export async function generateContractHtml(fields: ContractFields): Promise<stri
     font-weight: bold;
     cursor: pointer;
     font-size: 14px;
-    transition: background 0.15s;
   }
   .print-bar button:hover { background: #dbeafe; }
-  .print-bar .btn-close {
-    background: #fee2e2;
-    color: #991b1b;
-  }
+  .print-bar .btn-close { background: #fee2e2; color: #991b1b; }
   .print-bar .btn-close:hover { background: #fecaca; }
   @media print {
     .print-bar { display: none !important; }
-    /* Ensure mascara is rendered in print — Chrome requires -webkit-print-color-adjust */
     .mascara-bg, .mascara-bg img {
       -webkit-print-color-adjust: exact !important;
       print-color-adjust: exact !important;
@@ -775,9 +536,8 @@ export async function generateContractHtml(fields: ContractFields): Promise<stri
 </style>
 </head>
 <body>
-<!-- Mascara letterhead: fixed behind all content, visible on screen AND in print -->
 <div class="mascara-bg" aria-hidden="true">
-  <img src="${mascaraUri}" alt="" />
+  <img src="${mascaraUri}" alt="">
 </div>
 <div class="print-bar">
   <span>📄 Contrato pronto – Marcello &amp; Oliveira Imóveis</span>
@@ -788,14 +548,11 @@ export async function generateContractHtml(fields: ContractFields): Promise<stri
 ${bodyHtml}
 </div>
 <script>
-  // Wait for the mascara image to load before triggering the print dialog
   var img = document.querySelector('.mascara-bg img');
-  function triggerPrint() {
-    setTimeout(function() { window.print(); }, 600);
-  }
+  function triggerPrint() { setTimeout(function() { window.print(); }, 600); }
   if (img && !img.complete) {
     img.addEventListener('load', triggerPrint);
-    img.addEventListener('error', triggerPrint); // print even if image fails
+    img.addEventListener('error', triggerPrint);
   } else {
     window.addEventListener('load', triggerPrint);
   }
