@@ -363,3 +363,9 @@
 - [x] OCR expandido: extrair estado civil, profissão e endereço do RG/CNH e preencher no ParticipantCard
 - [x] Servidor: expandir prompt do ocrInline para retornar estadoCivil, profissao, endereco
 - [x] Criar skill reutilizável do processo wizard OCR (efcon-ocr-wizard)
+
+## Phase 33 — Contract.tsx: fundo azul-cinza + OCR por participante e imóvel
+
+- [x] Fundo azul-cinza claro (bg-[#eef2f7]) em todos os inputs/selects do Contract.tsx
+- [x] Botão OCR por participante (Vendedor, Comprador, Corretor) que faz upload de RG/CPF/CNH e preenche campos automaticamente
+- [x] Botão OCR na seção Imóvel para upload de matrícula e preenchimento automático de matrícula + cartório

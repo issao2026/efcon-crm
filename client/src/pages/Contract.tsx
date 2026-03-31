@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
@@ -9,7 +9,7 @@ import {
   Zap, ArrowLeft, FileOutput, Download, Eye,
   Loader2, CheckCircle2, User, Home, DollarSign, Users,
   ChevronDown, ChevronUp, RefreshCw, FileText, Scale, Building2, Repeat2,
-  Plus, Trash2, MessageCircle,
+  Plus, Trash2, MessageCircle, ScanLine,
 } from "lucide-react";
 import { getLoginUrl } from "@/const";
 
@@ -163,7 +163,7 @@ function Field({
         <select
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400"
+          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-[#eef2f7] focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400"
         >
           {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
@@ -180,7 +180,7 @@ function Field({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400"
+        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-[#eef2f7] focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400"
       />
     </div>
   );
@@ -215,7 +215,7 @@ function Section({
 
 // ─── Party Card (Vendedor / Comprador) ────────────────────────────────────────
 function PartyCard({
-  party, index, label, clients, onUpdate, onRemove, canRemove,
+  party, index, label, clients, onUpdate, onRemove, canRemove, onOcr, ocrLoading,
 }: {
   party: PartyData;
   index: number;
@@ -224,6 +224,8 @@ function PartyCard({
   onUpdate: (updated: PartyData) => void;
   onRemove: () => void;
   canRemove: boolean;
+  onOcr: (file: File) => void;
+  ocrLoading: boolean;
 }) {
   const set = (field: keyof PartyData, value: string) =>
     onUpdate({ ...party, [field]: value });
@@ -244,20 +246,37 @@ function PartyCard({
     });
   };
 
+  const ocrInputRef = useRef<HTMLInputElement>(null);
+
   return (
     <div className="border border-gray-100 rounded-xl p-4 mb-3 bg-gray-50/50">
       <div className="flex items-center justify-between mb-3">
         <span className="text-xs font-bold text-blue-600 uppercase tracking-widest">
           {label} {index + 1}
         </span>
-        {canRemove && (
+        <div className="flex items-center gap-1.5">
+          {/* OCR upload button */}
+          <input ref={ocrInputRef} type="file" accept="image/*,application/pdf" className="hidden"
+            onChange={(e) => { const f = e.target.files?.[0]; if (f) { onOcr(f); e.target.value = ""; } }} />
           <button
-            onClick={onRemove}
-            className="text-red-400 hover:text-red-600 transition-colors p-1 rounded-lg hover:bg-red-50"
+            type="button"
+            onClick={() => ocrInputRef.current?.click()}
+            disabled={ocrLoading}
+            title="Enviar documento para OCR (RG, CPF, CNH)"
+            className="flex items-center gap-1 px-2 py-1 rounded-lg border border-blue-200 bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors text-xs font-semibold disabled:opacity-50"
           >
-            <Trash2 className="w-4 h-4" />
+            {ocrLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ScanLine className="w-3.5 h-3.5" />}
+            OCR
           </button>
-        )}
+          {canRemove && (
+            <button
+              onClick={onRemove}
+              className="text-red-400 hover:text-red-600 transition-colors p-1 rounded-lg hover:bg-red-50"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Quick select from clients */}
@@ -269,7 +288,7 @@ function PartyCard({
             const c = clients.find((x: any) => String(x.id) === e.target.value);
             if (c) fillFromClient(c);
           }}
-          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400"
+          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-[#eef2f7] focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400"
         >
           <option value="">— Buscar cliente cadastrado —</option>
           {clients.map((c: any) => (
@@ -313,7 +332,7 @@ function PartyCard({
 
 // ─── Broker Card ─────────────────────────────────────────────────────────────
 function BrokerCard({
-  broker, index, clients, onUpdate, onRemove, canRemove,
+  broker, index, clients, onUpdate, onRemove, canRemove, onOcr, ocrLoading,
 }: {
   broker: BrokerData;
   index: number;
@@ -321,6 +340,8 @@ function BrokerCard({
   onUpdate: (updated: BrokerData) => void;
   onRemove: () => void;
   canRemove: boolean;
+  onOcr: (file: File) => void;
+  ocrLoading: boolean;
 }) {
   const set = (field: keyof BrokerData, value: string) =>
     onUpdate({ ...broker, [field]: value });
@@ -335,20 +356,36 @@ function BrokerCard({
     });
   };
 
+  const ocrInputRef = useRef<HTMLInputElement>(null);
+
   return (
     <div className="border border-gray-100 rounded-xl p-4 mb-3 bg-gray-50/50">
       <div className="flex items-center justify-between mb-3">
         <span className="text-xs font-bold text-blue-600 uppercase tracking-widest">
           Corretor {index + 1}
         </span>
-        {canRemove && (
+        <div className="flex items-center gap-1.5">
+          <input ref={ocrInputRef} type="file" accept="image/*,application/pdf" className="hidden"
+            onChange={(e) => { const f = e.target.files?.[0]; if (f) { onOcr(f); e.target.value = ""; } }} />
           <button
-            onClick={onRemove}
-            className="text-red-400 hover:text-red-600 transition-colors p-1 rounded-lg hover:bg-red-50"
+            type="button"
+            onClick={() => ocrInputRef.current?.click()}
+            disabled={ocrLoading}
+            title="Enviar documento para OCR"
+            className="flex items-center gap-1 px-2 py-1 rounded-lg border border-blue-200 bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors text-xs font-semibold disabled:opacity-50"
           >
-            <Trash2 className="w-4 h-4" />
+            {ocrLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ScanLine className="w-3.5 h-3.5" />}
+            OCR
           </button>
-        )}
+          {canRemove && (
+            <button
+              onClick={onRemove}
+              className="text-red-400 hover:text-red-600 transition-colors p-1 rounded-lg hover:bg-red-50"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="mb-3">
@@ -359,7 +396,7 @@ function BrokerCard({
             const c = clients.find((x: any) => String(x.id) === e.target.value);
             if (c) fillFromClient(c);
           }}
-          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400"
+          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-[#eef2f7] focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400"
         >
           <option value="">— Buscar corretor cadastrado —</option>
           {clients.filter((c: any) => c.clientRole === 'corretor').map((c: any) => (
@@ -828,6 +865,31 @@ export default function Contract() {
 
   const generateMutation = trpc.contracts.generate.useMutation();
   const generateHtmlMutation = trpc.contracts.generateHtml.useMutation();
+  const ocrInlineMutation = trpc.documents.ocrInline.useMutation();
+  const [ocrLoadingKey, setOcrLoadingKey] = useState<string | null>(null);
+
+  // Generic OCR handler: docType 'rg' for participants, 'matricula' for property
+  const handleOcr = async (
+    file: File,
+    key: string,
+    onResult: (fields: Record<string, string>) => void
+  ) => {
+    setOcrLoadingKey(key);
+    try {
+      const fileBase64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve((reader.result as string).split(",")[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      const docType = key.startsWith("imovel") ? "matricula" : "rg";
+      const res = await ocrInlineMutation.mutateAsync({ fileBase64, mimeType: file.type, fileName: file.name, docType });
+      const f = res?.fields as Record<string, string> | undefined;
+      if (f) onResult(f);
+      else toast.error("OCR não retornou dados");
+    } catch { toast.error("Erro ao processar OCR"); }
+    finally { setOcrLoadingKey(null); }
+  };
 
   const setField = <K extends keyof ContractFormData>(name: K, value: ContractFormData[K]) => {
     setForm((prev) => ({ ...prev, [name]: value }));
@@ -1120,6 +1182,16 @@ export default function Contract() {
                   onUpdate={(updated) => updateVendedor(i, updated)}
                   onRemove={() => removeVendedor(i)}
                   canRemove={form.vendedores.length > 1}
+                  ocrLoading={ocrLoadingKey === `vend-${i}`}
+                  onOcr={(file) => handleOcr(file, `vend-${i}`, (f) => updateVendedor(i, {
+                    ...v,
+                    nome: f.nome || v.nome,
+                    cpf: f.cpf || v.cpf,
+                    rg: f.rg || v.rg,
+                    estadoCivil: f.estado_civil || v.estadoCivil,
+                    profissao: f.profissao || v.profissao,
+                    endereco: f.endereco || v.endereco,
+                  }))}
                 />
               ))}
               <button
@@ -1147,6 +1219,16 @@ export default function Contract() {
                   onUpdate={(updated) => updateComprador(i, updated)}
                   onRemove={() => removeComprador(i)}
                   canRemove={form.compradores.length > 1}
+                  ocrLoading={ocrLoadingKey === `comp-${i}`}
+                  onOcr={(file) => handleOcr(file, `comp-${i}`, (f) => updateComprador(i, {
+                    ...c,
+                    nome: f.nome || c.nome,
+                    cpf: f.cpf || c.cpf,
+                    rg: f.rg || c.rg,
+                    estadoCivil: f.estado_civil || c.estadoCivil,
+                    profissao: f.profissao || c.profissao,
+                    endereco: f.endereco || c.endereco,
+                  }))}
                 />
               ))}
               <button
@@ -1160,23 +1242,50 @@ export default function Contract() {
 
             {/* Imóvel */}
             <Section title="Dados do Imóvel" icon={Home}>
+              {/* OCR da matrícula */}
               <div className="mb-3">
-                <label className="block text-xs font-semibold text-gray-500 mb-1">Selecionar imóvel cadastrado</label>
-                <select
-                  defaultValue=""
-                  onChange={(e) => {
-                    const p = (propertiesList as any[]).find((x: any) => String(x.id) === e.target.value);
-                    if (p) fillFromProperty(p);
-                  }}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400"
-                >
-                  <option value="">— Buscar imóvel cadastrado —</option>
-                  {(propertiesList as any[]).map((p: any) => (
-                    <option key={p.id} value={p.id}>
-                      {p.propertyType ? `${p.propertyType} – ` : ''}{p.street}{p.number ? `, ${p.number}` : ''}{p.city ? ` – ${p.city}/${p.state}` : ''}
-                    </option>
-                  ))}
-                </select>
+                <div className="flex items-end gap-2">
+                  <div className="flex-1">
+                    <label className="block text-xs font-semibold text-gray-500 mb-1">Selecionar imóvel cadastrado</label>
+                    <select
+                      defaultValue=""
+                      onChange={(e) => {
+                        const p = (propertiesList as any[]).find((x: any) => String(x.id) === e.target.value);
+                        if (p) fillFromProperty(p);
+                      }}
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-[#eef2f7] focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400"
+                    >
+                      <option value="">— Buscar imóvel cadastrado —</option>
+                      {(propertiesList as any[]).map((p: any) => (
+                        <option key={p.id} value={p.id}>
+                          {p.propertyType ? `${p.propertyType} – ` : ''}{p.street}{p.number ? `, ${p.number}` : ''}{p.city ? ` – ${p.city}/${p.state}` : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  {/* OCR button for matrícula */}
+                  <label
+                    title="Enviar matrícula para OCR"
+                    className="flex items-center gap-1 px-2 py-2 rounded-lg border border-blue-200 bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors text-xs font-semibold cursor-pointer whitespace-nowrap"
+                  >
+                    {ocrLoadingKey === "imovel" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ScanLine className="w-3.5 h-3.5" />}
+                    OCR Matrícula
+                    <input type="file" accept="image/*,application/pdf" className="hidden"
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        if (f) handleOcr(f, "imovel", (fields) => {
+                          setForm((prev) => ({
+                            ...prev,
+                            imovelDescricao: fields.descricao_imovel || prev.imovelDescricao,
+                            imovelMatricula: fields.matricula || prev.imovelMatricula,
+                            imovelCartorio: fields.cartorio || prev.imovelCartorio,
+                          }));
+                          e.target.value = "";
+                        });
+                      }}
+                    />
+                  </label>
+                </div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <Field label="Descrição do imóvel" value={form.imovelDescricao} onChange={(v) => setField("imovelDescricao", v)} required placeholder="Ex: Apartamento, 3 quartos, 2 banheiros" className="md:col-span-2" />
@@ -1280,6 +1389,13 @@ export default function Contract() {
                   onUpdate={(updated) => updateCorretor(i, updated)}
                   onRemove={() => removeCorretor(i)}
                   canRemove={form.corretores.length > 1}
+                  ocrLoading={ocrLoadingKey === `corr-${i}`}
+                  onOcr={(file) => handleOcr(file, `corr-${i}`, (f) => updateCorretor(i, {
+                    ...b,
+                    nome: f.nome || b.nome,
+                    email: f.email || b.email,
+                    whatsapp: f.whatsapp || b.whatsapp,
+                  }))}
                 />
               ))}
               <button
