@@ -419,3 +419,13 @@
 - [x] Upload de documento na ficha com OCR automático que preenche campos
 - [x] Visualização de documentos com preview e download
 - [x] Corrigir margens do PDF: header 42mm, footer 58mm (texto não sobrepõe mais a máscara)
+
+## Phase 39 — Cards de Estatísticas Clicáveis (Contratos)
+- [x] Adicionar estado statusFilter nos cards de Contratos
+- [x] Clicar em cada card filtra a lista pelo status correspondente
+- [x] Card ativo com borda destacada e descrição do que representa
+
+## Phase 40 — OCR Matrícula Auto-fill Completo
+- [x] Melhorar prompt OCR para extrair: número matrícula, cartório, endereço completo, área total, área construída, descrição do imóvel, cidade, estado, inscrição municipal, confrontações
+- [x] Preencher automaticamente todos os campos do Step 2 do wizard após OCR
+- [x] Mostrar toast de sucesso com campos extraídos após OCR

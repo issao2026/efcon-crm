@@ -853,6 +853,7 @@ export default function Contratos() {
   const [, navigate] = useLocation();
   const { user, isAuthenticated } = useAuth();
   const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string | null>(null);
   const [showNewModal, setShowNewModal] = useState(false);
   const [distribuicaoContract, setDistribuicaoContract] = useState<Contract | null>(null);
   const [menuOpen, setMenuOpen] = useState<number | null>(null);
@@ -865,14 +866,18 @@ export default function Contratos() {
 
   const contracts: Contract[] = (contractsData as any[]) || [];
   const filtered = contracts.filter((c) => {
-    if (!search) return true;
-    const q = search.toLowerCase();
-    return c.code?.toLowerCase().includes(q) || c.descricaoImovel?.toLowerCase().includes(q) ||
-      c.nomeVendedor?.toLowerCase().includes(q) || c.nomeComprador?.toLowerCase().includes(q);
+    const matchesSearch = !search || (() => {
+      const q = search.toLowerCase();
+      return c.code?.toLowerCase().includes(q) || c.descricaoImovel?.toLowerCase().includes(q) ||
+        c.nomeVendedor?.toLowerCase().includes(q) || c.nomeComprador?.toLowerCase().includes(q);
+    })();
+    const matchesStatus = !statusFilter || c.contractStatus === statusFilter;
+    return matchesSearch && matchesStatus;
   });
 
   const totalContracts = contracts.length;
   const coletando = contracts.filter((c) => c.contractStatus === "rascunho").length;
+  const gerado = contracts.filter((c) => c.contractStatus === "gerado").length;
   const emAssinatura = contracts.filter((c) => c.contractStatus === "enviado").length;
   const concluidos = contracts.filter((c) => c.contractStatus === "assinado").length;
 
@@ -929,21 +934,33 @@ export default function Contratos() {
       <div className="flex-1 px-4 md:px-8 py-6 max-w-[1400px] mx-auto w-full">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           {[
-            { icon: FileText, label: "Total de Contratos", value: totalContracts, color: "text-blue-400", iconBg: "bg-blue-600/20" },
-            { icon: Clock, label: "Coletando Dados", value: coletando, color: "text-yellow-400", iconBg: "bg-yellow-600/20" },
-            { icon: Eye, label: "Em Assinatura", value: emAssinatura, color: "text-teal-400", iconBg: "bg-teal-600/20" },
-            { icon: CheckCircle2, label: "Concluídos", value: concluidos, color: "text-green-400", iconBg: "bg-green-600/20" },
-          ].map((stat) => (
-            <div key={stat.label} className="bg-[#1a1d27] border border-[#2a2d3a] rounded-xl p-4 flex items-center gap-3">
-              <div className={`w-9 h-9 ${stat.iconBg} rounded-lg flex items-center justify-center flex-shrink-0`}>
-                <stat.icon className={`w-4 h-4 ${stat.color}`} />
-              </div>
-              <div>
-                <div className="text-xl font-bold text-white">{stat.value}</div>
-                <div className="text-xs text-gray-400">{stat.label}</div>
-              </div>
-            </div>
-          ))}
+            { icon: FileText, label: "Total de Contratos", desc: "Todos os contratos cadastrados", value: totalContracts, color: "text-blue-400", iconBg: "bg-blue-600/20", filterKey: null },
+            { icon: Clock, label: "Coletando Dados", desc: "Contratos em rascunho aguardando informações", value: coletando, color: "text-yellow-400", iconBg: "bg-yellow-600/20", filterKey: "rascunho" },
+            { icon: Eye, label: "Em Assinatura", desc: "Contratos enviados aguardando assinatura", value: emAssinatura, color: "text-teal-400", iconBg: "bg-teal-600/20", filterKey: "enviado" },
+            { icon: CheckCircle2, label: "Concluídos", desc: "Contratos assinados e finalizados", value: concluidos, color: "text-green-400", iconBg: "bg-green-600/20", filterKey: "assinado" },
+          ].map((stat) => {
+            const isActive = statusFilter === stat.filterKey;
+            return (
+              <button
+                key={stat.label}
+                onClick={() => setStatusFilter(isActive ? null : stat.filterKey)}
+                title={stat.desc}
+                className={`text-left bg-[#1a1d27] border rounded-xl p-4 flex items-center gap-3 transition-all hover:border-blue-500/50 cursor-pointer ${
+                  isActive ? "border-blue-500 ring-1 ring-blue-500/40 bg-blue-500/5" : "border-[#2a2d3a]"
+                }`}
+              >
+                <div className={`w-9 h-9 ${stat.iconBg} rounded-lg flex items-center justify-center flex-shrink-0`}>
+                  <stat.icon className={`w-4 h-4 ${stat.color}`} />
+                </div>
+                <div className="min-w-0">
+                  <div className="text-xl font-bold text-white">{stat.value}</div>
+                  <div className="text-xs text-gray-400 truncate">{stat.label}</div>
+                  <div className="text-xs text-gray-600 truncate hidden md:block">{stat.desc}</div>
+                </div>
+                {isActive && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-400 flex-shrink-0" />}
+              </button>
+            );
+          })}
         </div>
 
         <div className="flex items-center gap-3 mb-5">

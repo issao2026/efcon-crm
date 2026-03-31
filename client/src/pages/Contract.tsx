@@ -951,6 +951,25 @@ export default function Contract() {
         if (key.startsWith("imovel")) {
           const fileUrl = (res as any)?.fileUrl;
           setOcrMatriculaFile({ name: file.name, url: fileUrl });
+          // Show toast with extracted fields
+          const extracted: string[] = [];
+          if (f.descricao_imovel) extracted.push(`Descrição: ${f.descricao_imovel.slice(0, 60)}...`);
+          if (f.endereco_imovel) extracted.push(`Endereço: ${f.endereco_imovel}`);
+          if (f.matricula) extracted.push(`Matrícula: ${f.matricula}`);
+          if (f.cartorio) extracted.push(`Cartório: ${f.cartorio}`);
+          if (f.area_total) extracted.push(`Área: ${f.area_total}`);
+          if (extracted.length > 0) {
+            toast.success(`OCR concluído — ${extracted.length} campo(s) preenchido(s)`, {
+              description: extracted.slice(0, 3).join(' | '),
+              duration: 6000,
+            });
+          } else {
+            toast.warning("OCR concluído mas nenhum campo foi extraído. Verifique a qualidade do documento.");
+          }
+        } else {
+          const filled = Object.values(f).filter(v => v && v.toString().trim()).length;
+          if (filled > 0) toast.success(`OCR concluído — ${filled} campo(s) preenchido(s)`);
+          else toast.warning("OCR concluído mas nenhum dado foi extraído.");
         }
       } else toast.error("OCR não retornou dados");
     } catch { toast.error("Erro ao processar OCR"); }
@@ -1342,11 +1361,12 @@ export default function Contract() {
                         if (f) handleOcr(f, "imovel", (fields) => {
                           setForm((prev) => ({
                             ...prev,
-                            imovelDescricao: fields.descricao_imovel || prev.imovelDescricao,
-                            imovelMatricula: fields.matricula || prev.imovelMatricula,
-                            imovelCartorio: fields.cartorio || prev.imovelCartorio,
-                            imovelEndereco: fields.endereco_imovel || prev.imovelEndereco,
-                            imovelAreaTotal: fields.area_total || prev.imovelAreaTotal,
+                            // Always overwrite with OCR value if non-empty
+                            imovelDescricao: fields.descricao_imovel?.trim() || prev.imovelDescricao,
+                            imovelMatricula: fields.matricula?.trim() || prev.imovelMatricula,
+                            imovelCartorio: fields.cartorio?.trim() || prev.imovelCartorio,
+                            imovelEndereco: fields.endereco_imovel?.trim() || prev.imovelEndereco,
+                            imovelAreaTotal: fields.area_total?.trim() || prev.imovelAreaTotal,
                           }));
                           e.target.value = "";
                         });

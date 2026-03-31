@@ -538,19 +538,30 @@ Retorne confidence (0-100) indicando a qualidade da extração.`,
       const fileBuffer = Buffer.from(input.fileBase64, 'base64');
       const fileKey = `documents/${ctx.user.id}/inline-${nanoid()}-${input.fileName}`;
       const { url: fileUrl } = await storagePut(fileKey, fileBuffer, input.mimeType);
+      // For PDFs use file_url so LLM reads all pages; for images use image_url
+      const isPdf = input.mimeType === 'application/pdf';
+      const docContent: any = isPdf
+        ? { type: 'file_url', file_url: { url: fileUrl, mime_type: 'application/pdf' } }
+        : { type: 'image_url', image_url: { url: fileUrl, detail: 'high' } };
       // Run OCR via LLM
       const response = await invokeLLM({
         messages: [
           {
             role: 'system',
             content: `Você é um sistema especializado em OCR de documentos brasileiros.
-Analise a imagem do documento e extraia os dados estruturados.
+Analise o documento e extraia os dados estruturados. Leia TODAS as páginas do documento.
 Retorne APENAS um JSON válido com os campos encontrados.
 Para documentos de identidade (RG, CNH, CPF): extraia nome, cpf, rg, data_nascimento, nome_mae, nome_pai, orgao_emissor, categoria_cnh (se CNH).
 Para CNH: também extraia profissao (campo "Categoria" ou profissão declarada), estado_civil se visível.
 Para RG: extraia profissao se constar no documento, estado_civil se visível, endereco se constar no verso.
 Para comprovante de residência: nome, endereco, cidade, estado, cep.
-Para matrícula de imóvel: extraia descricao_imovel (descrição completa do imóvel), matricula (número da matrícula), cartorio (nome do cartório de registro), endereco_imovel (endereço completo do imóvel incluindo logradouro, número, bairro, cidade, estado), area_total (métrica de área em m²), proprietario_atual (nome do proprietário atual ou transmitente).
+Para matrícula de imóvel: leia TODAS as páginas e extraia:
+- descricao_imovel: descrição completa do imóvel (tipo, quartos, área, características)
+- matricula: número da matrícula (geralmente aparece como "Matrícula nº XXXXX" ou "Mat. XXXXX")
+- cartorio: nome completo do cartório de registro de imóveis
+- endereco_imovel: endereço completo do imóvel (logradouro, número, bairro, cidade, estado, CEP)
+- area_total: área total em m² (procure por "área total", "área privativa", "área construída")
+- proprietario_atual: nome do proprietário atual (último transmitente ou proprietário registrado)
 Se o documento tiver endereço no verso, inclua no campo endereco.
 Nunca use o nome do arquivo como nome da pessoa.
 IMPORTANTE: Nunca retorne null para nenhum campo. Se um campo não for encontrado, retorne string vazia "".
@@ -559,8 +570,8 @@ Retorne confidence (0-100) indicando a qualidade da extração.`,
           {
             role: 'user',
             content: [
-              { type: 'text', text: `Extraia os dados deste documento do tipo: ${input.docType}` },
-              { type: 'image_url', image_url: { url: fileUrl, detail: 'high' } },
+              { type: 'text', text: `Extraia os dados deste documento do tipo: ${input.docType}. ${isPdf ? 'Este é um PDF — leia todas as páginas.' : ''}` },
+              docContent,
             ],
           },
         ],
