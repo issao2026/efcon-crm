@@ -268,6 +268,7 @@ function buildContractHtmlWithBackground(bodyHtml: string, _mascaraUri: string):
   html, body {
     margin: 0;
     padding: 0;
+    width: 210mm;
     font-family: Arial, Helvetica, sans-serif;
     font-size: 9.5pt;
     color: #111;
@@ -462,12 +463,12 @@ export async function generateContractPdf(fields: ContractFields): Promise<Buffe
   // IMPORTANT: Puppeteer headerTemplate height must match margin.top exactly.
   // If headerTemplate height < margin.top, there is a white gap between header and content.
   // If headerTemplate height > margin.top, the header overlaps the content.
-  // We use 48mm for header (30mm dark + 18mm safety) and 62mm for footer (55mm dark + 7mm safety).
+  // We use 40mm for header (30mm dark + 10mm safety) and 57mm for footer (55mm dark + 2mm safety).
   // Extra safety margins prevent text from overlapping the dark bands on all pages.
 
   const headerTemplate = `<div style="
     width: 21cm;
-    height: 48mm;
+    height: 40mm;
     margin: 0;
     padding: 0;
     overflow: hidden;
@@ -481,7 +482,7 @@ export async function generateContractPdf(fields: ContractFields): Promise<Buffe
 
   const footerTemplate = `<div style="
     width: 21cm;
-    height: 62mm;
+    height: 57mm;
     margin: 0;
     padding: 0;
     overflow: hidden;
@@ -508,18 +509,21 @@ export async function generateContractPdf(fields: ContractFields): Promise<Buffe
 
   try {
     const page = await browser.newPage();
+    // Set viewport to A4 at 96dpi (794×1123px) to prevent content rendering at half-width
+    await page.setViewport({ width: 794, height: 1123 });
     await page.setContent(fullHtml, { waitUntil: 'networkidle0', timeout: 30000 });
     const pdfBuffer = await page.pdf({
-      format: 'A4',
+      width: '210mm',
+      height: '297mm',
       printBackground: true,
       displayHeaderFooter: true,
       headerTemplate,
       footerTemplate,
       margin: {
-        top: '48mm',
-        right: '2.2cm',
-        bottom: '62mm',
-        left: '2.2cm',
+        top: '40mm',
+        right: '2.0cm',
+        bottom: '57mm',
+        left: '2.0cm',
       },
     });
     return Buffer.from(pdfBuffer);

@@ -440,3 +440,10 @@
 - [ ] Correção 1: Step 3 do wizard exibe todos os campos do imóvel (tipo, endereço, bairro, cidade, área, valor venal, proprietário)
 - [ ] Correção 2: saveDraft/loadDraft persiste os 18 campos novos do imóvel
 - [ ] Correção 3: @page background-image no template HTML para máscara repetir em todas as páginas do PDF
+
+## Phase 43 — Corrigir Largura e Margens do PDF
+- [x] Ajustar margens: top 40mm, bottom 57mm, right/left 2.0cm
+- [x] Alturas dos templates: headerTemplate 40mm, footerTemplate 57mm
+- [x] Adicionar width: 210mm e height: 297mm ao page.pdf()
+- [x] Adicionar setViewport(794, 1123) antes do page.pdf()
+- [x] Adicionar width: 210mm ao CSS do body no buildContractHtmlWithBackground
