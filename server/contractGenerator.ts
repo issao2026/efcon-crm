@@ -462,11 +462,12 @@ export async function generateContractPdf(fields: ContractFields): Promise<Buffe
   // IMPORTANT: Puppeteer headerTemplate height must match margin.top exactly.
   // If headerTemplate height < margin.top, there is a white gap between header and content.
   // If headerTemplate height > margin.top, the header overlaps the content.
-  // We use 42mm for header (30mm dark + 12mm safety) and 58mm for footer (55mm dark + 3mm safety).
+  // We use 48mm for header (30mm dark + 18mm safety) and 62mm for footer (55mm dark + 7mm safety).
+  // Extra safety margins prevent text from overlapping the dark bands on all pages.
 
   const headerTemplate = `<div style="
     width: 21cm;
-    height: 42mm;
+    height: 48mm;
     margin: 0;
     padding: 0;
     overflow: hidden;
@@ -480,7 +481,7 @@ export async function generateContractPdf(fields: ContractFields): Promise<Buffe
 
   const footerTemplate = `<div style="
     width: 21cm;
-    height: 58mm;
+    height: 62mm;
     margin: 0;
     padding: 0;
     overflow: hidden;
@@ -515,9 +516,9 @@ export async function generateContractPdf(fields: ContractFields): Promise<Buffe
       headerTemplate,
       footerTemplate,
       margin: {
-        top: '42mm',
+        top: '48mm',
         right: '2.2cm',
-        bottom: '58mm',
+        bottom: '62mm',
         left: '2.2cm',
       },
     });

@@ -854,10 +854,25 @@ export default function Contract() {
           vendedores: vendedores.length > 0 ? vendedores : [makeParty()],
           compradores: compradores.length > 0 ? compradores : [makeParty()],
           corretores: corretoresParsed.length > 0 ? corretoresParsed : [makeBroker()],
+          // Imóvel — all 18 fields
           imovelDescricao: p.imovelDescricao || prev.imovelDescricao,
           imovelEndereco: p.imovelEndereco || prev.imovelEndereco,
+          imovelBairro: p.imovelBairro || prev.imovelBairro,
+          imovelCidade: p.imovelCidade || prev.imovelCidade,
+          imovelEstado: p.imovelEstado || prev.imovelEstado,
+          imovelCep: p.imovelCep || prev.imovelCep,
+          imovelTipo: p.imovelTipo || prev.imovelTipo,
+          imovelSituacao: p.imovelSituacao || prev.imovelSituacao,
           imovelMatricula: p.imovelMatricula || prev.imovelMatricula,
           imovelCartorio: p.imovelCartorio || prev.imovelCartorio,
+          imovelAreaTotal: p.imovelAreaTotal || prev.imovelAreaTotal,
+          imovelAreaPrivativa: p.imovelAreaPrivativa || prev.imovelAreaPrivativa,
+          imovelAreaComum: p.imovelAreaComum || prev.imovelAreaComum,
+          imovelValorVenal: p.imovelValorVenal || prev.imovelValorVenal,
+          imovelProprietarioAtual: p.imovelProprietarioAtual || prev.imovelProprietarioAtual,
+          imovelCnpjCpfProprietario: p.imovelCnpjCpfProprietario || prev.imovelCnpjCpfProprietario,
+          imovelDataUltimoRegistro: p.imovelDataUltimoRegistro || prev.imovelDataUltimoRegistro,
+          imovelNumeroRegistro: p.imovelNumeroRegistro || prev.imovelNumeroRegistro,
         };
       });
       toast.success("Dados do wizard carregados com sucesso!");

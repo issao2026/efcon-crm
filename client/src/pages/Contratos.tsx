@@ -373,6 +373,20 @@ function NewContractModal({ onClose, onCreated }: { onClose: () => void; onCreat
   const [selectedPropertyId, setSelectedPropertyId] = useState<number | null>(null);
   const [imovelDesc, setImovelDesc] = useState("");
   const [imovelEndereco, setImovelEndereco] = useState("");
+  const [imovelBairro, setImovelBairro] = useState("");
+  const [imovelCidade, setImovelCidade] = useState("");
+  const [imovelEstado, setImovelEstado] = useState("");
+  const [imovelCep, setImovelCep] = useState("");
+  const [imovelTipo, setImovelTipo] = useState("");
+  const [imovelSituacao, setImovelSituacao] = useState("");
+  const [imovelAreaTotal, setImovelAreaTotal] = useState("");
+  const [imovelAreaPrivativa, setImovelAreaPrivativa] = useState("");
+  const [imovelAreaComum, setImovelAreaComum] = useState("");
+  const [imovelValorVenal, setImovelValorVenal] = useState("");
+  const [imovelProprietario, setImovelProprietario] = useState("");
+  const [imovelCnpjCpf, setImovelCnpjCpf] = useState("");
+  const [imovelDataRegistro, setImovelDataRegistro] = useState("");
+  const [imovelNumeroRegistro, setImovelNumeroRegistro] = useState("");
   const [matriculaText, setMatriculaText] = useState("");
   const [cartorioText, setCartorioText] = useState("");
   const [matriculaFile, setMatriculaFile] = useState<{ name: string; url?: string } | null>(null);
@@ -494,9 +508,26 @@ function NewContractModal({ onClose, onCreated }: { onClose: () => void; onCreat
       });
       const res = await ocrInlineMutation.mutateAsync({ fileBase64, mimeType: file.type, fileName: file.name, docType: "matricula" });
       const fields = res?.fields as Record<string, string> | undefined;
-      if (fields?.matricula) setMatriculaText(fields.matricula);
-      if (fields?.cartorio) setCartorioText(fields.cartorio);
-      if (fields?.descricao_imovel && !imovelDesc) setImovelDesc(fields.descricao_imovel);
+      if (fields) {
+        if (fields.matricula) setMatriculaText(fields.matricula);
+        if (fields.cartorio) setCartorioText(fields.cartorio);
+        if (fields.descricao_imovel) setImovelDesc(fields.descricao_imovel);
+        if (fields.endereco_imovel) setImovelEndereco(fields.endereco_imovel);
+        if (fields.bairro) setImovelBairro(fields.bairro);
+        if (fields.cidade_imovel) setImovelCidade(fields.cidade_imovel);
+        if (fields.estado_imovel) setImovelEstado(fields.estado_imovel);
+        if (fields.cep_imovel) setImovelCep(fields.cep_imovel);
+        if (fields.tipo_imovel) setImovelTipo(fields.tipo_imovel);
+        if (fields.situacao_imovel) setImovelSituacao(fields.situacao_imovel);
+        if (fields.area_total) setImovelAreaTotal(fields.area_total);
+        if (fields.area_privativa) setImovelAreaPrivativa(fields.area_privativa);
+        if (fields.area_comum) setImovelAreaComum(fields.area_comum);
+        if (fields.valor) setImovelValorVenal(fields.valor);
+        if (fields.proprietario_atual) setImovelProprietario(fields.proprietario_atual);
+        if (fields.cnpj_cpf_proprietario) setImovelCnpjCpf(fields.cnpj_cpf_proprietario);
+        if (fields.data_ultimo_registro) setImovelDataRegistro(fields.data_ultimo_registro);
+        if (fields.numero_registro) setImovelNumeroRegistro(fields.numero_registro);
+      }
       const fileUrl = (res as any)?.fileUrl as string | undefined;
       setMatriculaFile({ name: file.name, ...(fileUrl ? { url: fileUrl } : {}) } as any);
     } catch { /* ignore */ } finally { setMatriculaLoading(false); }
@@ -520,15 +551,29 @@ function NewContractModal({ onClose, onCreated }: { onClose: () => void; onCreat
     const descricao = imovelDesc.trim() || (selectedPropertyId ? `Imóvel #${selectedPropertyId}` : "");
     if (!descricao) return;
 
-    // Build prefill payload for Contract.tsx (includes extended fields)
+    // Build prefill payload for Contract.tsx (includes all extended fields)
     const prefill = {
       vendedores: vendedores.filter((v) => v.nome || v.email),
       compradores: compradores.filter((v) => v.nome || v.email),
       corretores: corretores.filter((v) => v.nome || v.email),
       imovelDescricao: descricao,
       imovelEndereco,
+      imovelBairro,
+      imovelCidade,
+      imovelEstado,
+      imovelCep,
+      imovelTipo,
+      imovelSituacao,
       imovelMatricula: matriculaText,
       imovelCartorio: cartorioText,
+      imovelAreaTotal,
+      imovelAreaPrivativa,
+      imovelAreaComum,
+      imovelValorVenal,
+      imovelProprietarioAtual: imovelProprietario,
+      imovelCnpjCpfProprietario: imovelCnpjCpf,
+      imovelDataUltimoRegistro: imovelDataRegistro,
+      imovelNumeroRegistro,
     };
     localStorage.setItem("efcon_contract_prefill", JSON.stringify(prefill));
     // Clear draft on finish
