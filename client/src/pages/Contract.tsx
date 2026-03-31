@@ -10,7 +10,7 @@ import {
   Zap, ArrowLeft, FileOutput, Download, Eye, X,
   Loader2, CheckCircle2, User, Home, DollarSign, Users,
   ChevronDown, ChevronUp, RefreshCw, FileText, Scale, Building2, Repeat2,
-  Plus, Trash2, MessageCircle, ScanLine,
+  Plus, Trash2, MessageCircle, ScanLine, Pencil,
 } from "lucide-react";
 import { getLoginUrl } from "@/const";
 
@@ -536,6 +536,9 @@ function DistribuicaoModal({
   onClose: () => void;
 }) {
   const [sentStatus, setSentStatus] = useState<Record<string, 'whatsapp' | 'email' | 'both' | null>>({});
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editDraft, setEditDraft] = useState<{ name: string; phone: string; email: string }>({ name: '', phone: '', email: '' });
+  const [localParties, setLocalParties] = useState<typeof parties | null>(null);
 
   const isLocacao = form.contractType === "locacao";
   const typeLabel = CONTRACT_TYPE_OPTIONS.find((o) => o.value === form.contractType)?.label || "Compra e Venda";
@@ -567,6 +570,22 @@ function DistribuicaoModal({
       role: `Corretor(a)${form.corretores.length > 1 ? ` ${i + 1}` : ""}`,
     })),
   ].filter((p) => p.name);
+
+  const displayParties = localParties ?? parties;
+
+  const startEdit = (party: (typeof parties)[0]) => {
+    setEditingId(party.id);
+    setEditDraft({ name: party.name, phone: party.phone, email: party.email });
+  };
+
+  const saveEdit = () => {
+    if (!editingId) return;
+    setLocalParties((prev) => {
+      const base = prev ?? parties;
+      return base.map((p) => p.id === editingId ? { ...p, name: editDraft.name, phone: editDraft.phone, email: editDraft.email } : p);
+    });
+    setEditingId(null);
+  };
 
   const formatPhone = (phone: string) => {
     const digits = phone.replace(/\D/g, "");
@@ -647,8 +666,8 @@ function DistribuicaoModal({
             </button>
           </div>
 
-          <div className="space-y-3 max-h-72 overflow-y-auto pr-1">
-            {parties.map((party) => {
+          <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
+            {displayParties.map((party) => {
               const hasPhone = party.phone && party.phone.replace(/\D/g, "").length >= 10;
               const hasEmail = party.email && party.email.includes("@");
               const waLink = hasPhone
@@ -660,7 +679,37 @@ function DistribuicaoModal({
               const sent = sentStatus[party.id];
 
               return (
-                <div key={party.id} className="flex items-center gap-3 p-3 border border-gray-100 rounded-xl bg-gray-50/50">
+                <div key={party.id} className="border border-gray-100 rounded-xl overflow-hidden">
+                {editingId === party.id ? (
+                  <div className="p-3 bg-blue-50 space-y-2">
+                    <p className="text-xs font-semibold text-blue-700 mb-1">Editar dados — {party.role}</p>
+                    <input
+                      className="w-full text-sm border border-blue-200 rounded-lg px-3 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-blue-400"
+                      placeholder="Nome completo"
+                      value={editDraft.name}
+                      onChange={(e) => setEditDraft((d) => ({ ...d, name: e.target.value }))}
+                    />
+                    <div className="flex gap-2">
+                      <input
+                        className="flex-1 text-sm border border-blue-200 rounded-lg px-3 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-blue-400"
+                        placeholder="WhatsApp (com DDD)"
+                        value={editDraft.phone}
+                        onChange={(e) => setEditDraft((d) => ({ ...d, phone: e.target.value }))}
+                      />
+                      <input
+                        className="flex-1 text-sm border border-blue-200 rounded-lg px-3 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-blue-400"
+                        placeholder="E-mail"
+                        value={editDraft.email}
+                        onChange={(e) => setEditDraft((d) => ({ ...d, email: e.target.value }))}
+                      />
+                    </div>
+                    <div className="flex gap-2 justify-end pt-1">
+                      <button onClick={() => setEditingId(null)} className="text-xs text-gray-500 hover:text-gray-700 px-3 py-1.5 rounded-lg border border-gray-200 bg-white">Cancelar</button>
+                      <button onClick={saveEdit} className="text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 px-3 py-1.5 rounded-lg">Salvar</button>
+                    </div>
+                  </div>
+                ) : (
+                <div className="flex items-center gap-3 p-3 bg-gray-50/50">
                   <div className="w-9 h-9 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
                     <span className="text-blue-700 font-bold text-sm">
                       {party.name?.charAt(0)?.toUpperCase() || "?"}
@@ -675,6 +724,13 @@ function DistribuicaoModal({
                     </div>
                   </div>
                   <div className="flex items-center gap-1.5 flex-shrink-0">
+                    <button
+                      onClick={() => startEdit(party)}
+                      title="Editar dados"
+                      className="flex items-center gap-1 text-xs font-semibold px-2 py-1.5 rounded-lg border border-gray-200 text-gray-500 hover:text-blue-600 hover:border-blue-300 hover:bg-blue-50 transition-colors"
+                    >
+                      <Pencil className="w-3 h-3" />
+                    </button>
                     {waLink ? (
                       <a
                         href={waLink}
@@ -712,6 +768,8 @@ function DistribuicaoModal({
                       <span className="text-xs text-gray-300 px-2">sem email</span>
                     )}
                   </div>
+                </div>
+                )}
                 </div>
               );
             })}

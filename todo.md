@@ -390,3 +390,10 @@
 - [x] OCR expandido: extrai endereco_imovel, area_total, proprietario_atual da matrícula e preenche campos
 - [x] Modal preview inline: DocPreviewModal reutilizável integrado em Imoveis.tsx, Contratos.tsx e Contract.tsx
 - [x] Skill: skill efcon-ocr-wizard atualizada com fluxo completo de matrícula, DocPreviewModal e persistência S3
+
+## Phase 37 — Edição Inline no Modal Distribuir Contrato
+
+- [x] Botão "Editar" (lápis) em cada participante do modal Distribuir Contrato
+- [x] Painel inline azul com campos Nome, WhatsApp, E-mail editáveis
+- [x] Salvar alterações localmente via localParties state (atualiza WA/email links em tempo real)
+- [x] Fechar painel ao clicar em "Salvar" ou "Cancelar"
