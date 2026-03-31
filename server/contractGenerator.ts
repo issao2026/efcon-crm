@@ -513,17 +513,40 @@ export async function generateContractPdf(fields: ContractFields): Promise<Buffe
     await page.setViewport({ width: 794, height: 1123 });
     await page.setContent(fullHtml, { waitUntil: 'networkidle0', timeout: 30000 });
     const pdfBuffer = await page.pdf({
-      width: '210mm',
-      height: '297mm',
+      format: 'A4',
       printBackground: true,
       displayHeaderFooter: true,
-      headerTemplate,
-      footerTemplate,
+      headerTemplate: `<div style="
+    width: 210mm;
+    height: 40mm;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    background-image: url('${mascaraUri}');
+    background-size: 210mm 297mm;
+    background-repeat: no-repeat;
+    background-position: top left;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  "></div>`,
+      footerTemplate: `<div style="
+    width: 210mm;
+    height: 60mm;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    background-image: url('${mascaraUri}');
+    background-size: 210mm 297mm;
+    background-repeat: no-repeat;
+    background-position: bottom left;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  "></div>`,
       margin: {
         top: '40mm',
-        right: '2.0cm',
-        bottom: '57mm',
-        left: '2.0cm',
+        right: '20mm',
+        bottom: '60mm',
+        left: '20mm',
       },
     });
     return Buffer.from(pdfBuffer);

@@ -447,3 +447,8 @@
 - [x] Adicionar width: 210mm e height: 297mm ao page.pdf()
 - [x] Adicionar setViewport(794, 1123) antes do page.pdf()
 - [x] Adicionar width: 210mm ao CSS do body no buildContractHtmlWithBackground
+
+## Phase 44 — Alinhar headerTemplate/footerTemplate com margin.top/bottom
+- [x] Substituir bloco page.pdf(): headerTemplate height=40mm = margin.top=40mm, footerTemplate height=60mm = margin.bottom=60mm
+- [x] Usar background-size: 210mm 297mm (A4 completo) nos templates
+- [x] Usar unidades mm em vez de cm nos templates
