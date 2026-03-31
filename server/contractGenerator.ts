@@ -253,8 +253,9 @@ const DEFAULTS: Record<string, string> = {
 /**
  * Build the full HTML for Puppeteer PDF generation.
  * Strategy: mascara is a position:fixed full-page image (repeats on every page in Chromium headless).
- * Body has padding-top: 40mm and padding-bottom: 60mm so text never overlaps the dark bands.
- * page.pdf() uses NO displayHeaderFooter — margins are controlled purely by CSS padding.
+  * The margin in page.pdf() (top=40mm, bottom=60mm) reserves space for the header/footer templates.
+ * The body has padding (left/right 20mm) for text indentation.
+ * @page CSS is ignored by Puppeteer when displayHeaderFooter:true is active.
  */
 function buildContractHtmlWithBackground(bodyHtml: string, _mascaraUri: string): string {
   return `<!DOCTYPE html>
@@ -263,12 +264,20 @@ function buildContractHtmlWithBackground(bodyHtml: string, _mascaraUri: string):
 <meta charset="utf-8">
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  @page { size: A4; margin: 40mm 20mm 60mm 20mm; }
+  @page { size: A4; }
   html, body {
     width: 210mm;
     font-family: Arial, Helvetica, sans-serif;
     font-size: 9.5pt;
     color: #111;
+    /* padding-top pushes content below the header on the first page.
+       padding-bottom creates safe space at the end of the last page.
+       margin.top/bottom in page.pdf() controls where the templates are placed
+       and reserves space so content does not overlap header/footer on page breaks. */
+    padding-top: 40mm;
+    padding-bottom: 65mm;
+    padding-left: 20mm;
+    padding-right: 20mm;
   }
   h1, h2, h3 {
     font-size: 9.5pt;
@@ -532,9 +541,9 @@ export async function generateContractPdf(fields: ContractFields): Promise<Buffe
       headerTemplate: `<div style="-webkit-print-color-adjust:exact; print-color-adjust:exact; width:210mm; height:40mm; overflow:hidden; margin:0; padding:0; background-image:url('${mascaraUri}'); background-size:210mm 297mm; background-repeat:no-repeat; background-position:top left;"></div>`,
       footerTemplate: `<div style="-webkit-print-color-adjust:exact; print-color-adjust:exact; width:210mm; height:60mm; overflow:hidden; margin:0; padding:0; background-image:url('${mascaraUri}'); background-size:210mm 297mm; background-repeat:no-repeat; background-position:bottom left;"></div>`,
       margin: {
-        top: '0',
+        top: '40mm',
         right: '0',
-        bottom: '0',
+        bottom: '65mm',
         left: '0',
       },
     });
