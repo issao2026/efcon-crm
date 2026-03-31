@@ -350,7 +350,13 @@ export async function generateContractPdf(fields: ContractFields): Promise<Buffe
 <meta charset="utf-8">
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  @page { size: A4; }
+
+  /* Margens definidas como lei absoluta no CSS */
+  @page {
+    size: A4;
+    margin: 52mm 20mm 82mm 20mm;
+  }
+
   html, body {
     background: white;
     font-family: Arial, Helvetica, sans-serif;
@@ -359,25 +365,33 @@ export async function generateContractPdf(fields: ContractFields): Promise<Buffe
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
+
   h1, h2, h3 {
     font-size: 9.5pt;
     font-weight: bold;
     margin: 0.8em 0 0.3em;
   }
+
   p {
     margin: 0.35em 0;
     line-height: 1.55;
     text-align: justify;
   }
+
   strong { font-weight: bold; }
+
   table {
     width: 100%;
     border-collapse: collapse;
     margin: 0.5em 0;
     font-size: 9pt;
   }
+
   td, th { border: 1px solid #ccc; padding: 4px 6px; }
-  p, h1, h2, h3, li, table { page-break-inside: avoid; }
+
+  /* Protege apenas títulos e tabelas — parágrafos podem ser cortados */
+  h1, h2, h3, table, tr { page-break-inside: avoid; }
+  h1, h2, h3 { page-break-after: avoid; }
 </style>
 </head>
 <body>
@@ -397,10 +411,9 @@ ${bodyHtml}
     await page.setViewport({ width: 794, height: 1123 });
     await page.setContent(textHtml, { waitUntil: 'networkidle0', timeout: 30000 });
     const raw = await page.pdf({
-      format: 'A4',
       printBackground: false,
       displayHeaderFooter: false,
-      margin: { top: '52mm', right: '20mm', bottom: '82mm', left: '20mm' },
+      preferCSSPageSize: true, // obedece o @page do CSS rigorosamente
     });
     textPdfBuffer = Buffer.from(raw);
   } finally {
