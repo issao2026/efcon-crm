@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import {
   Plus, Pencil, Trash2, Home, MapPin, FileText, Search,
   ChevronDown, ChevronUp, X, Loader2, Building2, DollarSign,
-  Upload, Eye, CheckCircle2
+  Upload, Eye, CheckCircle2, ScanLine
 } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -132,6 +132,33 @@ function PropertyModal({
   const [form, setForm] = useState<PropertyForm>(initial ?? EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [cepLoading, setCepLoading] = useState(false);
+  const [matriculaFile, setMatriculaFile] = useState<{ name: string; url?: string } | null>(null);
+  const [matriculaLoading, setMatriculaLoading] = useState(false);
+  const matriculaInputRef = useRef<HTMLInputElement | null>(null);
+  const ocrInlineMutation = trpc.documents.ocrInline.useMutation();
+
+  const handleMatriculaOcr = async (file: File) => {
+    setMatriculaLoading(true);
+    try {
+      const fileBase64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve((reader.result as string).split(",")[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      const res = await ocrInlineMutation.mutateAsync({ fileBase64, mimeType: file.type, fileName: file.name, docType: "matricula" });
+      const fields = res?.fields as Record<string, string> | undefined;
+      if (fields?.matricula) setField("registration", fields.matricula);
+      if (fields?.cartorio) setField("registryOffice", fields.cartorio);
+      const fileUrl = (res as any)?.fileUrl as string | undefined;
+      setMatriculaFile({ name: file.name, ...(fileUrl ? { url: fileUrl } : {}) });
+      toast.success("Matrícula processada com OCR!");
+    } catch {
+      toast.error("Erro ao processar OCR da matrícula");
+    } finally {
+      setMatriculaLoading(false);
+    }
+  };
 
   const setField = (name: keyof PropertyForm, value: string) =>
     setForm((prev) => ({ ...prev, [name]: value }));
@@ -246,6 +273,33 @@ function PropertyModal({
           {/* Registro */}
           <div>
             <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">Registro</p>
+            {/* Upload OCR row */}
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs text-gray-500">Envie a matrícula para preencher automaticamente</span>
+              <input type="file" accept="image/*,.pdf" className="hidden" ref={matriculaInputRef}
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) handleMatriculaOcr(f); e.target.value = ""; }}
+              />
+              <button type="button" onClick={() => matriculaInputRef.current?.click()} disabled={matriculaLoading}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 bg-white text-xs text-gray-600 hover:text-blue-600 hover:border-blue-400 transition-colors disabled:opacity-50">
+                {matriculaLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ScanLine className="w-3.5 h-3.5" />}
+                {matriculaLoading ? "Processando OCR..." : "Enviar Matrícula (OCR)"}
+              </button>
+            </div>
+            {/* File preview */}
+            {matriculaFile && (
+              <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-50 border border-blue-200 mb-2">
+                <FileText className="w-4 h-4 text-blue-500 flex-shrink-0" />
+                <span className="text-xs text-blue-700 truncate flex-1">{matriculaFile.name}</span>
+                {matriculaFile.url && (
+                  <a href={matriculaFile.url} target="_blank" rel="noopener noreferrer"
+                    className="text-xs text-blue-600 hover:text-blue-800 underline flex-shrink-0">Ver</a>
+                )}
+                <button type="button" onClick={() => { setMatriculaFile(null); setField("registration", ""); setField("registryOffice", ""); }}
+                  className="text-gray-400 hover:text-red-500 transition-colors flex-shrink-0">
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <Field label="Matrícula" name="registration" value={form.registration}
                 onChange={setField} placeholder="Nº de matrícula" />

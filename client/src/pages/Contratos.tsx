@@ -495,7 +495,8 @@ function NewContractModal({ onClose, onCreated }: { onClose: () => void; onCreat
       if (fields?.matricula) setMatriculaText(fields.matricula);
       if (fields?.cartorio) setCartorioText(fields.cartorio);
       if (fields?.descricao_imovel && !imovelDesc) setImovelDesc(fields.descricao_imovel);
-      setMatriculaFile({ name: file.name });
+      const fileUrl = (res as any)?.fileUrl as string | undefined;
+      setMatriculaFile({ name: file.name, ...(fileUrl ? { url: fileUrl } : {}) } as any);
     } catch { /* ignore */ } finally { setMatriculaLoading(false); }
   }, [ocrInlineMutation, imovelDesc]);
 
@@ -716,24 +717,43 @@ function NewContractModal({ onClose, onCreated }: { onClose: () => void; onCreat
 
               {/* Matrícula */}
               <div className="pt-3 border-t border-[#2a2d3a] space-y-2">
+                {/* Row: label + upload button */}
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-gray-400 font-semibold">Matrícula do Imóvel</span>
+                  <span className="text-sm text-gray-300 font-semibold">Matrícula do Imóvel</span>
                   <input type="file" accept="image/*,.pdf" className="hidden" ref={matriculaInputRef}
                     onChange={(e) => { const f = e.target.files?.[0]; if (f) handleMatriculaUpload(f); e.target.value = ""; }}
                   />
                   <button type="button" onClick={() => matriculaInputRef.current?.click()} disabled={matriculaLoading}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#2a2d3a] bg-[#0f1117] text-xs text-gray-300 hover:text-blue-400 hover:border-blue-500 transition-colors disabled:opacity-50">
                     {matriculaLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ScanLine className="w-3.5 h-3.5" />}
-                    {matriculaLoading ? "Processando OCR..." : (matriculaFile ? `✓ ${matriculaFile.name}` : "Enviar Matrícula (OCR)")}
+                    {matriculaLoading ? "Processando OCR..." : "Enviar Matrícula (OCR)"}
                   </button>
                 </div>
+
+                {/* File preview row */}
+                {matriculaFile && (
+                  <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-500/10 border border-blue-500/20">
+                    <FileText className="w-4 h-4 text-blue-400 flex-shrink-0" />
+                    <span className="text-xs text-blue-300 truncate flex-1">{matriculaFile.name}</span>
+                    {(matriculaFile as any).url && (
+                      <a href={(matriculaFile as any).url} target="_blank" rel="noopener noreferrer"
+                        className="text-xs text-blue-400 hover:text-blue-300 underline flex-shrink-0">Ver</a>
+                    )}
+                    <button type="button" onClick={() => { setMatriculaFile(null); setMatriculaText(""); setCartorioText(""); }}
+                      className="text-gray-500 hover:text-red-400 transition-colors flex-shrink-0">
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
+
+                {/* Fields */}
                 <div className="grid grid-cols-2 gap-2">
                   <input type="text" placeholder="Número da matrícula" value={matriculaText}
                     onChange={(e) => setMatriculaText(e.target.value)}
-                    className="bg-[#0f1117] border border-[#2a2d3a] rounded-lg px-3 py-2 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-blue-500" />
+                    className="bg-[#0f1117] border border-[#2a2d3a] rounded-lg px-3 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-blue-500" />
                   <input type="text" placeholder="Cartório de Registro" value={cartorioText}
                     onChange={(e) => setCartorioText(e.target.value)}
-                    className="bg-[#0f1117] border border-[#2a2d3a] rounded-lg px-3 py-2 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-blue-500" />
+                    className="bg-[#0f1117] border border-[#2a2d3a] rounded-lg px-3 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-blue-500" />
                 </div>
                 <p className="text-xs text-gray-600">Envie PDF ou foto da matrícula para OCR, ou preencha manualmente.</p>
               </div>

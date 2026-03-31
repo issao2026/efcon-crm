@@ -376,3 +376,8 @@
 - [x] Clientes.tsx: diálogo de confirmação antes de excluir cliente
 - [x] Imoveis.tsx: diálogo de confirmação já existia (correto)
 - [x] Negocios.tsx: não tem exclusão implementada (sem alteração necessária)
+
+## Phase 35 — Matrícula: Layout Expandido + Upload OCR + Preview
+
+- [x] Wizard Etapa 2 (Contratos.tsx): seção matrícula expandida — botão upload OCR com preview (nome + link Ver), campos número e cartório em linha abaixo, hint text
+- [x] Modal Novo Imóvel (Imoveis.tsx): seção upload matrícula com OCR, preview do arquivo, auto-preenchimento dos campos Matrícula e Cartório de Registro
