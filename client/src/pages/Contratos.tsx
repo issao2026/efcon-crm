@@ -175,57 +175,216 @@ function DistribuicaoModal({ contract, onClose }: { contract: Contract; onClose:
   );
 }
 
-// Participant data structure
+// ─── Participant data ─────────────────────────────────────────────────────────
 interface ParticipantData {
-  clientId?: number | null;  // if selected from registered clients
+  clientId?: number | null;
   nome: string;
   cpf: string;
   rg: string;
   email: string;
   whatsapp: string;
 }
-
 const emptyParticipant = (): ParticipantData => ({ clientId: null, nome: "", cpf: "", rg: "", email: "", whatsapp: "" });
 
-function NewContractModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
-  const [imovel, setImovel] = useState("");
-  const [propertyMode, setPropertyMode] = useState<"select" | "manual">("select");
-  const [selectedPropertyId, setSelectedPropertyId] = useState<number | null>(null);
-  const [matriculaText, setMatriculaText] = useState("");
-  const [cartorioText, setCartorioText] = useState("");
-  const [matriculaFile, setMatriculaFile] = useState<{ name: string; url: string } | null>(null);
-  const [matriculaLoading, setMatriculaLoading] = useState(false);
-  const matriculaInputRef = useRef<HTMLInputElement | null>(null);
+// ─── Wizard step indicator ────────────────────────────────────────────────────
+function WizardSteps({ step }: { step: 1 | 2 | 3 }) {
+  const steps = [
+    { n: 1, label: "Partes" },
+    { n: 2, label: "Imóvel" },
+    { n: 3, label: "Revisão" },
+  ];
+  return (
+    <div className="flex items-center gap-0 mb-1">
+      {steps.map((s, idx) => (
+        <div key={s.n} className="flex items-center">
+          <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold transition-colors ${
+            step === s.n ? "bg-blue-600 text-white" :
+            step > s.n ? "bg-green-600/20 text-green-400" :
+            "bg-[#2a2d3a] text-gray-500"
+          }`}>
+            {step > s.n ? <CheckCircle2 className="w-3 h-3" /> : <span>{s.n}</span>}
+            {s.label}
+          </div>
+          {idx < steps.length - 1 && <div className="w-4 h-px bg-[#2a2d3a] mx-1" />}
+        </div>
+      ))}
+    </div>
+  );
+}
 
+// ─── Reusable participant card ────────────────────────────────────────────────
+function ParticipantCard({
+  row, index, sectionKey, allClients, ocrLoading, fileInputRefs,
+  onUpdate, onRemove, onOcrFile, showRemove,
+}: {
+  row: ParticipantData;
+  index: number;
+  sectionKey: string;
+  allClients: any[];
+  ocrLoading: Record<string, boolean>;
+  fileInputRefs: React.MutableRefObject<Record<string, HTMLInputElement | null>>;
+  onUpdate: (updates: Partial<ParticipantData>) => void;
+  onRemove: () => void;
+  onOcrFile: (file: File, key: string) => void;
+  showRemove: boolean;
+}) {
+  const key = `${sectionKey}-${index}`;
+  const [search, setSearch] = useState("");
+  const [showDrop, setShowDrop] = useState(false);
+  const isFromClient = !!row.clientId;
+
+  const filtered = search.length > 0
+    ? allClients.filter((c: any) => c.name?.toLowerCase().includes(search.toLowerCase()) || c.cpfCnpj?.includes(search)).slice(0, 8)
+    : allClients.slice(0, 8);
+
+  return (
+    <div className="bg-[#0f1117] border border-[#2a2d3a] rounded-xl p-3 space-y-2">
+      <div className="flex items-center gap-2">
+        {/* Client search */}
+        <div className="flex-1 relative">
+          <div className={`flex items-center gap-1.5 border rounded-lg px-2.5 py-1.5 ${
+            isFromClient ? "border-green-500/40 bg-green-500/5" : "border-[#2a2d3a] bg-[#1a1d27]"
+          }`}>
+            <UserCheck className={`w-3.5 h-3.5 flex-shrink-0 ${isFromClient ? "text-green-400" : "text-gray-500"}`} />
+            <input
+              type="text"
+              placeholder="Buscar cliente cadastrado..."
+              value={isFromClient ? row.nome : search}
+              onChange={(e) => {
+                if (isFromClient) { onUpdate(emptyParticipant()); }
+                setSearch(e.target.value);
+                setShowDrop(true);
+              }}
+              onFocus={() => setShowDrop(true)}
+              onBlur={() => setTimeout(() => setShowDrop(false), 200)}
+              className="flex-1 bg-transparent text-xs text-white placeholder-gray-600 focus:outline-none min-w-0"
+            />
+            {isFromClient && (
+              <button type="button" onClick={() => { onUpdate(emptyParticipant()); setSearch(""); }} className="text-gray-500 hover:text-white">
+                <X className="w-3 h-3" />
+              </button>
+            )}
+          </div>
+          {showDrop && !isFromClient && (
+            <div className="absolute top-full left-0 right-0 z-50 mt-1 bg-[#1a1d27] border border-[#2a2d3a] rounded-xl shadow-xl max-h-44 overflow-y-auto">
+              {filtered.length === 0 ? (
+                <p className="text-xs text-gray-500 px-3 py-2">Nenhum cliente encontrado</p>
+              ) : filtered.map((c: any) => (
+                <button key={c.id} type="button"
+                  onMouseDown={() => {
+                    onUpdate({ clientId: c.id, nome: c.name || "", cpf: c.cpfCnpj || "", rg: c.rg || "", email: c.email || "", whatsapp: c.whatsapp || c.phone || "" });
+                    setSearch(c.name);
+                    setShowDrop(false);
+                  }}
+                  className="w-full text-left px-3 py-2 hover:bg-[#2a2d3a] transition-colors">
+                  <div className="text-white text-xs font-medium">{c.name}</div>
+                  {c.cpfCnpj && <div className="text-gray-500 text-xs">CPF: {c.cpfCnpj}</div>}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+        {/* OCR upload */}
+        <input type="file" accept="image/*,.pdf" className="hidden"
+          ref={(el) => { fileInputRefs.current[key] = el; }}
+          onChange={(e) => { const f = e.target.files?.[0]; if (f) onOcrFile(f, key); e.target.value = ""; }}
+        />
+        <button type="button" title="Enviar RG/CPF/CNH para OCR"
+          onClick={() => fileInputRefs.current[key]?.click()}
+          disabled={ocrLoading[key]}
+          className="flex-shrink-0 flex items-center gap-1 px-2 py-1.5 rounded-lg border border-[#2a2d3a] bg-[#1a1d27] text-xs text-gray-400 hover:text-blue-400 hover:border-blue-500 transition-colors disabled:opacity-50">
+          {ocrLoading[key] ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ScanLine className="w-3.5 h-3.5" />}
+          <span>{ocrLoading[key] ? "OCR..." : "OCR"}</span>
+        </button>
+        {showRemove && (
+          <button type="button" onClick={onRemove} className="flex-shrink-0 text-gray-600 hover:text-red-400 transition-colors">
+            <X className="w-4 h-4" />
+          </button>
+        )}
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <input type="text" placeholder="Nome completo" value={row.nome}
+          onChange={(e) => onUpdate({ nome: e.target.value })}
+          className="col-span-2 bg-[#1a1d27] border border-[#2a2d3a] rounded-lg px-3 py-2 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-blue-500" />
+        <input type="text" placeholder="CPF" value={row.cpf}
+          onChange={(e) => onUpdate({ cpf: e.target.value })}
+          className="bg-[#1a1d27] border border-[#2a2d3a] rounded-lg px-3 py-2 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-blue-500" />
+        <input type="text" placeholder="RG" value={row.rg}
+          onChange={(e) => onUpdate({ rg: e.target.value })}
+          className="bg-[#1a1d27] border border-[#2a2d3a] rounded-lg px-3 py-2 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-blue-500" />
+        <input type="email" placeholder="E-mail" value={row.email}
+          onChange={(e) => onUpdate({ email: e.target.value })}
+          className="bg-[#1a1d27] border border-[#2a2d3a] rounded-lg px-3 py-2 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-blue-500" />
+        <input type="tel" placeholder="WhatsApp" value={row.whatsapp}
+          onChange={(e) => onUpdate({ whatsapp: e.target.value })}
+          className="bg-[#1a1d27] border border-[#2a2d3a] rounded-lg px-3 py-2 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-blue-500" />
+      </div>
+      {isFromClient && (
+        <div className="flex items-center gap-1 text-xs text-green-400">
+          <CheckCircle2 className="w-3 h-3" /> Preenchido do cadastro
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Main wizard modal ────────────────────────────────────────────────────────
+function NewContractModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
+  const [, navigate] = useLocation();
+  const [step, setStep] = useState<1 | 2 | 3>(1);
+
+  // Step 1 — Parties
   const [vendedores, setVendedores] = useState<ParticipantData[]>([emptyParticipant()]);
   const [compradores, setCompradores] = useState<ParticipantData[]>([emptyParticipant()]);
   const [corretores, setCorretores] = useState<ParticipantData[]>([emptyParticipant()]);
 
+  // Step 2 — Property
+  const [propertyMode, setPropertyMode] = useState<"select" | "manual">("select");
+  const [selectedPropertyId, setSelectedPropertyId] = useState<number | null>(null);
+  const [imovelDesc, setImovelDesc] = useState("");
+  const [imovelEndereco, setImovelEndereco] = useState("");
+  const [matriculaText, setMatriculaText] = useState("");
+  const [cartorioText, setCartorioText] = useState("");
+  const [matriculaFile, setMatriculaFile] = useState<{ name: string } | null>(null);
+  const [matriculaLoading, setMatriculaLoading] = useState(false);
+  const matriculaInputRef = useRef<HTMLInputElement | null>(null);
+
+  // OCR state
   const [ocrLoading, setOcrLoading] = useState<Record<string, boolean>>({});
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
-  const [clientSearch, setClientSearch] = useState<Record<string, string>>({});
-  const [showClientDropdown, setShowClientDropdown] = useState<Record<string, boolean>>({});
 
-  const utils = trpc.useUtils();
   const { data: properties = [] } = trpc.properties.list.useQuery();
   const { data: allClients = [] } = trpc.clients.list.useQuery();
   const ocrInlineMutation = trpc.documents.ocrInline.useMutation();
+  const utils = trpc.useUtils();
   const createMutation = trpc.contracts.create.useMutation({
-    onSuccess: () => { utils.contracts.list.invalidate(); onCreated(); onClose(); },
+    onSuccess: () => { utils.contracts.list.invalidate(); onCreated(); },
   });
 
-  const updateParticipant = useCallback((
+  const updateParticipant = (
     setter: React.Dispatch<React.SetStateAction<ParticipantData[]>>,
     index: number,
     updates: Partial<ParticipantData>
-  ) => setter((prev) => prev.map((r, i) => (i === index ? { ...r, ...updates } : r))), []);
+  ) => setter((prev) => prev.map((r, i) => (i === index ? { ...r, ...updates } : r)));
 
-  const addParticipant = (setter: React.Dispatch<React.SetStateAction<ParticipantData[]>>) =>
-    setter((prev) => [...prev, emptyParticipant()]);
-  const removeParticipant = (setter: React.Dispatch<React.SetStateAction<ParticipantData[]>>, index: number) =>
-    setter((prev) => prev.filter((_, i) => i !== index));
+  const handleParticipantOcr = useCallback(async (file: File, key: string) => {
+    // Determine which setter to use from key prefix
+    const setter = key.startsWith("vend") ? setVendedores : key.startsWith("comp") ? setCompradores : setCorretores;
+    const index = parseInt(key.split("-")[1]) || 0;
+    setOcrLoading((prev) => ({ ...prev, [key]: true }));
+    try {
+      const fileBase64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve((reader.result as string).split(",")[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      const res = await ocrInlineMutation.mutateAsync({ fileBase64, mimeType: file.type, fileName: file.name, docType: "rg" });
+      const f = res?.fields as Record<string, string> | undefined;
+      if (f) updateParticipant(setter, index, { nome: f.nome || "", cpf: f.cpf || "", rg: f.rg || "" });
+    } catch { /* ignore */ } finally { setOcrLoading((prev) => ({ ...prev, [key]: false })); }
+  }, [ocrInlineMutation]);
 
-  // OCR for matricula
   const handleMatriculaUpload = useCallback(async (file: File) => {
     setMatriculaLoading(true);
     try {
@@ -239,341 +398,305 @@ function NewContractModal({ onClose, onCreated }: { onClose: () => void; onCreat
       const fields = res?.fields as Record<string, string> | undefined;
       if (fields?.matricula) setMatriculaText(fields.matricula);
       if (fields?.cartorio) setCartorioText(fields.cartorio);
-      setMatriculaFile({ name: file.name, url: res?.fileUrl || "" });
+      if (fields?.descricao_imovel && !imovelDesc) setImovelDesc(fields.descricao_imovel);
+      setMatriculaFile({ name: file.name });
     } catch { /* ignore */ } finally { setMatriculaLoading(false); }
-  }, [ocrInlineMutation]);
+  }, [ocrInlineMutation, imovelDesc]);
 
-  // OCR for participant document
-  const handleParticipantOcr = useCallback(async (
-    file: File,
-    setter: React.Dispatch<React.SetStateAction<ParticipantData[]>>,
-    index: number,
-    key: string
-  ) => {
-    setOcrLoading((prev) => ({ ...prev, [key]: true }));
-    try {
-      const fileBase64 = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve((reader.result as string).split(",")[1]);
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
-      const res = await ocrInlineMutation.mutateAsync({ fileBase64, mimeType: file.type, fileName: file.name, docType: "rg" });
-      const f = res?.fields as Record<string, string> | undefined;
-      if (f) {
-        updateParticipant(setter, index, {
-          nome: f.nome || "",
-          cpf: f.cpf || "",
-          rg: f.rg || "",
-        });
-      }
-    } catch { /* ignore */ } finally { setOcrLoading((prev) => ({ ...prev, [key]: false })); }
-  }, [ocrInlineMutation, updateParticipant]);
+  // When a registered property is selected, fill address fields
+  const handleSelectProperty = (propId: number | null) => {
+    setSelectedPropertyId(propId);
+    if (!propId) return;
+    const p = (properties as any[]).find((x: any) => x.id === propId);
+    if (!p) return;
+    setImovelDesc(p.description || p.street || `Imóvel #${p.id}`);
+    const addr = [p.street, p.number, p.complement, p.neighborhood, p.city, p.state, p.zipCode].filter(Boolean).join(", ");
+    setImovelEndereco(addr);
+    if (p.registration) setMatriculaText(p.registration);
+    if (p.registryOffice) setCartorioText(p.registryOffice);
+  };
 
-  // Filter clients for search
-  const filteredClients = useCallback((search: string) => {
-    if (!search || search.length < 1) return (allClients as any[]).slice(0, 8);
-    const q = search.toLowerCase();
-    return (allClients as any[]).filter((c: any) =>
-      c.name?.toLowerCase().includes(q) || c.cpfCnpj?.includes(q)
-    ).slice(0, 8);
-  }, [allClients]);
-
-  const PartySection = ({
-    title, icon: Icon, rows, setter, addLabel, sectionKey,
-  }: {
-    title: string; icon: React.ElementType;
-    rows: ParticipantData[];
-    setter: React.Dispatch<React.SetStateAction<ParticipantData[]>>;
-    addLabel: string;
-    sectionKey: string;
-  }) => (
-    <div>
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-2">
-          <Icon className="w-4 h-4 text-gray-400" />
-          <span className="text-white font-semibold text-sm">{title}</span>
-        </div>
-        <button type="button" onClick={() => addParticipant(setter)} className="flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 transition-colors">
-          <Plus className="w-3 h-3" /> {addLabel}
-        </button>
-      </div>
-      {rows.map((row, i) => {
-        const key = `${sectionKey}-${i}`;
-        const searchKey = `${key}-search`;
-        const dropdownKey = `${key}-dd`;
-        const isFromClient = !!row.clientId;
-        return (
-          <div key={i} className="mb-4 bg-[#0f1117] border border-[#2a2d3a] rounded-xl p-3 space-y-2">
-            {/* Header row: client search + OCR button + remove */}
-            <div className="flex items-center gap-2">
-              {/* Client search */}
-              <div className="flex-1 relative">
-                <div className="flex items-center gap-1.5 bg-[#1a1d27] border border-[#2a2d3a] rounded-lg px-2.5 py-1.5">
-                  <UserCheck className="w-3.5 h-3.5 text-gray-500 flex-shrink-0" />
-                  <input
-                    type="text"
-                    placeholder={isFromClient ? row.nome : "Buscar cliente cadastrado..."}
-                    value={clientSearch[searchKey] ?? (isFromClient ? row.nome : "")}
-                    onChange={(e) => {
-                      setClientSearch((prev) => ({ ...prev, [searchKey]: e.target.value }));
-                      setShowClientDropdown((prev) => ({ ...prev, [dropdownKey]: true }));
-                      if (!e.target.value) updateParticipant(setter, i, { clientId: null, nome: "", cpf: "", rg: "", email: "", whatsapp: "" });
-                    }}
-                    onFocus={() => setShowClientDropdown((prev) => ({ ...prev, [dropdownKey]: true }))}
-                    onBlur={() => setTimeout(() => setShowClientDropdown((prev) => ({ ...prev, [dropdownKey]: false })), 200)}
-                    className="flex-1 bg-transparent text-xs text-white placeholder-gray-600 focus:outline-none min-w-0"
-                  />
-                  {isFromClient && (
-                    <button type="button" onClick={() => {
-                      updateParticipant(setter, i, emptyParticipant());
-                      setClientSearch((prev) => ({ ...prev, [searchKey]: "" }));
-                    }} className="text-gray-500 hover:text-white">
-                      <X className="w-3 h-3" />
-                    </button>
-                  )}
-                </div>
-                {/* Dropdown */}
-                {showClientDropdown[dropdownKey] && (
-                  <div className="absolute top-full left-0 right-0 z-50 mt-1 bg-[#1a1d27] border border-[#2a2d3a] rounded-xl shadow-xl max-h-48 overflow-y-auto">
-                    {filteredClients(clientSearch[searchKey] || "").length === 0 ? (
-                      <p className="text-xs text-gray-500 px-3 py-2">Nenhum cliente encontrado</p>
-                    ) : (
-                      filteredClients(clientSearch[searchKey] || "").map((c: any) => (
-                        <button
-                          key={c.id}
-                          type="button"
-                          onMouseDown={() => {
-                            updateParticipant(setter, i, {
-                              clientId: c.id,
-                              nome: c.name || "",
-                              cpf: c.cpfCnpj || "",
-                              rg: c.rg || "",
-                              email: c.email || "",
-                              whatsapp: c.whatsapp || c.phone || "",
-                            });
-                            setClientSearch((prev) => ({ ...prev, [searchKey]: c.name }));
-                            setShowClientDropdown((prev) => ({ ...prev, [dropdownKey]: false }));
-                          }}
-                          className="w-full text-left px-3 py-2 hover:bg-[#2a2d3a] transition-colors"
-                        >
-                          <div className="text-white text-xs font-medium">{c.name}</div>
-                          {c.cpfCnpj && <div className="text-gray-500 text-xs">CPF: {c.cpfCnpj}</div>}
-                        </button>
-                      ))
-                    )}
-                  </div>
-                )}
-              </div>
-              {/* OCR button */}
-              <input
-                type="file"
-                accept="image/*,.pdf"
-                className="hidden"
-                ref={(el) => { fileInputRefs.current[key] = el; }}
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) handleParticipantOcr(file, setter, i, key);
-                  e.target.value = "";
-                }}
-              />
-              <button
-                type="button"
-                title="Enviar RG/CPF/CNH para preencher automaticamente via OCR"
-                onClick={() => fileInputRefs.current[key]?.click()}
-                disabled={ocrLoading[key]}
-                className="flex-shrink-0 flex items-center gap-1 px-2 py-1.5 rounded-lg border border-[#2a2d3a] bg-[#1a1d27] text-xs text-gray-400 hover:text-blue-400 hover:border-blue-500 transition-colors disabled:opacity-50"
-              >
-                {ocrLoading[key] ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ScanLine className="w-3.5 h-3.5" />}
-                <span className="hidden sm:inline">{ocrLoading[key] ? "OCR..." : "OCR"}</span>
-              </button>
-              {rows.length > 1 && (
-                <button type="button" onClick={() => removeParticipant(setter, i)} className="flex-shrink-0 text-gray-600 hover:text-red-400 transition-colors">
-                  <X className="w-4 h-4" />
-                </button>
-              )}
-            </div>
-            {/* Fields */}
-            <div className="grid grid-cols-2 gap-2">
-              <input type="text" placeholder="Nome completo" value={row.nome}
-                onChange={(e) => updateParticipant(setter, i, { nome: e.target.value })}
-                className="col-span-2 bg-[#1a1d27] border border-[#2a2d3a] rounded-lg px-3 py-2 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-blue-500" />
-              <input type="text" placeholder="CPF" value={row.cpf}
-                onChange={(e) => updateParticipant(setter, i, { cpf: e.target.value })}
-                className="bg-[#1a1d27] border border-[#2a2d3a] rounded-lg px-3 py-2 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-blue-500" />
-              <input type="text" placeholder="RG" value={row.rg}
-                onChange={(e) => updateParticipant(setter, i, { rg: e.target.value })}
-                className="bg-[#1a1d27] border border-[#2a2d3a] rounded-lg px-3 py-2 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-blue-500" />
-              <input type="email" placeholder="E-mail *" value={row.email}
-                onChange={(e) => updateParticipant(setter, i, { email: e.target.value })}
-                className="bg-[#1a1d27] border border-[#2a2d3a] rounded-lg px-3 py-2 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-blue-500" />
-              <input type="tel" placeholder="WhatsApp" value={row.whatsapp}
-                onChange={(e) => updateParticipant(setter, i, { whatsapp: e.target.value })}
-                className="bg-[#1a1d27] border border-[#2a2d3a] rounded-lg px-3 py-2 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-blue-500" />
-            </div>
-            {isFromClient && (
-              <div className="flex items-center gap-1 text-xs text-green-400">
-                <CheckCircle2 className="w-3 h-3" /> Preenchido do cadastro
-              </div>
-            )}
-          </div>
-        );
-      })}
-    </div>
-  );
-
-  const handleCreate = () => {
-    const descricao = propertyMode === "select" && selectedPropertyId
-      ? (properties as any[]).find((p: any) => p.id === selectedPropertyId)?.description ||
-        (properties as any[]).find((p: any) => p.id === selectedPropertyId)?.street ||
-        `Imóvel #${selectedPropertyId}`
-      : imovel.trim();
+  // Step 3: save to DB and navigate to contract generator with prefill
+  const handleFinish = () => {
+    const descricao = imovelDesc.trim() || (selectedPropertyId ? `Imóvel #${selectedPropertyId}` : "");
     if (!descricao) return;
+
+    // Build prefill payload for Contract.tsx
+    const prefill = {
+      vendedores: vendedores.filter((v) => v.nome || v.email),
+      compradores: compradores.filter((v) => v.nome || v.email),
+      corretores: corretores.filter((v) => v.nome || v.email),
+      imovelDescricao: descricao,
+      imovelEndereco,
+      imovelMatricula: matriculaText,
+      imovelCartorio: cartorioText,
+    };
+    localStorage.setItem("efcon_contract_prefill", JSON.stringify(prefill));
+
     createMutation.mutate({
       descricaoImovel: descricao,
       nomeVendedor: vendedores[0]?.nome || vendedores[0]?.email || undefined,
       nomeComprador: compradores[0]?.nome || compradores[0]?.email || undefined,
       nomeCorretor: corretores[0]?.nome || corretores[0]?.email || undefined,
+    }, {
+      onSuccess: () => {
+        utils.contracts.list.invalidate();
+        onCreated();
+        onClose();
+        navigate("/dashboard/contrato");
+      },
     });
   };
 
+  const stepTitles = ["Partes Envolvidas", "Identificação do Imóvel", "Revisão e Geração"];
+  const stepSubs = [
+    "Vendedores, compradores e corretores",
+    "Imóvel e matrícula",
+    "Confirme os dados e gere o contrato",
+  ];
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-      <div className="bg-[#1a1d27] border border-[#2a2d3a] rounded-2xl w-full max-w-lg max-h-[90vh] flex flex-col">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-[#2a2d3a]">
-          <div>
-            <h2 className="text-white font-bold text-lg">Criar Novo Contrato</h2>
-            <p className="text-gray-400 text-xs mt-0.5">Preencha as informações do imóvel e participantes.</p>
+      <div className="bg-[#1a1d27] border border-[#2a2d3a] rounded-2xl w-full max-w-lg max-h-[92vh] flex flex-col">
+        {/* Header */}
+        <div className="px-5 py-4 border-b border-[#2a2d3a]">
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <h2 className="text-white font-bold text-base">{stepTitles[step - 1]}</h2>
+              <p className="text-gray-400 text-xs mt-0.5">{stepSubs[step - 1]}</p>
+            </div>
+            <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors text-lg">✕</button>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors text-lg">✕</button>
+          <WizardSteps step={step} />
         </div>
-        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
-          <div>
-            <div className="flex items-center gap-2 mb-3">
-              <Building2 className="w-4 h-4 text-gray-400" />
-              <span className="text-white font-semibold text-sm">Identificação do Imóvel</span>
-            </div>
-            {/* Toggle: select vs manual */}
-            <div className="flex rounded-xl overflow-hidden border border-[#2a2d3a] mb-3">
-              <button
-                onClick={() => setPropertyMode("select")}
-                className={`flex-1 py-2 text-xs font-semibold transition-colors ${
-                  propertyMode === "select"
-                    ? "bg-blue-600 text-white"
-                    : "bg-[#0f1117] text-gray-400 hover:text-gray-200"
-                }`}
-              >
-                Imóvel Cadastrado
-              </button>
-              <button
-                onClick={() => setPropertyMode("manual")}
-                className={`flex-1 py-2 text-xs font-semibold transition-colors ${
-                  propertyMode === "manual"
-                    ? "bg-blue-600 text-white"
-                    : "bg-[#0f1117] text-gray-400 hover:text-gray-200"
-                }`}
-              >
-                Digitar Descrição
-              </button>
-            </div>
-            {propertyMode === "select" ? (
-              (properties as any[]).length === 0 ? (
-                <div className="bg-[#0f1117] border border-[#2a2d3a] rounded-xl px-3 py-3 text-center">
-                  <p className="text-gray-500 text-xs">Nenhum imóvel cadastrado.</p>
-                  <button
-                    onClick={() => setPropertyMode("manual")}
-                    className="text-blue-400 text-xs hover:underline mt-1"
-                  >
-                    Digitar descrição manualmente
+
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+
+          {/* ── STEP 1: Parties ── */}
+          {step === 1 && (
+            <>
+              {/* Vendedores */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <Users className="w-4 h-4 text-gray-400" />
+                    <span className="text-white font-semibold text-sm">Vendedor(es)</span>
+                  </div>
+                  <button type="button" onClick={() => setVendedores((p) => [...p, emptyParticipant()])}
+                    className="flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300">
+                    <Plus className="w-3 h-3" /> Adicionar
                   </button>
                 </div>
-              ) : (
-                <div className="space-y-1.5 max-h-40 overflow-y-auto">
-                  {(properties as any[]).map((p: any) => {
-                    const label = p.description || p.street || `Imóvel #${p.id}`;
-                    const sub = [p.city, p.state].filter(Boolean).join(", ");
-                    const isSelected = selectedPropertyId === p.id;
-                    return (
-                      <button
-                        key={p.id}
-                        onClick={() => setSelectedPropertyId(isSelected ? null : p.id)}
-                        className={`w-full text-left px-3 py-2.5 rounded-xl border transition-colors ${
-                          isSelected
-                            ? "border-blue-500 bg-blue-500/10 text-white"
-                            : "border-[#2a2d3a] bg-[#0f1117] text-gray-300 hover:border-blue-400"
-                        }`}
-                      >
-                        <div className="flex items-center gap-2">
-                          <Home className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
-                          <span className="text-sm font-medium truncate">{label}</span>
-                          {p.propertyType && (
-                            <span className="ml-auto text-xs text-gray-500 flex-shrink-0">{p.propertyType}</span>
-                          )}
-                        </div>
-                        {sub && <p className="text-xs text-gray-500 mt-0.5 ml-5">{sub}</p>}
-                      </button>
-                    );
-                  })}
+                <div className="space-y-3">
+                  {vendedores.map((row, i) => (
+                    <ParticipantCard key={i} row={row} index={i} sectionKey="vend"
+                      allClients={allClients as any[]} ocrLoading={ocrLoading} fileInputRefs={fileInputRefs}
+                      onUpdate={(u) => updateParticipant(setVendedores, i, u)}
+                      onRemove={() => setVendedores((p) => p.filter((_, idx) => idx !== i))}
+                      onOcrFile={handleParticipantOcr}
+                      showRemove={vendedores.length > 1} />
+                  ))}
                 </div>
-              )
-            ) : (
-              <>
-                <input type="text" placeholder="Ex: Apartamento 302 - Ed. Solar das Flores *" value={imovel}
-                  onChange={(e) => setImovel(e.target.value)}
-                  className="w-full bg-[#0f1117] border border-blue-500 rounded-xl px-3 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-blue-400" />
-                <p className="text-gray-600 text-xs mt-1">O endereço completo será preenchido na etapa de detalhes pelo corretor.</p>
-              </>
-            )}
+              </div>
+              {/* Compradores */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <Users className="w-4 h-4 text-gray-400" />
+                    <span className="text-white font-semibold text-sm">Comprador(es)</span>
+                  </div>
+                  <button type="button" onClick={() => setCompradores((p) => [...p, emptyParticipant()])}
+                    className="flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300">
+                    <Plus className="w-3 h-3" /> Adicionar
+                  </button>
+                </div>
+                <div className="space-y-3">
+                  {compradores.map((row, i) => (
+                    <ParticipantCard key={i} row={row} index={i} sectionKey="comp"
+                      allClients={allClients as any[]} ocrLoading={ocrLoading} fileInputRefs={fileInputRefs}
+                      onUpdate={(u) => updateParticipant(setCompradores, i, u)}
+                      onRemove={() => setCompradores((p) => p.filter((_, idx) => idx !== i))}
+                      onOcrFile={handleParticipantOcr}
+                      showRemove={compradores.length > 1} />
+                  ))}
+                </div>
+              </div>
+              {/* Corretores */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <Briefcase className="w-4 h-4 text-gray-400" />
+                    <span className="text-white font-semibold text-sm">Corretor(es)</span>
+                  </div>
+                  <button type="button" onClick={() => setCorretores((p) => [...p, emptyParticipant()])}
+                    className="flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300">
+                    <Plus className="w-3 h-3" /> Adicionar
+                  </button>
+                </div>
+                <div className="space-y-3">
+                  {corretores.map((row, i) => (
+                    <ParticipantCard key={i} row={row} index={i} sectionKey="corr"
+                      allClients={allClients as any[]} ocrLoading={ocrLoading} fileInputRefs={fileInputRefs}
+                      onUpdate={(u) => updateParticipant(setCorretores, i, u)}
+                      onRemove={() => setCorretores((p) => p.filter((_, idx) => idx !== i))}
+                      onOcrFile={handleParticipantOcr}
+                      showRemove={corretores.length > 1} />
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
 
-            {/* Matrícula upload + fields */}
-            <div className="mt-3 pt-3 border-t border-[#2a2d3a] space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-gray-400 font-medium">Matrícula do Imóvel</span>
-                <input
-                  type="file"
-                  accept="image/*,.pdf"
-                  className="hidden"
-                  ref={matriculaInputRef}
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) handleMatriculaUpload(file);
-                    e.target.value = "";
-                  }}
-                />
-                <button
-                  type="button"
-                  onClick={() => matriculaInputRef.current?.click()}
-                  disabled={matriculaLoading}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#2a2d3a] bg-[#0f1117] text-xs text-gray-300 hover:text-blue-400 hover:border-blue-500 transition-colors disabled:opacity-50"
-                >
-                  {matriculaLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ScanLine className="w-3.5 h-3.5" />}
-                  {matriculaLoading ? "Processando OCR..." : (matriculaFile ? `✓ ${matriculaFile.name}` : "Enviar Matrícula (OCR)")}
-                </button>
+          {/* ── STEP 2: Property ── */}
+          {step === 2 && (
+            <>
+              {/* Property selector */}
+              <div>
+                <div className="flex items-center gap-2 mb-2">
+                  <Building2 className="w-4 h-4 text-gray-400" />
+                  <span className="text-white font-semibold text-sm">Identificação do Imóvel</span>
+                </div>
+                <div className="flex rounded-xl overflow-hidden border border-[#2a2d3a] mb-3">
+                  <button onClick={() => setPropertyMode("select")}
+                    className={`flex-1 py-2 text-xs font-semibold transition-colors ${
+                      propertyMode === "select" ? "bg-blue-600 text-white" : "bg-[#0f1117] text-gray-400 hover:text-gray-200"
+                    }`}>Imóvel Cadastrado</button>
+                  <button onClick={() => setPropertyMode("manual")}
+                    className={`flex-1 py-2 text-xs font-semibold transition-colors ${
+                      propertyMode === "manual" ? "bg-blue-600 text-white" : "bg-[#0f1117] text-gray-400 hover:text-gray-200"
+                    }`}>Digitar Manualmente</button>
+                </div>
+                {propertyMode === "select" ? (
+                  (properties as any[]).length === 0 ? (
+                    <div className="bg-[#0f1117] border border-[#2a2d3a] rounded-xl px-3 py-3 text-center">
+                      <p className="text-gray-500 text-xs">Nenhum imóvel cadastrado.</p>
+                      <button onClick={() => setPropertyMode("manual")} className="text-blue-400 text-xs hover:underline mt-1">Digitar manualmente</button>
+                    </div>
+                  ) : (
+                    <div className="space-y-1.5 max-h-36 overflow-y-auto">
+                      {(properties as any[]).map((p: any) => {
+                        const label = p.description || p.street || `Imóvel #${p.id}`;
+                        const sub = [p.city, p.state].filter(Boolean).join(", ");
+                        const isSel = selectedPropertyId === p.id;
+                        return (
+                          <button key={p.id} onClick={() => handleSelectProperty(isSel ? null : p.id)}
+                            className={`w-full text-left px-3 py-2.5 rounded-xl border transition-colors ${
+                              isSel ? "border-blue-500 bg-blue-500/10 text-white" : "border-[#2a2d3a] bg-[#0f1117] text-gray-300 hover:border-blue-400"
+                            }`}>
+                            <div className="flex items-center gap-2">
+                              <Home className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+                              <span className="text-sm font-medium truncate">{label}</span>
+                              {p.propertyType && <span className="ml-auto text-xs text-gray-500 flex-shrink-0">{p.propertyType}</span>}
+                            </div>
+                            {sub && <p className="text-xs text-gray-500 mt-0.5 ml-5">{sub}</p>}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )
+                ) : (
+                  <input type="text" placeholder="Ex: Apartamento 302 - Ed. Solar das Flores" value={imovelDesc}
+                    onChange={(e) => setImovelDesc(e.target.value)}
+                    className="w-full bg-[#0f1117] border border-blue-500 rounded-xl px-3 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-blue-400" />
+                )}
               </div>
-              {/* Editable fields filled by OCR or manually */}
-              <div className="grid grid-cols-2 gap-2">
-                <input type="text" placeholder="Número da matrícula" value={matriculaText}
-                  onChange={(e) => setMatriculaText(e.target.value)}
-                  className="bg-[#0f1117] border border-[#2a2d3a] rounded-lg px-3 py-2 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-blue-500" />
-                <input type="text" placeholder="Cartório de Registro" value={cartorioText}
-                  onChange={(e) => setCartorioText(e.target.value)}
-                  className="bg-[#0f1117] border border-[#2a2d3a] rounded-lg px-3 py-2 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-blue-500" />
+
+              {/* Matrícula */}
+              <div className="pt-3 border-t border-[#2a2d3a] space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-gray-400 font-semibold">Matrícula do Imóvel</span>
+                  <input type="file" accept="image/*,.pdf" className="hidden" ref={matriculaInputRef}
+                    onChange={(e) => { const f = e.target.files?.[0]; if (f) handleMatriculaUpload(f); e.target.value = ""; }}
+                  />
+                  <button type="button" onClick={() => matriculaInputRef.current?.click()} disabled={matriculaLoading}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#2a2d3a] bg-[#0f1117] text-xs text-gray-300 hover:text-blue-400 hover:border-blue-500 transition-colors disabled:opacity-50">
+                    {matriculaLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ScanLine className="w-3.5 h-3.5" />}
+                    {matriculaLoading ? "Processando OCR..." : (matriculaFile ? `✓ ${matriculaFile.name}` : "Enviar Matrícula (OCR)")}
+                  </button>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <input type="text" placeholder="Número da matrícula" value={matriculaText}
+                    onChange={(e) => setMatriculaText(e.target.value)}
+                    className="bg-[#0f1117] border border-[#2a2d3a] rounded-lg px-3 py-2 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-blue-500" />
+                  <input type="text" placeholder="Cartório de Registro" value={cartorioText}
+                    onChange={(e) => setCartorioText(e.target.value)}
+                    className="bg-[#0f1117] border border-[#2a2d3a] rounded-lg px-3 py-2 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-blue-500" />
+                </div>
+                <p className="text-xs text-gray-600">Envie PDF ou foto da matrícula para OCR, ou preencha manualmente.</p>
               </div>
-              {!matriculaFile && (
-                <p className="text-xs text-gray-600">Envie o PDF ou foto da matrícula para extrair os dados via OCR, ou preencha manualmente.</p>
-              )}
+            </>
+          )}
+
+          {/* ── STEP 3: Review ── */}
+          {step === 3 && (
+            <div className="space-y-4">
+              <p className="text-xs text-gray-400">Revise os dados antes de gerar o contrato. Você poderá editar todos os campos na próxima tela.</p>
+
+              {/* Parties summary */}
+              {[{ label: "Vendedores", rows: vendedores }, { label: "Compradores", rows: compradores }, { label: "Corretores", rows: corretores }].map(({ label, rows }) => (
+                <div key={label}>
+                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">{label}</p>
+                  {rows.filter((r) => r.nome || r.email).length === 0 ? (
+                    <p className="text-xs text-gray-600 italic">Nenhum informado</p>
+                  ) : rows.filter((r) => r.nome || r.email).map((r, i) => (
+                    <div key={i} className="flex items-center gap-2 bg-[#0f1117] border border-[#2a2d3a] rounded-lg px-3 py-2 mb-1">
+                      <div className="w-6 h-6 bg-blue-600/20 rounded-full flex items-center justify-center text-blue-400 text-xs font-bold flex-shrink-0">
+                        {(r.nome || r.email).charAt(0).toUpperCase()}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-white text-xs font-medium truncate">{r.nome || r.email}</div>
+                        {r.cpf && <div className="text-gray-500 text-xs">CPF: {r.cpf}</div>}
+                      </div>
+                      {r.clientId && <CheckCircle2 className="w-3.5 h-3.5 text-green-400 flex-shrink-0" />}
+                    </div>
+                  ))}
+                </div>
+              ))}
+
+              {/* Property summary */}
+              <div>
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">Imóvel</p>
+                <div className="bg-[#0f1117] border border-[#2a2d3a] rounded-lg px-3 py-2 space-y-1">
+                  <div className="flex items-center gap-2">
+                    <Building2 className="w-3.5 h-3.5 text-gray-400" />
+                    <span className="text-white text-xs">{imovelDesc || <span className="text-gray-600 italic">Não informado</span>}</span>
+                  </div>
+                  {matriculaText && <div className="text-gray-400 text-xs">Matrícula: <span className="text-white">{matriculaText}</span></div>}
+                  {cartorioText && <div className="text-gray-400 text-xs">Cartório: <span className="text-white">{cartorioText}</span></div>}
+                </div>
+              </div>
+
+              <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl px-3 py-2.5 text-xs text-blue-300">
+                <strong>Próximo passo:</strong> Você será redirecionado para a página de geração do contrato com todos os campos pré-preenchidos. Lá você poderá revisar, completar e gerar o PDF.
+              </div>
             </div>
-          </div>
-          <PartySection title="Vendedores" icon={Users} rows={vendedores} setter={setVendedores} addLabel="Adicionar Vendedor" sectionKey="vend" />
-          <PartySection title="Compradores" icon={Users} rows={compradores} setter={setCompradores} addLabel="Adicionar Comprador" sectionKey="comp" />
-          <PartySection title="Corretores" icon={Briefcase} rows={corretores} setter={setCorretores} addLabel="Adicionar Corretor" sectionKey="corr" />
+          )}
         </div>
+
+        {/* Footer */}
         <div className="flex items-center gap-3 px-5 py-4 border-t border-[#2a2d3a]">
-          <button onClick={onClose} className="flex-1 py-2.5 rounded-xl border border-[#2a2d3a] text-gray-400 hover:text-white text-sm font-semibold transition-colors">Cancelar</button>
-          <button onClick={handleCreate} disabled={(propertyMode === "manual" ? !imovel.trim() : !selectedPropertyId) || createMutation.isPending}
-            className="flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-bold transition-colors flex items-center justify-center gap-2">
-            {createMutation.isPending ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <><ChevronRight className="w-4 h-4" /> Criar Contrato</>}
+          <button onClick={step === 1 ? onClose : () => setStep((s) => (s - 1) as 1 | 2 | 3)}
+            className="flex-1 py-2.5 rounded-xl border border-[#2a2d3a] text-gray-400 hover:text-white text-sm font-semibold transition-colors">
+            {step === 1 ? "Cancelar" : "← Voltar"}
           </button>
+          {step < 3 ? (
+            <button
+              onClick={() => setStep((s) => (s + 1) as 1 | 2 | 3)}
+              className="flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold transition-colors flex items-center justify-center gap-2">
+              Próximo →
+            </button>
+          ) : (
+            <button
+              onClick={handleFinish}
+              disabled={(!imovelDesc.trim() && !selectedPropertyId) || createMutation.isPending}
+              className="flex-1 py-2.5 rounded-xl bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white text-sm font-bold transition-colors flex items-center justify-center gap-2">
+              {createMutation.isPending
+                ? <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Criando...</>
+                : <><ChevronRight className="w-4 h-4" /> Gerar Contrato</>
+              }
+            </button>
+          )}
         </div>
       </div>
     </div>

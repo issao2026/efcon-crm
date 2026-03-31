@@ -347,3 +347,11 @@
 - [x] Corretores: idem
 - [x] Quando cliente cadastrado é selecionado, todos os campos do participante são preenchidos automaticamente
 - [x] Botão OCR por participante: upload de RG/CPF/CNH → extrai nome, CPF, RG → preenche campos do participante
+
+## Phase 31 — Wizard de 3 Etapas no Modal Criar Novo Contrato
+
+- [x] Etapa 1: Partes envolvidas (Vendedores, Compradores, Corretores) com busca de cadastro + OCR por documento
+- [x] Etapa 2: Identificação do Imóvel (seleção/descrição) + Matrícula com OCR (número + cartório editáveis)
+- [x] Etapa 3: Revisão dos dados coletados + botão "Gerar Contrato" que navega para /dashboard/contrato com todos os campos pré-preenchidos
+- [x] Passar dados do wizard para Contract.tsx via localStorage
+- [x] Contract.tsx: ler dados pré-preenchidos e popular formulário automaticamente ao abrir (toast de confirmação)

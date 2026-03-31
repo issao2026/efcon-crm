@@ -712,6 +712,46 @@ export default function Contract() {
     if (dealId && !isNaN(parseInt(dealId))) setPrefillDealId(parseInt(dealId));
   }, []);
 
+  // Read wizard prefill from localStorage (set by NewContractModal wizard in Contratos.tsx)
+  useEffect(() => {
+    const raw = localStorage.getItem("efcon_contract_prefill");
+    if (!raw) return;
+    try {
+      const p = JSON.parse(raw);
+      localStorage.removeItem("efcon_contract_prefill");
+      setForm((prev) => {
+        const toParty = (arr: any[]): PartyData[] =>
+          (arr || []).filter((x: any) => x.nome || x.email).map((x: any) => ({
+            ...makeParty(),
+            nome: x.nome || "",
+            cpf: x.cpf || "",
+            rg: x.rg || "",
+            email: x.email || "",
+            whatsapp: x.whatsapp || "",
+          }));
+        const vendedores = toParty(p.vendedores);
+        const compradores = toParty(p.compradores);
+        const corretoresParsed = (p.corretores || []).filter((x: any) => x.nome || x.email).map((x: any) => ({
+          ...makeBroker(),
+          nome: x.nome || "",
+          email: x.email || "",
+          whatsapp: x.whatsapp || "",
+        }));
+        return {
+          ...prev,
+          vendedores: vendedores.length > 0 ? vendedores : [makeParty()],
+          compradores: compradores.length > 0 ? compradores : [makeParty()],
+          corretores: corretoresParsed.length > 0 ? corretoresParsed : [makeBroker()],
+          imovelDescricao: p.imovelDescricao || prev.imovelDescricao,
+          imovelEndereco: p.imovelEndereco || prev.imovelEndereco,
+          imovelMatricula: p.imovelMatricula || prev.imovelMatricula,
+          imovelCartorio: p.imovelCartorio || prev.imovelCartorio,
+        };
+      });
+      toast.success("Dados do wizard carregados com sucesso!");
+    } catch { /* ignore malformed data */ }
+  }, []);
+
   // Fetch deal + clients for pre-fill
   const { data: dealData } = trpc.deals.byId.useQuery(
     { id: prefillDealId! },
