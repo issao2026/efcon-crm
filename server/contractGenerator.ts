@@ -136,6 +136,8 @@ export type ContractFields = {
   multa_rescisao_antecipada?: string;
   destinacao_imovel?: string;
   tipo_contrato?: string;
+  vendedores_adicionais?: string;
+  compradores_adicionais?: string;
 };
 
 const DEFAULTS: Record<string, string> = {
@@ -222,9 +224,11 @@ function generateLocacaoBodyHtml(f: Record<string, string>): string {
     <br>
     <p><strong>LOCADOR(A):</strong></p>
     <p style="margin-left:1.5cm">${v('nome_vendedor')}, ${v('nacionalidade_vendedor', '')}${v('estado_civil_vendedor', '') ? ', ' + v('estado_civil_vendedor', '') : ''}${v('profissao_vendedor', '') ? ', ' + v('profissao_vendedor', '') : ''}, portador(a) do ${v('tipo_documento_vendedor', 'RG')} nº ${v('numero_documento_vendedor')}, inscrito(a) no CPF/CNPJ sob nº ${v('cpf_cnpj_vendedor')}, residente e domiciliado(a) em ${v('endereco_vendedor')}, doravante denominado(a) <strong>LOCADOR(A)</strong>.</p>
+    ${f['vendedores_adicionais'] ? `<p style="margin-left:1.5cm">${f['vendedores_adicionais']}, doravante denominado(a) <strong>LOCADOR(A)</strong>.</p>` : ''}
     <br>
     <p><strong>LOCATÁRIO(A):</strong></p>
     <p style="margin-left:1.5cm">${v('nome_comprador')}, ${v('nacionalidade_comprador', '')}${v('estado_civil_comprador', '') ? ', ' + v('estado_civil_comprador', '') : ''}${v('profissao_comprador', '') ? ', ' + v('profissao_comprador', '') : ''}, portador(a) do ${v('tipo_documento_comprador', 'RG')} nº ${v('numero_documento_comprador')}, inscrito(a) no CPF/CNPJ sob nº ${v('cpf_cnpj_comprador')}, residente e domiciliado(a) em ${v('endereco_comprador')}, doravante denominado(a) <strong>LOCATÁRIO(A)</strong>.</p>
+    ${f['compradores_adicionais'] ? `<p style="margin-left:1.5cm">${f['compradores_adicionais']}, doravante denominado(a) <strong>LOCATÁRIO(A)</strong>.</p>` : ''}
     <br>
     <p><strong>CLÁUSULA 1ª – DO OBJETO</strong></p>
     <p>O presente contrato tem por objeto a locação do imóvel: <strong>${v('descricao_imovel')}</strong>, matrícula nº ${v('matricula_imovel')} – ${v('cartorio_registro_imoveis')}, destinado a uso <strong>${v('destinacao_imovel', 'residencial')}</strong>.</p>
@@ -349,15 +353,14 @@ export async function generateContractPdf(fields: ContractFields): Promise<Buffe
 <head>
 <meta charset="utf-8">
 <style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-
-  /* Margens definidas como lei absoluta no CSS */
-  @page {
-    size: A4;
-    margin: 52mm 20mm 82mm 20mm;
+  /* Reset completo — sem @page para não conflitar com o Puppeteer */
+  html, body, div, p, h1, h2, h3, table, th, td, ul, li {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
   }
 
-  html, body {
+  body {
     background: white;
     font-family: Arial, Helvetica, sans-serif;
     font-size: 9.5pt;

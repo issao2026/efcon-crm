@@ -487,3 +487,10 @@
 - [ ] Passo 1: Puppeteer gera PDF do texto com margin top:45mm, bottom:65mm, sem máscara
 - [ ] Passo 2: pdf-lib abre o PDF, lê a imagem da máscara e a desenha em cada página (z-index abaixo do texto)
 - [ ] Verificar todas as páginas sem sobreposição
+
+## Phase 52 — Correção Definitiva: Two-Pass PDF + Remoção Borda Diagnóstico
+
+- [x] Abordagem two-pass: Pass 1 (Puppeteer gera PDF de texto com margin top:52mm, bottom:82mm, displayHeaderFooter:true), Pass 2 (sharp + pdftoppm + PDFKit compõe a máscara em cada página)
+- [x] Remover borda vermelha de diagnóstico do CSS do Pass 1
+- [x] Adicionar suporte a vendedores_adicionais e compradores_adicionais no ContractFields e generateLocacaoBodyHtml
+- [x] Todos os 16 testes passando
