@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useCallback } from "react";
 import { Link, useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { DashboardShell } from "@/components/DashboardShell";
@@ -9,7 +9,7 @@ import {
   Plus, Briefcase, Search, Filter,
   CheckCircle2, AlertTriangle, FileOutput, Eye,
   Building2, User, DollarSign, LayoutGrid, List,
-  MapPin, Hash, FileText, Ruler, Loader2,
+  MapPin, Hash, FileText, Ruler, Loader2, Upload,
 } from "lucide-react";
 import { useCep } from "@/hooks/useCep";
 import {
@@ -62,6 +62,50 @@ export default function Negocios() {
   const [showNewDeal, setShowNewDeal] = useState(false);
   const [viewMode, setViewMode] = useState<"list" | "kanban">("list");
   const { lookup: lookupCep, loading: cepLoading } = useCep();
+
+  // Matrícula OCR state
+  const [matriculaUploading, setMatriculaUploading] = useState(false);
+  const [matriculaFileName, setMatriculaFileName] = useState<string | null>(null);
+  const matriculaFileRef = useRef<HTMLInputElement>(null);
+  const ocrInlineMutation = trpc.documents.ocrInline.useMutation();
+
+  const handleMatriculaUpload = useCallback(async (file: File) => {
+    setMatriculaUploading(true);
+    try {
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        const base64 = (e.target?.result as string).split(",")[1];
+        try {
+          const ocrRes = await ocrInlineMutation.mutateAsync({
+            fileBase64: base64,
+            mimeType: file.type,
+            fileName: file.name,
+            docType: "matricula",
+          });
+          const fields = ocrRes?.fields as Record<string, string> | undefined;
+          if (fields) {
+            setNewDeal((prev) => ({
+              ...prev,
+              registration: fields.matricula || prev.registration,
+              registryOffice: fields.cartorio || prev.registryOffice,
+              propertyDescription: fields.descricao_imovel || prev.propertyDescription,
+            }));
+            toast.success("OCR da matrícula concluído — campos preenchidos!");
+          } else {
+            toast.success("Matrícula enviada.");
+          }
+          setMatriculaFileName(file.name);
+        } catch {
+          toast.error("Erro ao processar OCR da matrícula.");
+        }
+        setMatriculaUploading(false);
+      };
+      reader.readAsDataURL(file);
+    } catch {
+      setMatriculaUploading(false);
+      toast.error("Erro ao ler o arquivo.");
+    }
+  }, [ocrInlineMutation]);
 
   const [newDeal, setNewDeal] = useState({
     type: "venda" as DealType,
@@ -597,6 +641,41 @@ export default function Negocios() {
                           </div>
                         )}
                       </div>
+                    </div>
+
+                    {/* Matricula Upload */}
+                    <div className="border border-dashed border-blue-200 rounded-lg p-3 bg-blue-50/50">
+                      <p className="text-xs font-semibold text-blue-700 mb-2">Matrícula do Imóvel — OCR preenche campos automaticamente</p>
+                      <input
+                        ref={matriculaFileRef}
+                        type="file"
+                        accept="image/*,.pdf"
+                        className="hidden"
+                        onChange={(e) => {
+                          const f = e.target.files?.[0];
+                          if (f) handleMatriculaUpload(f);
+                          e.target.value = "";
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => matriculaFileRef.current?.click()}
+                        disabled={matriculaUploading}
+                        className={`w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg border text-xs font-medium transition-all ${
+                          matriculaFileName
+                            ? "border-green-400 bg-green-50 text-green-700"
+                            : "border-blue-300 bg-white text-blue-600 hover:bg-blue-50"
+                        } disabled:opacity-50`}
+                      >
+                        {matriculaUploading ? (
+                          <><Loader2 className="w-4 h-4 animate-spin" /> Processando OCR...</>
+                        ) : matriculaFileName ? (
+                          <><CheckCircle2 className="w-4 h-4 text-green-500" /> {matriculaFileName}</>
+                        ) : (
+                          <><Upload className="w-4 h-4" /> Enviar matrícula (PDF ou imagem)</>
+                        )}
+                      </button>
+                      <p className="text-gray-400 text-xs mt-1">O OCR extrairá número da matrícula e cartório automaticamente</p>
                     </div>
 
                     {/* Registry */}

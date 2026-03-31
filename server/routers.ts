@@ -526,6 +526,76 @@ Retorne confidence (0-100) indicando a qualidade da extração.`,
       await deleteDocument(input.id);
       return { success: true };
     }),
+    // Inline OCR: accepts base64 directly, uploads to S3, runs OCR, returns extracted fields
+    // Used in modals where there is no pre-existing documentId (e.g., Novo Cliente)
+    ocrInline: protectedProcedure.input(z.object({
+      fileBase64: z.string(),
+      mimeType: z.string(),
+      fileName: z.string(),
+      docType: z.string(),
+    })).mutation(async ({ ctx, input }) => {
+      // Upload to S3
+      const fileBuffer = Buffer.from(input.fileBase64, 'base64');
+      const fileKey = `documents/${ctx.user.id}/inline-${nanoid()}-${input.fileName}`;
+      const { url: fileUrl } = await storagePut(fileKey, fileBuffer, input.mimeType);
+      // Run OCR via LLM
+      const response = await invokeLLM({
+        messages: [
+          {
+            role: 'system',
+            content: `Você é um sistema especializado em OCR de documentos brasileiros.
+Analise a imagem do documento e extraia os dados estruturados.
+Retorne APENAS um JSON válido com os campos encontrados.
+Para documentos de identidade (RG, CNH, CPF), extraia: nome, cpf, rg, data_nascimento, nome_mae, nome_pai, orgao_emissor, categoria_cnh (se CNH).
+Para comprovante de residência: nome, endereco, cidade, estado, cep.
+Para matrícula de imóvel: descricao_imovel, matricula, cartorio.
+Nunca use o nome do arquivo como nome da pessoa.
+Retorne confidence (0-100) indicando a qualidade da extração.`,
+          },
+          {
+            role: 'user',
+            content: [
+              { type: 'text', text: `Extraia os dados deste documento do tipo: ${input.docType}` },
+              { type: 'image_url', image_url: { url: fileUrl, detail: 'high' } },
+            ],
+          },
+        ],
+        response_format: {
+          type: 'json_schema',
+          json_schema: {
+            name: 'ocr_result',
+            strict: true,
+            schema: {
+              type: 'object',
+              properties: {
+                nome: { type: 'string' },
+                cpf: { type: 'string' },
+                rg: { type: 'string' },
+                data_nascimento: { type: 'string' },
+                nome_mae: { type: 'string' },
+                nome_pai: { type: 'string' },
+                orgao_emissor: { type: 'string' },
+                categoria_cnh: { type: 'string' },
+                endereco: { type: 'string' },
+                cidade: { type: 'string' },
+                estado: { type: 'string' },
+                cep: { type: 'string' },
+                descricao_imovel: { type: 'string' },
+                matricula: { type: 'string' },
+                cartorio: { type: 'string' },
+                tipo_documento: { type: 'string' },
+                confidence: { type: 'number' },
+              },
+              required: ['confidence', 'tipo_documento'],
+              additionalProperties: false,
+            },
+          },
+        },
+      });
+      const content = response.choices[0]?.message?.content;
+      const ocrFields = typeof content === 'string' ? JSON.parse(content) : content;
+      return { success: true, fields: ocrFields, confidence: ocrFields.confidence || 0, fileUrl };
+    }),
   }),
   // ─── Document Groups ────────────────────────────────────────────────────────
   documentGroups: router({

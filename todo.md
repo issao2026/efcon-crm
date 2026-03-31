@@ -324,3 +324,17 @@
 - [x] Seção "Identificação do Imóvel": botão "Enviar Matrícula" (PDF/imagem) com upload ao S3 + OCR
 - [x] OCR extrai número da matrícula e cartório de registro automaticamente
 - [x] Exibir preview do arquivo enviado (nome + ícone) e campos pré-preenchidos
+
+## Phase 29 — Upload Documentos com OCR no Modal Novo Cliente + Novo Negócio
+- [ ] Modal Novo Cliente (Clientes.tsx): seção "Documentos" com botões de upload por tipo (RG, CPF, CNH, Comprovante de Endereço)
+- [ ] OCR preenche automaticamente: nome, CPF, RG, endereço, data de nascimento, estado civil, profissão, nacionalidade
+- [ ] Preview do arquivo enviado com nome + link "Ver"
+- [ ] Modal Novo Negócio (Negocios.tsx): botão "Enviar Matrícula" na seção Detalhes do Imóvel com upload S3 + OCR
+- [ ] OCR preenche automaticamente campos Matrícula e Cartório de Registro no Novo Negócio
+
+## Phase 29 — OCR Upload in Novo Cliente + Novo Negócio Modals
+
+- [x] Add `documents.ocrInline` tRPC procedure: accepts base64 directly (no pre-existing documentId), uploads to S3, runs LLM OCR, returns extracted fields + fileUrl
+- [x] Add document upload section in "Novo Cliente" modal (Clientes.tsx): 4 buttons for RG, CPF, CNH, Comprovante de Endereço — each triggers OCR and auto-fills name, CPF, RG, birthDate, address, motherName, fatherName
+- [x] Add matrícula upload button in "Novo Negócio" modal property section (Negocios.tsx): OCR extracts matricula number, cartório, and property description — auto-fills registration, registryOffice, propertyDescription fields
+- [x] 16 tests passing

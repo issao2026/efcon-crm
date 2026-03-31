@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useCallback } from "react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -38,6 +38,12 @@ import {
   Phone,
   Mail,
   User,
+  Loader2,
+  CheckCircle2,
+  IdCard,
+  CreditCard,
+  Car,
+  Home as HomeIcon,
 } from "lucide-react";
 import { Link } from "wouter";
 
@@ -108,6 +114,16 @@ export default function Clientes() {
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // New client modal: inline doc upload state
+  const [newClientDocUploading, setNewClientDocUploading] = useState<string | null>(null); // docType being uploaded
+  const [newClientDocs, setNewClientDocs] = useState<Record<string, { name: string; url: string }>>({});
+  const newClientFileRefs = {
+    rg: useRef<HTMLInputElement>(null),
+    cpf: useRef<HTMLInputElement>(null),
+    cnh: useRef<HTMLInputElement>(null),
+    comprovante_residencia: useRef<HTMLInputElement>(null),
+  };
+
   const [newClient, setNewClient] = useState({
     name: "",
     cpfCnpj: "",
@@ -146,6 +162,8 @@ export default function Clientes() {
     onError: (e) => toast.error("Erro ao remover: " + e.message),
   });
 
+  const ocrInlineMutation = trpc.documents.ocrInline.useMutation();
+
   const uploadDocMutation = trpc.clients.uploadDocument.useMutation({
     onSuccess: () => {
       toast.success("Documento enviado com sucesso!");
@@ -164,6 +182,52 @@ export default function Clientes() {
       (c.email ?? "").toLowerCase().includes(q)
     );
   });
+
+  const handleNewClientDocUpload = useCallback(async (docType: string, file: File) => {
+    setNewClientDocUploading(docType);
+    try {
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        const base64 = (e.target?.result as string).split(",")[1];
+        try {
+          const ocrRes = await ocrInlineMutation.mutateAsync({
+            fileBase64: base64,
+            mimeType: file.type,
+            fileName: file.name,
+            docType: docType,
+          });
+          const fields = ocrRes?.fields as Record<string, string> | undefined;
+          if (fields) {
+            setNewClient((prev) => ({
+              ...prev,
+              name: fields.nome || prev.name,
+              cpfCnpj: fields.cpf || prev.cpfCnpj,
+              rg: fields.rg || prev.rg,
+              birthDate: fields.data_nascimento || prev.birthDate,
+              address: [
+                fields.endereco,
+                fields.cidade ? `${fields.cidade}${fields.estado ? "/" + fields.estado : ""}` : "",
+                fields.cep ? `CEP ${fields.cep}` : "",
+              ].filter(Boolean).join(", ") || prev.address,
+              motherName: fields.nome_mae || prev.motherName,
+              fatherName: fields.nome_pai || prev.fatherName,
+            }));
+            toast.success(`OCR do ${DOC_TYPE_LABELS[docType] ?? docType} concluído — campos preenchidos!`);
+          } else {
+            toast.success(`Documento ${DOC_TYPE_LABELS[docType] ?? docType} enviado.`);
+          }
+          setNewClientDocs((prev) => ({ ...prev, [docType]: { name: file.name, url: ocrRes?.fileUrl ?? "" } }));
+        } catch {
+          toast.error("Erro ao processar OCR do documento.");
+        }
+        setNewClientDocUploading(null);
+      };
+      reader.readAsDataURL(file);
+    } catch {
+      setNewClientDocUploading(null);
+      toast.error("Erro ao ler o arquivo.");
+    }
+  }, [ocrInlineMutation]);
 
   async function handleUploadDoc() {
     if (!uploadDocFile || !showDocsModal) return;
@@ -446,6 +510,62 @@ export default function Clientes() {
                 />
               </div>
             </div>
+            {/* Document Upload Section */}
+            <div className="border border-[#1e2d47] rounded-lg p-4 mt-2" style={{ background: "#060d1a" }}>
+              <p className="text-xs font-semibold text-slate-300 mb-3 uppercase tracking-wide">Documentos — OCR preenche campos automaticamente</p>
+              <div className="grid grid-cols-2 gap-2">
+                {([
+                  { type: "rg", label: "RG", icon: <IdCard className="w-4 h-4" /> },
+                  { type: "cpf", label: "CPF", icon: <CreditCard className="w-4 h-4" /> },
+                  { type: "cnh", label: "CNH", icon: <Car className="w-4 h-4" /> },
+                  { type: "comprovante_residencia", label: "Comprovante de Endereço", icon: <HomeIcon className="w-4 h-4" /> },
+                ] as const).map(({ type, label, icon }) => (
+                  <div key={type}>
+                    <input
+                      ref={newClientFileRefs[type]}
+                      type="file"
+                      accept="image/*,.pdf"
+                      className="hidden"
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        if (f) handleNewClientDocUpload(type, f);
+                        e.target.value = "";
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => newClientFileRefs[type].current?.click()}
+                      disabled={newClientDocUploading === type}
+                      className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg border text-xs transition-all ${
+                        newClientDocs[type]
+                          ? "border-green-500/40 bg-green-500/10 text-green-300"
+                          : "border-[#1e2d47] bg-[#0d1526] text-slate-400 hover:border-blue-500/40 hover:text-white"
+                      } disabled:opacity-50`}
+                    >
+                      {newClientDocUploading === type ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : newClientDocs[type] ? (
+                        <CheckCircle2 className="w-4 h-4 text-green-400" />
+                      ) : (
+                        icon
+                      )}
+                      <span className="truncate">
+                        {newClientDocUploading === type
+                          ? "Processando..."
+                          : newClientDocs[type]
+                          ? newClientDocs[type].name
+                          : `Enviar ${label}`}
+                      </span>
+                      {!newClientDocs[type] && newClientDocUploading !== type && (
+                        <Upload className="w-3 h-3 ml-auto flex-shrink-0" />
+                      )}
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <p className="text-slate-600 text-xs mt-2">JPG, PNG ou PDF — máx. 10 MB por arquivo</p>
+            </div>
+
             <div className="flex gap-3 pt-2">
               <Button
                 variant="outline"
