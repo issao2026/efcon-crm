@@ -548,20 +548,27 @@ Retorne confidence (0-100) indicando a qualidade da extração.`,
         messages: [
           {
             role: 'system',
-            content: `Você é um sistema especializado em OCR de documentos brasileiros.
+content: input.docType === 'matricula'
+              ? `Você é um extrator especializado em matrículas imobiliárias brasileiras.
+
+Analise o documento e retorne APENAS um objeto JSON válido, sem texto adicional, sem markdown, sem explicações.
+
+Regras:
+- Proprietário atual = último nome que recebeu o imóvel por venda, dação ou cessão
+- Se um campo não existir no documento, retorne string vazia ""
+- area_total = área privativa + área comum quando ambas existirem
+- valor = extrair o valor proporcional ao imóvel desta matrícula, não o valor total da operação
+- tipo_imovel = inferir pelo contexto (unidade autônoma em condomínio de lotes = Lote)
+- Retorne SOMENTE o JSON, sem qualquer texto antes ou depois
+- confidence = 0 a 100 indicando qualidade da extração
+- tipo_documento = sempre "matricula"`
+              : `Você é um sistema especializado em OCR de documentos brasileiros.
 Analise o documento e extraia os dados estruturados. Leia TODAS as páginas do documento.
 Retorne APENAS um JSON válido com os campos encontrados.
 Para documentos de identidade (RG, CNH, CPF): extraia nome, cpf, rg, data_nascimento, nome_mae, nome_pai, orgao_emissor, categoria_cnh (se CNH).
 Para CNH: também extraia profissao (campo "Categoria" ou profissão declarada), estado_civil se visível.
 Para RG: extraia profissao se constar no documento, estado_civil se visível, endereco se constar no verso.
 Para comprovante de residência: nome, endereco, cidade, estado, cep.
-Para matrícula de imóvel: leia TODAS as páginas e extraia:
-- descricao_imovel: descrição completa do imóvel (tipo, quartos, área, características)
-- matricula: número da matrícula (geralmente aparece como "Matrícula nº XXXXX" ou "Mat. XXXXX")
-- cartorio: nome completo do cartório de registro de imóveis
-- endereco_imovel: endereço completo do imóvel (logradouro, número, bairro, cidade, estado, CEP)
-- area_total: área total em m² (procure por "área total", "área privativa", "área construída")
-- proprietario_atual: nome do proprietário atual (último transmitente ou proprietário registrado)
 Se o documento tiver endereço no verso, inclua no campo endereco.
 Nunca use o nome do arquivo como nome da pessoa.
 IMPORTANTE: Nunca retorne null para nenhum campo. Se um campo não for encontrado, retorne string vazia "".
@@ -601,8 +608,20 @@ Retorne confidence (0-100) indicando a qualidade da extração.`,
                 matricula: { type: 'string' },
                 cartorio: { type: 'string' },
                 endereco_imovel: { type: 'string' },
+                bairro: { type: 'string' },
+                cidade_imovel: { type: 'string' },
+                estado_imovel: { type: 'string' },
+                cep_imovel: { type: 'string' },
                 area_total: { type: 'string' },
+                area_privativa: { type: 'string' },
+                area_comum: { type: 'string' },
+                tipo_imovel: { type: 'string' },
+                valor: { type: 'string' },
                 proprietario_atual: { type: 'string' },
+                cnpj_cpf_proprietario: { type: 'string' },
+                data_ultimo_registro: { type: 'string' },
+                numero_registro: { type: 'string' },
+                situacao_imovel: { type: 'string' },
                 tipo_documento: { type: 'string' },
                 confidence: { type: 'number' },
               },

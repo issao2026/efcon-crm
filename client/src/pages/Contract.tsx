@@ -47,9 +47,22 @@ interface ContractFormData {
   // Imóvel
   imovelDescricao: string;
   imovelEndereco: string;
+  imovelBairro: string;
+  imovelCidade: string;
+  imovelEstado: string;
+  imovelCep: string;
   imovelMatricula: string;
   imovelCartorio: string;
   imovelAreaTotal: string;
+  imovelAreaPrivativa: string;
+  imovelAreaComum: string;
+  imovelTipo: string;
+  imovelValorVenal: string;
+  imovelProprietarioAtual: string;
+  imovelCnpjCpfProprietario: string;
+  imovelDataUltimoRegistro: string;
+  imovelNumeroRegistro: string;
+  imovelSituacao: string;
   imovelItens: string;
   // Financeiro
   valorTotal: string;
@@ -111,7 +124,10 @@ const INITIAL_FORM: ContractFormData = {
   vendedores: [makeParty()],
   compradores: [makeParty()],
   corretores: [makeBroker()],
-  imovelDescricao: "", imovelEndereco: "", imovelMatricula: "", imovelCartorio: "", imovelAreaTotal: "", imovelItens: "",
+  imovelDescricao: "", imovelEndereco: "", imovelBairro: "", imovelCidade: "", imovelEstado: "", imovelCep: "",
+  imovelMatricula: "", imovelCartorio: "", imovelAreaTotal: "", imovelAreaPrivativa: "", imovelAreaComum: "",
+  imovelTipo: "", imovelValorVenal: "", imovelProprietarioAtual: "", imovelCnpjCpfProprietario: "",
+  imovelDataUltimoRegistro: "", imovelNumeroRegistro: "", imovelSituacao: "", imovelItens: "",
   valorTotal: "", valorSinal: "", valorFinanciamento: "", formaPagamento: "À vista",
   dataVencimento: "", testemunha1Nome: "", testemunha1Cpf: "", testemunha2Nome: "", testemunha2Cpf: "",
   prazoEntregaPosse: "30 dias após assinatura", condicaoEntregaPosse: "livre e desembaraçado de quaisquer ônus",
@@ -948,20 +964,26 @@ export default function Contract() {
       const f = res?.fields as Record<string, string> | undefined;
       if (f) {
         onResult(f);
-        if (key.startsWith("imovel")) {
+          if (key.startsWith("imovel")) {
           const fileUrl = (res as any)?.fileUrl;
           setOcrMatriculaFile({ name: file.name, url: fileUrl });
           // Show toast with extracted fields
           const extracted: string[] = [];
-          if (f.descricao_imovel) extracted.push(`Descrição: ${f.descricao_imovel.slice(0, 60)}...`);
-          if (f.endereco_imovel) extracted.push(`Endereço: ${f.endereco_imovel}`);
+          if (f.tipo_imovel) extracted.push(`Tipo: ${f.tipo_imovel}`);
           if (f.matricula) extracted.push(`Matrícula: ${f.matricula}`);
-          if (f.cartorio) extracted.push(`Cartório: ${f.cartorio}`);
-          if (f.area_total) extracted.push(`Área: ${f.area_total}`);
+          if (f.cartorio) extracted.push(`Cartório: ${f.cartorio.slice(0, 40)}`);
+          if (f.endereco_imovel) extracted.push(`Endereço: ${f.endereco_imovel.slice(0, 50)}`);
+          if (f.bairro) extracted.push(`Bairro: ${f.bairro}`);
+          if (f.cidade_imovel) extracted.push(`Cidade: ${f.cidade_imovel}`);
+          if (f.area_total) extracted.push(`Área total: ${f.area_total} m²`);
+          if (f.area_privativa) extracted.push(`Área privativa: ${f.area_privativa} m²`);
+          if (f.proprietario_atual) extracted.push(`Proprietário: ${f.proprietario_atual.slice(0, 40)}`);
+          if (f.situacao_imovel) extracted.push(`Situação: ${f.situacao_imovel}`);
+          if (f.descricao_imovel) extracted.push(`Descrição: ${f.descricao_imovel.slice(0, 60)}`);
           if (extracted.length > 0) {
             toast.success(`OCR concluído — ${extracted.length} campo(s) preenchido(s)`, {
-              description: extracted.slice(0, 3).join(' | '),
-              duration: 6000,
+              description: extracted.slice(0, 4).join(' | '),
+              duration: 8000,
             });
           } else {
             toast.warning("OCR concluído mas nenhum campo foi extraído. Verifique a qualidade do documento.");
@@ -1361,12 +1383,24 @@ export default function Contract() {
                         if (f) handleOcr(f, "imovel", (fields) => {
                           setForm((prev) => ({
                             ...prev,
-                            // Always overwrite with OCR value if non-empty
                             imovelDescricao: fields.descricao_imovel?.trim() || prev.imovelDescricao,
                             imovelMatricula: fields.matricula?.trim() || prev.imovelMatricula,
                             imovelCartorio: fields.cartorio?.trim() || prev.imovelCartorio,
                             imovelEndereco: fields.endereco_imovel?.trim() || prev.imovelEndereco,
+                            imovelBairro: fields.bairro?.trim() || prev.imovelBairro,
+                            imovelCidade: fields.cidade_imovel?.trim() || prev.imovelCidade,
+                            imovelEstado: fields.estado_imovel?.trim() || prev.imovelEstado,
+                            imovelCep: fields.cep_imovel?.trim() || prev.imovelCep,
                             imovelAreaTotal: fields.area_total?.trim() || prev.imovelAreaTotal,
+                            imovelAreaPrivativa: fields.area_privativa?.trim() || prev.imovelAreaPrivativa,
+                            imovelAreaComum: fields.area_comum?.trim() || prev.imovelAreaComum,
+                            imovelTipo: fields.tipo_imovel?.trim() || prev.imovelTipo,
+                            imovelValorVenal: fields.valor?.trim() || prev.imovelValorVenal,
+                            imovelProprietarioAtual: fields.proprietario_atual?.trim() || prev.imovelProprietarioAtual,
+                            imovelCnpjCpfProprietario: fields.cnpj_cpf_proprietario?.trim() || prev.imovelCnpjCpfProprietario,
+                            imovelDataUltimoRegistro: fields.data_ultimo_registro?.trim() || prev.imovelDataUltimoRegistro,
+                            imovelNumeroRegistro: fields.numero_registro?.trim() || prev.imovelNumeroRegistro,
+                            imovelSituacao: fields.situacao_imovel?.trim() || prev.imovelSituacao,
                           }));
                           e.target.value = "";
                         });
@@ -1393,11 +1427,24 @@ export default function Contract() {
                 </div>
               )}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <Field label="Tipo do imóvel" value={form.imovelTipo} onChange={(v) => setField("imovelTipo", v)} placeholder="Ex: Apartamento, Casa, Lote, Sala Comercial" />
+                <Field label="Situação" value={form.imovelSituacao} onChange={(v) => setField("imovelSituacao", v)} placeholder="Ex: Livre e desembaraçado" />
                 <Field label="Descrição do imóvel" value={form.imovelDescricao} onChange={(v) => setField("imovelDescricao", v)} required placeholder="Ex: Apartamento, 3 quartos, 2 banheiros" className="md:col-span-2" />
-                <Field label="Endereço do imóvel" value={form.imovelEndereco} onChange={(v) => setField("imovelEndereco", v)} required placeholder="Endereço completo do imóvel" className="md:col-span-2" />
+                <Field label="Endereço do imóvel" value={form.imovelEndereco} onChange={(v) => setField("imovelEndereco", v)} required placeholder="Logradouro e número" className="md:col-span-2" />
+                <Field label="Bairro" value={form.imovelBairro} onChange={(v) => setField("imovelBairro", v)} placeholder="Bairro" />
+                <Field label="CEP" value={form.imovelCep} onChange={(v) => setField("imovelCep", v)} placeholder="00000-000" />
+                <Field label="Cidade" value={form.imovelCidade} onChange={(v) => setField("imovelCidade", v)} placeholder="Cidade" />
+                <Field label="Estado" value={form.imovelEstado} onChange={(v) => setField("imovelEstado", v)} placeholder="UF" />
                 <Field label="Matrícula" value={form.imovelMatricula} onChange={(v) => setField("imovelMatricula", v)} placeholder="Nº da matrícula" />
                 <Field label="Cartório de Registro" value={form.imovelCartorio} onChange={(v) => setField("imovelCartorio", v)} placeholder="Nome do cartório" />
+                <Field label="Nº do Registro" value={form.imovelNumeroRegistro} onChange={(v) => setField("imovelNumeroRegistro", v)} placeholder="Ex: R-1" />
+                <Field label="Data do último registro" value={form.imovelDataUltimoRegistro} onChange={(v) => setField("imovelDataUltimoRegistro", v)} placeholder="Ex: 15/03/2023" />
                 <Field label="Área total (m²)" value={form.imovelAreaTotal} onChange={(v) => setField("imovelAreaTotal", v)} placeholder="Ex: 98,50" />
+                <Field label="Área privativa (m²)" value={form.imovelAreaPrivativa} onChange={(v) => setField("imovelAreaPrivativa", v)} placeholder="Ex: 72,00" />
+                <Field label="Área comum (m²)" value={form.imovelAreaComum} onChange={(v) => setField("imovelAreaComum", v)} placeholder="Ex: 26,50" />
+                <Field label="Valor venal / declarado (R$)" value={form.imovelValorVenal} onChange={(v) => setField("imovelValorVenal", v)} placeholder="Ex: 320.000,00" />
+                <Field label="Proprietário atual (matrícula)" value={form.imovelProprietarioAtual} onChange={(v) => setField("imovelProprietarioAtual", v)} placeholder="Nome conforme matrícula" className="md:col-span-2" />
+                <Field label="CPF/CNPJ do proprietário" value={form.imovelCnpjCpfProprietario} onChange={(v) => setField("imovelCnpjCpfProprietario", v)} placeholder="Ex: 123.456.789-00" />
                 <Field label="Itens que permanecem no imóvel" value={form.imovelItens} onChange={(v) => setField("imovelItens", v)} placeholder="Ex: Armários embutidos, ar-condicionado..." className="md:col-span-2" />
               </div>
             </Section>

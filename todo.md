@@ -429,3 +429,9 @@
 - [x] Melhorar prompt OCR para extrair: número matrícula, cartório, endereço completo, área total, área construída, descrição do imóvel, cidade, estado, inscrição municipal, confrontações
 - [x] Preencher automaticamente todos os campos do Step 2 do wizard após OCR
 - [x] Mostrar toast de sucesso com campos extraídos após OCR
+
+## Phase 41 — Prompt OCR Especializado (Matrícula)
+
+- [ ] Substituir prompt OCR da matrícula pelo prompt especializado do usuário
+- [ ] Atualizar JSON schema com novos campos: tipo_imovel, bairro, cidade, estado, cep, area_privativa, area_comum, valor, cnpj_cpf_proprietario, data_ultimo_registro, numero_registro, situacao_imovel
+- [ ] Mapear novos campos no frontend (Contract.tsx, Imoveis.tsx, Negocios.tsx)
