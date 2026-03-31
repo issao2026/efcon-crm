@@ -12,11 +12,13 @@ import PizZip from 'pizzip';
 import Docxtemplater from 'docxtemplater';
 import mammoth from 'mammoth';
 import puppeteer from 'puppeteer-core';
-import { execSync } from 'child_process';
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
+import { execSync, spawn } from 'child_process';
+import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, unlinkSync, rmdirSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { tmpdir } from 'os';
+import sharp from 'sharp';
+import PDFDocument from 'pdfkit';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -339,44 +341,23 @@ function findChromium(): string {
 }
 
 export async function generateContractPdf(fields: ContractFields): Promise<Buffer> {
-  const { bodyHtml, mascaraUri } = await prepareContractHtml(fields);
+  const { bodyHtml } = await prepareContractHtml(fields);
 
-  const fullHtml = `<!DOCTYPE html>
+  // ── Pass 1: Puppeteer renders text-only PDF with correct margins ──────────
+  const textHtml = `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  @page { size: A4; margin: 0; }
+  @page { size: A4; }
   html, body {
-    width: 210mm;
     background: white;
     font-family: Arial, Helvetica, sans-serif;
     font-size: 9.5pt;
     color: #111;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
-  }
-  .mascara {
-    position: fixed;
-    top: 0; left: 0;
-    width: 210mm;
-    height: 297mm;
-    z-index: 0;
-    pointer-events: none;
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
-  }
-  .mascara img {
-    width: 210mm;
-    height: 297mm;
-    display: block;
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
-  }
-  .content {
-    position: relative;
-    z-index: 1;
   }
   h1, h2, h3 {
     font-size: 9.5pt;
@@ -396,16 +377,11 @@ export async function generateContractPdf(fields: ContractFields): Promise<Buffe
     font-size: 9pt;
   }
   td, th { border: 1px solid #ccc; padding: 4px 6px; }
-  p, h1, h2, h3 { page-break-inside: avoid; }
+  p, h1, h2, h3, li, table { page-break-inside: avoid; }
 </style>
 </head>
 <body>
-<div class="mascara" aria-hidden="true">
-  <img src="${mascaraUri}" alt="">
-</div>
-<div class="content">
 ${bodyHtml}
-</div>
 </body>
 </html>`;
 
@@ -415,27 +391,107 @@ ${bodyHtml}
     headless: true,
   });
 
+  let textPdfBuffer: Buffer;
   try {
     const page = await browser.newPage();
     await page.setViewport({ width: 794, height: 1123 });
-    await page.setContent(fullHtml, { waitUntil: 'networkidle0', timeout: 30000 });
-
-    const pdfBuffer = await page.pdf({
+    await page.setContent(textHtml, { waitUntil: 'networkidle0', timeout: 30000 });
+    const raw = await page.pdf({
       format: 'A4',
-      printBackground: true,
+      printBackground: false,
       displayHeaderFooter: false,
-      margin: {
-        top: '52mm',
-        right: '20mm',
-        bottom: '82mm',
-        left: '20mm',
-      },
+      margin: { top: '52mm', right: '20mm', bottom: '82mm', left: '20mm' },
     });
-
-    return Buffer.from(pdfBuffer);
+    textPdfBuffer = Buffer.from(raw);
   } finally {
     await browser.close();
   }
+
+  // ── Pass 2: Compose mascara onto every page using sharp + pdftoppm + PDFKit ─
+  const workDir = join(tmpdir(), `efcon-compose-${Date.now()}`);
+  mkdirSync(workDir, { recursive: true });
+
+  // Write text PDF to temp file
+  const textPdfPath = join(workDir, 'text.pdf');
+  writeFileSync(textPdfPath, textPdfBuffer);
+
+  // Resolve mascara PNG path
+  const mascaraPaths = [
+    join(__dirname, 'mascara_bg.png'),
+    join(process.cwd(), 'server/mascara_bg.png'),
+    '/home/ubuntu/efcon-crm/server/mascara_bg.png',
+    '/home/ubuntu/webdev-static-assets/mascara_bg.png',
+  ];
+  let mascaraPath = '';
+  for (const p of mascaraPaths) {
+    if (existsSync(p)) { mascaraPath = p; break; }
+  }
+  if (!mascaraPath) throw new Error('mascara_bg.png not found');
+
+  // Convert PDF pages to PNG using pdftoppm
+  const pagePrefix = join(workDir, 'page');
+  await new Promise<void>((resolve, reject) => {
+    const proc = spawn('pdftoppm', ['-r', '150', '-png', textPdfPath, pagePrefix]);
+    proc.on('close', (code, signal) => {
+      if (code !== 0) reject(new Error(`pdftoppm exit ${code} signal ${signal}`));
+      else resolve();
+    });
+    proc.on('error', reject);
+  });
+
+  // Find generated page files
+  const pageFiles = readdirSync(workDir)
+    .filter(f => f.startsWith('page') && f.endsWith('.png'))
+    .sort()
+    .map(f => join(workDir, f));
+
+  if (pageFiles.length === 0) throw new Error('pdftoppm produced no pages');
+
+  // Compose mascara onto each page using sharp multiply blend
+  const composedFiles: string[] = [];
+  for (const pageFile of pageFiles) {
+    const pageMeta = await sharp(pageFile).metadata();
+    const w = pageMeta.width!;
+    const h = pageMeta.height!;
+
+    const mascaraResized = await sharp(mascaraPath)
+      .resize(w, h, { fit: 'fill' })
+      .toBuffer();
+
+    const composedFile = pageFile.replace('.png', '_c.png');
+    await sharp(pageFile)
+      .composite([{ input: mascaraResized, blend: 'multiply' }])
+      .png()
+      .toFile(composedFile);
+
+    composedFiles.push(composedFile);
+  }
+
+  // Build final PDF from composed PNGs using PDFKit (A4 = 595.28 x 841.89 pt)
+  const A4_W = 595.28;
+  const A4_H = 841.89;
+
+  const finalPdfBuffer = await new Promise<Buffer>((resolve, reject) => {
+    const doc = new PDFDocument({ autoFirstPage: false, margin: 0 });
+    const chunks: Buffer[] = [];
+    doc.on('data', (chunk: Buffer) => chunks.push(chunk));
+    doc.on('end', () => resolve(Buffer.concat(chunks)));
+    doc.on('error', reject);
+
+    for (const composedFile of composedFiles) {
+      doc.addPage({ size: [A4_W, A4_H], margin: 0 });
+      doc.image(composedFile, 0, 0, { width: A4_W, height: A4_H });
+    }
+    doc.end();
+  });
+
+  // Cleanup temp files
+  try {
+    for (const f of readdirSync(workDir)) unlinkSync(join(workDir, f));
+    rmdirSync(workDir);
+  } catch {}
+
+  return finalPdfBuffer;
 }
 
 export async function generateContractHtml(fields: ContractFields): Promise<string> {
