@@ -516,32 +516,8 @@ export async function generateContractPdf(fields: ContractFields): Promise<Buffe
       format: 'A4',
       printBackground: true,
       displayHeaderFooter: true,
-      headerTemplate: `<div style="
-    width: 210mm;
-    height: 40mm;
-    margin: 0;
-    padding: 0;
-    overflow: hidden;
-    background-image: url('${mascaraUri}');
-    background-size: 210mm 297mm;
-    background-repeat: no-repeat;
-    background-position: top left;
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
-  "></div>`,
-      footerTemplate: `<div style="
-    width: 210mm;
-    height: 60mm;
-    margin: 0;
-    padding: 0;
-    overflow: hidden;
-    background-image: url('${mascaraUri}');
-    background-size: 210mm 297mm;
-    background-repeat: no-repeat;
-    background-position: bottom left;
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
-  "></div>`,
+      headerTemplate: `<style>* { margin: 0; padding: 0; box-sizing: border-box; }</style><div style="width: 210mm; height: 53.3mm; overflow: hidden; background-image: url('${mascaraUri}'); background-size: 210mm 396mm; background-repeat: no-repeat; background-position: top left; -webkit-print-color-adjust: exact; print-color-adjust: exact;"></div>`,
+      footerTemplate: `<style>* { margin: 0; padding: 0; box-sizing: border-box; }</style><div style="width: 210mm; height: 80mm; overflow: hidden; background-image: url('${mascaraUri}'); background-size: 210mm 396mm; background-repeat: no-repeat; background-position: bottom left; -webkit-print-color-adjust: exact; print-color-adjust: exact;"></div>`,
       margin: {
         top: '40mm',
         right: '20mm',

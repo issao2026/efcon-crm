@@ -452,3 +452,9 @@
 - [x] Substituir bloco page.pdf(): headerTemplate height=40mm = margin.top=40mm, footerTemplate height=60mm = margin.bottom=60mm
 - [x] Usar background-size: 210mm 297mm (A4 completo) nos templates
 - [x] Usar unidades mm em vez de cm nos templates
+
+## Phase 45 — Ajuste de Escala 0.75 nos Templates Puppeteer
+- [x] Aplicar fator de escala 0.75 no headerTemplate: height 53.3mm (= 40mm ÷ 0.75)
+- [x] Aplicar fator de escala 0.75 no footerTemplate: height 80mm (= 60mm ÷ 0.75)
+- [x] Ajustar background-size para 210mm 396mm (= 297mm ÷ 0.75)
+- [x] Manter margens reais: top 40mm, bottom 60mm, left/right 20mm
