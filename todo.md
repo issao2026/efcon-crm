@@ -397,3 +397,25 @@
 - [x] Painel inline azul com campos Nome, WhatsApp, E-mail editáveis
 - [x] Salvar alterações localmente via localParties state (atualiza WA/email links em tempo real)
 - [x] Fechar painel ao clicar em "Salvar" ou "Cancelar"
+
+## Phase 38 — OCR Matrícula: Transcrição Completa + Fix Null
+
+- [ ] Servidor: nova procedure ocrFullText que extrai texto integral do documento (sem JSON schema)
+- [ ] Corrigir campos null: filtrar valores null/undefined para string vazia no handleMatriculaOcr (Contratos.tsx e Contract.tsx)
+- [ ] Wizard etapa 2: botão "Transcrição Completa" que exibe o texto integral da matrícula em textarea editável
+- [ ] Contract.tsx seção imóvel: mesmo botão de transcrição completa
+- [ ] Melhorar prompt ocrInline para matrícula: instruir a não retornar null, usar string vazia se não encontrar
+
+## Phase 38b — Corrigir Margens do PDF (texto sobre cabeçalho/rodapé)
+
+- [ ] Medir altura exata do cabeçalho e rodapé da máscara em pixels/mm
+- [ ] Ajustar margem superior (top) do conteúdo para não sobrepor o cabeçalho
+- [ ] Ajustar margem inferior (bottom) do conteúdo para não sobrepor o rodapé
+- [ ] Testar geração do PDF e verificar alinhamento
+
+## Phase 38b — Ficha do Cliente + Margens PDF
+- [x] Criar ClienteFichaModal com dois painéis: dados editáveis (esquerda) + documentos digitalizados (direita)
+- [x] Clicar no nome do cliente abre a ficha completa
+- [x] Upload de documento na ficha com OCR automático que preenche campos
+- [x] Visualização de documentos com preview e download
+- [x] Corrigir margens do PDF: header 42mm, footer 58mm (texto não sobrepõe mais a máscara)

@@ -454,14 +454,19 @@ export async function generateContractPdf(fields: ContractFields): Promise<Buffe
 
   // Mascara layout analysis (precise pixel scan of mascara_b64.txt, 1241x1754px = A4 @ 150dpi):
   //   - Header dark band: rows 0–177px = 0–30mm from top (black + gold logo area)
-  //   - Footer dark band: rows 1446–1754px = 244.8–297mm = 52.2mm tall (address + slogan bar)
+  //     Transition to white: rows 177–205px = 30–35mm
+  //   - Footer dark band: rows 1429–1754px = starts ~55mm from bottom (gold transition + dark bar)
   // Puppeteer: headerTemplate/footerTemplate are overlaid on top of page content.
   // margin.top/bottom must be > template height to push body text clear of the dark bands.
-  // Using exact band heights for templates + 8mm safety buffer for margins.
+  //
+  // IMPORTANT: Puppeteer headerTemplate height must match margin.top exactly.
+  // If headerTemplate height < margin.top, there is a white gap between header and content.
+  // If headerTemplate height > margin.top, the header overlaps the content.
+  // We use 42mm for header (30mm dark + 12mm safety) and 58mm for footer (55mm dark + 3mm safety).
 
   const headerTemplate = `<div style="
     width: 21cm;
-    height: 30mm;
+    height: 42mm;
     margin: 0;
     padding: 0;
     overflow: hidden;
@@ -475,7 +480,7 @@ export async function generateContractPdf(fields: ContractFields): Promise<Buffe
 
   const footerTemplate = `<div style="
     width: 21cm;
-    height: 52mm;
+    height: 58mm;
     margin: 0;
     padding: 0;
     overflow: hidden;
@@ -510,9 +515,9 @@ export async function generateContractPdf(fields: ContractFields): Promise<Buffe
       headerTemplate,
       footerTemplate,
       margin: {
-        top: '38mm',
+        top: '42mm',
         right: '2.2cm',
-        bottom: '60mm',
+        bottom: '58mm',
         left: '2.2cm',
       },
     });

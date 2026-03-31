@@ -553,6 +553,7 @@ Para comprovante de residência: nome, endereco, cidade, estado, cep.
 Para matrícula de imóvel: extraia descricao_imovel (descrição completa do imóvel), matricula (número da matrícula), cartorio (nome do cartório de registro), endereco_imovel (endereço completo do imóvel incluindo logradouro, número, bairro, cidade, estado), area_total (métrica de área em m²), proprietario_atual (nome do proprietário atual ou transmitente).
 Se o documento tiver endereço no verso, inclua no campo endereco.
 Nunca use o nome do arquivo como nome da pessoa.
+IMPORTANTE: Nunca retorne null para nenhum campo. Se um campo não for encontrado, retorne string vazia "".
 Retorne confidence (0-100) indicando a qualidade da extração.`,
           },
           {
@@ -602,7 +603,48 @@ Retorne confidence (0-100) indicando a qualidade da extração.`,
       });
       const content = response.choices[0]?.message?.content;
       const ocrFields = typeof content === 'string' ? JSON.parse(content) : content;
-      return { success: true, fields: ocrFields, confidence: ocrFields.confidence || 0, fileUrl };
+      // Sanitize: replace null/undefined values with empty strings
+      const sanitized: Record<string, unknown> = {};
+      for (const [k, v] of Object.entries(ocrFields as Record<string, unknown>)) {
+        sanitized[k] = v === null || v === undefined ? '' : v;
+      }
+      return { success: true, fields: sanitized, confidence: (sanitized.confidence as number) || 0, fileUrl };
+    }),
+
+    // Full text transcription: returns the complete raw text from the document
+    // Used for complex PDFs (e.g., matrícula) where structured extraction may miss data
+    ocrFullText: protectedProcedure.input(z.object({
+      fileBase64: z.string(),
+      mimeType: z.string(),
+      fileName: z.string(),
+    })).mutation(async ({ ctx, input }) => {
+      // Upload to S3
+      const fileBuffer = Buffer.from(input.fileBase64, 'base64');
+      const fileKey = `documents/${ctx.user.id}/ocr-full-${nanoid()}-${input.fileName}`;
+      const { url: fileUrl } = await storagePut(fileKey, fileBuffer, input.mimeType);
+      // Run full transcription via LLM (no JSON schema — free text output)
+      const response = await invokeLLM({
+        messages: [
+          {
+            role: 'system',
+            content: `Você é um sistema especializado em transcrição de documentos brasileiros.
+Sua tarefa é transcrever o conteúdo COMPLETO do documento, preservando toda a estrutura, formatação e informações presentes.
+Transcreva TODO o texto visível no documento, incluindo cabeçalhos, rodapés, selos, carimbos, anotações e qualquer outro texto.
+Mantenha a estrutura lógica do documento (parágrafos, seções, etc.).
+Não omita nenhuma informação. Não faça resumos. Transcreva tudo que estiver visível.
+Se o documento tiver múltiplas páginas, transcreva todas elas em sequência.`,
+          },
+          {
+            role: 'user',
+            content: [
+              { type: 'text', text: 'Transcreva o conteúdo completo deste documento, preservando toda a estrutura e informações:' },
+              { type: 'image_url', image_url: { url: fileUrl, detail: 'high' } },
+            ],
+          },
+        ],
+      });
+      const fullText = response.choices[0]?.message?.content || '';
+      return { success: true, fullText, fileUrl };
     }),
   }),
   // ─── Document Groups ────────────────────────────────────────────────────────
