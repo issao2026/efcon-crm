@@ -517,3 +517,12 @@
 - [x] Aumentar bottom para 8.5cm e top para 4.5cm (heights dos templates iguais)
 - [x] Gerar PDF de teste com contrato longo (4 páginas) e verificar visualmente
 - [x] Confirmado: nenhum texto invade as faixas escuras em nenhuma página
+
+## Phase 56 — Diagnóstico e Correção do HTML de Fallback
+
+- [x] Diagnosticado: Puppeteer falha em produção → fallback usa generateContractHtml com window.print() automático
+- [x] Analisada a máscara pixel-a-pixel: cabeçalho escuro termina em 2.74cm, rodapé escuro começa em 24.67cm (5.03cm do rodapé)
+- [x] Corrigido generateContractHtml: @page { margin: 0 } + padding: 3.3cm 2.2cm 5.6cm 2.2cm no .page-content
+- [x] Ajustado generateContractPdf: margens top:3.3cm, bottom:5.6cm, heights dos templates iguais
+- [x] Verificado visualmente: páginas 1, 2 e 3 sem texto invadindo faixas escuras
+- [x] 16 testes passando

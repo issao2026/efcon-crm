@@ -383,16 +383,18 @@ export async function generateContractPdf(fields: ContractFields): Promise<Buffe
 </style>
 </head>
 <body>
+<div style="padding: 0 2.2cm;">
 ${bodyHtml}
+</div>
 </body>
 </html>`;
 
-  // Header: mostra a parte superior da máscara (height = margin.top = 4.5cm)
+  // Header: mostra a parte superior da máscara (height = margin.top = 3.3cm)
   // background-size: 21cm 29.7cm cobre a página A4 inteira
   // background-position: top left alinha o topo da imagem ao topo do header
   const headerTemplate = `<div style="
     width: 100%;
-    height: 4.5cm;
+    height: 3.3cm;
     margin: 0;
     padding: 0;
     background-image: url('${mascaraUri}');
@@ -403,11 +405,11 @@ ${bodyHtml}
     print-color-adjust: exact;
   "></div>`;
 
-  // Footer: mostra a parte inferior da máscara (height = margin.bottom = 8.5cm)
+  // Footer: mostra a parte inferior da máscara (height = margin.bottom = 5.6cm)
   // background-position: bottom left alinha o rodapé da imagem ao rodapé do footer
   const footerTemplate = `<div style="
     width: 100%;
-    height: 8.5cm;
+    height: 5.6cm;
     margin: 0;
     padding: 0;
     background-image: url('${mascaraUri}');
@@ -434,9 +436,9 @@ ${bodyHtml}
       headerTemplate,
       footerTemplate,
       margin: {
-        top: '4.5cm',
+        top: '3.3cm',
         right: '2.2cm',
-        bottom: '8.5cm',
+        bottom: '5.6cm',
         left: '2.2cm',
       },
     });
@@ -456,6 +458,7 @@ export async function generateContractHtml(fields: ContractFields): Promise<stri
 <title>Contrato – Marcello &amp; Oliveira Imóveis</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
+  /* margin:0 para que a máscara (position:fixed) cubra a página inteira incluindo as bordas */
   @page { size: A4; margin: 0; }
   html, body {
     margin: 0; padding: 0;
@@ -482,10 +485,11 @@ export async function generateContractHtml(fields: ContractFields): Promise<stri
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
+  /* padding garante que o texto não invada as faixas escuras da máscara */
   .page-content {
     position: relative;
     z-index: 1;
-    padding: 52mm 20mm 82mm 20mm;
+    padding: 3.3cm 2.2cm 5.6cm 2.2cm;
     min-height: 297mm;
   }
   h1, h2, h3 {
