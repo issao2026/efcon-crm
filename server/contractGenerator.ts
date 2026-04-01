@@ -387,30 +387,31 @@ ${bodyHtml}
 </body>
 </html>`;
 
-  // Header: mostra a parte superior da máscara (3.2cm de altura)
+  // Header: mostra a parte superior da máscara (height = margin.top = 3.6cm)
+  // background-size: 21cm 29.7cm cobre a página A4 inteira
   // background-position: top left alinha o topo da imagem ao topo do header
   const headerTemplate = `<div style="
     width: 100%;
-    height: 3.2cm;
+    height: 3.6cm;
     margin: 0;
     padding: 0;
     background-image: url('${mascaraUri}');
-    background-size: 100% auto;
+    background-size: 21cm 29.7cm;
     background-repeat: no-repeat;
     background-position: top left;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   "></div>`;
 
-  // Footer: mostra a parte inferior da máscara (5.5cm de altura)
+  // Footer: mostra a parte inferior da máscara (height = margin.bottom = 5.6cm)
   // background-position: bottom left alinha o rodapé da imagem ao rodapé do footer
   const footerTemplate = `<div style="
     width: 100%;
-    height: 5.5cm;
+    height: 5.6cm;
     margin: 0;
     padding: 0;
     background-image: url('${mascaraUri}');
-    background-size: 100% auto;
+    background-size: 21cm 29.7cm;
     background-repeat: no-repeat;
     background-position: bottom left;
     -webkit-print-color-adjust: exact;
@@ -433,9 +434,9 @@ ${bodyHtml}
       headerTemplate,
       footerTemplate,
       margin: {
-        top: '4.2cm',
+        top: '3.6cm',
         right: '2.2cm',
-        bottom: '6.5cm',
+        bottom: '5.6cm',
         left: '2.2cm',
       },
     });

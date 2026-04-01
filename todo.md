@@ -502,3 +502,12 @@
 - [x] Remover importações desnecessárias (spawn, readdirSync, unlinkSync, rmdirSync, sharp, PDFDocument)
 - [x] Verificado visualmente: 4 páginas com cabeçalho e rodapé Marcello & Oliveira corretos, sem texto invadindo as faixas escuras
 - [x] 16 testes passando
+
+## Phase 54 — Máscara via position:fixed no HTML (sem headerTemplate/footerTemplate)
+
+- [x] Tentativa position:fixed descartada (não funciona em PDF multipagina no Chromium)
+- [x] Abordagem final: headerTemplate/footerTemplate com imagem real da máscara, background-size:21cm 29.7cm
+- [x] height do headerTemplate = margin.top = 3.6cm; height do footerTemplate = margin.bottom = 5.6cm
+- [x] background-position: top left (header) e bottom left (footer)
+- [x] Verificado visualmente: páginas 1, 2 e 3 sem texto invadindo cabeçalho ou rodapé
+- [x] 16 testes passando
