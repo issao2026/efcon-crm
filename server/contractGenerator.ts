@@ -11,7 +11,7 @@
 import PizZip from 'pizzip';
 import Docxtemplater from 'docxtemplater';
 import mammoth from 'mammoth';
-import puppeteer from 'puppeteer';
+import puppeteer from 'puppeteer-core';
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -318,70 +318,255 @@ async function prepareContractHtml(fields: ContractFields): Promise<{ bodyHtml: 
   return { bodyHtml, mascaraUri };
 }
 
-export async function generateContractPdf(fields: ContractFields): Promise<Buffer> {
-  const { bodyHtml, mascaraUri } = await prepareContractHtml(fields);
-
-  // Build content HTML (sem background — a máscara vai nos templates header/footer)
-  const fullHtml = `<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-<meta charset="utf-8">
-<style>
-  @page { size: A4; margin: 4.5cm 2.2cm 7.5cm 2.2cm; }
+// ─── CSS compartilhado para o conteúdo do contrato ──────────────────────────
+const CONTENT_CSS = `
   * { box-sizing: border-box; }
-  body {
+  html, body {
     margin: 0;
     padding: 0;
-    font-family: Arial, Helvetica, sans-serif;
-    font-size: 9.5pt;
-    color: #111;
+    background: white;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
-  h1, h2, h3 {
+  .contract-block {
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 9.5pt;
+    color: #111;
+  }
+  .contract-block h1,
+  .contract-block h2,
+  .contract-block h3 {
     font-size: 9.5pt;
     font-weight: bold;
     margin: 0.8em 0 0.3em;
   }
-  p {
+  .contract-block p {
     margin: 0.35em 0;
     line-height: 1.55;
     text-align: justify;
   }
-  strong { font-weight: bold; }
-  table {
+  .contract-block strong { font-weight: bold; }
+  .contract-block table {
     width: 100%;
     border-collapse: collapse;
     margin: 0.5em 0;
     font-size: 9pt;
   }
-  td, th { border: 1px solid #ccc; padding: 4px 6px; }
-</style>
-</head>
-<body>
-${bodyHtml}
-</body>
-</html>`;
+  .contract-block td,
+  .contract-block th { border: 1px solid #ccc; padding: 4px 6px; }
+`;
 
-  // Header: mostra a parte superior da máscara (height = margin.top = 4.5cm)
-  const headerTemplate = `<div style="width:100%;height:4.5cm;background-image:url('${mascaraUri}');background-size:21cm 29.7cm;background-position:top left;background-repeat:no-repeat;-webkit-print-color-adjust:exact;"></div>`;
-  // Footer: mostra a parte inferior da máscara (height = margin.bottom = 7.5cm)
-  const footerTemplate = `<div style="width:100%;height:7.5cm;background-image:url('${mascaraUri}');background-size:21cm 29.7cm;background-position:bottom left;background-repeat:no-repeat;-webkit-print-color-adjust:exact;"></div>`;;
+/**
+ * Quebra o bodyHtml em blocos individuais (p, h1-h6, table, br, div).
+ * Cada bloco é medido separadamente pelo Puppeteer.
+ */
+function splitIntoBlocks(bodyHtml: string): string[] {
+  const blocks: string[] = [];
+  // Regex para capturar tags de bloco completas (incluindo aninhamento simples)
+  const tagRe = /<(p|h[1-6]|table|div|ul|ol)(\s[^>]*)?>([\s\S]*?)<\/\1>/gi;
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = tagRe.exec(bodyHtml)) !== null) {
+    const before = bodyHtml.slice(lastIndex, match.index).trim();
+    if (before && before !== '<br>' && before !== '<br/>' && before !== '<br />') {
+      blocks.push(`<p>${before}</p>`);
+    }
+    blocks.push(match[0]);
+    lastIndex = match.index + match[0].length;
+  }
+  const after = bodyHtml.slice(lastIndex).trim();
+  if (after && after !== '<br>' && after !== '<br/>' && after !== '<br />') {
+    blocks.push(`<p>${after}</p>`);
+  }
+
+  return blocks.filter(b => {
+    const t = b.trim();
+    return t && t !== '<br>' && t !== '<br/>' && t !== '<br />' && t !== '<p></p>';
+  });
+}
+
+export async function generateContractPdf(fields: ContractFields): Promise<Buffer> {
+  const { bodyHtml, mascaraUri } = await prepareContractHtml(fields);
+
+  // ── Dimensões da página em pixels (96 dpi) ─────────────────────────────────
+  // A4 = 210mm × 297mm. 1mm ≈ 3.7795px @ 96dpi
+  const MM = 3.7795;
+  const PAGE_W   = Math.round(210 * MM); // 794 px
+  const PAGE_H   = Math.round(297 * MM); // 1122 px
+  const HEADER_H = Math.round(45  * MM); // 170 px
+  const FOOTER_H = Math.round(70  * MM); // 265 px
+  const MARGIN_X = Math.round(14  * MM); // 53 px
+  const CONTENT_W = PAGE_W - MARGIN_X * 2; // 688 px
+  // Área útil com 2mm de folga extra para segurança
+  const CONTENT_H = PAGE_H - HEADER_H - FOOTER_H - Math.round(4 * MM);
+
+  // Detectar Chromium disponível no sistema ou no pacote puppeteer
+  const CHROMIUM_CANDIDATES = [
+    '/usr/bin/chromium-browser',
+    '/usr/bin/chromium',
+    '/usr/bin/google-chrome',
+    '/usr/bin/google-chrome-stable',
+    '/snap/bin/chromium',
+  ];
+  let executablePath: string | undefined;
+  for (const p of CHROMIUM_CANDIDATES) {
+    if (existsSync(p)) { executablePath = p; break; }
+  }
+  if (!executablePath) {
+    // Fallback: puppeteer bundled chromium (se disponível)
+    try {
+      const { execSync: _exec } = await import('child_process');
+      const found = _exec('which chromium-browser chromium google-chrome 2>/dev/null | head -1', { stdio: 'pipe' }).toString().trim();
+      if (found) executablePath = found;
+    } catch {}
+  }
+  if (!executablePath) throw new Error('Chromium not found. Install chromium-browser.');
 
   const browser = await puppeteer.launch({
+    executablePath,
     args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'],
     headless: true,
   });
 
   try {
-    const page = await browser.newPage();
-    await page.setContent(fullHtml, { waitUntil: 'networkidle0', timeout: 30000 });
-    const pdfBuffer = await page.pdf({
+    // ── Fase 1: medir altura de cada bloco ─────────────────────────────────────
+    const measurePage = await browser.newPage();
+    await measurePage.setViewport({ width: PAGE_W, height: PAGE_H });
+    await measurePage.setContent(
+      `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+        ${CONTENT_CSS}
+        body { margin: 0; padding: 0; width: ${CONTENT_W}px; }
+        .probe { position: absolute; visibility: hidden; width: ${CONTENT_W}px; }
+      </style></head><body></body></html>`,
+      { waitUntil: 'domcontentloaded' }
+    );
+
+    const rawBlocks = splitIntoBlocks(bodyHtml);
+
+    const blockHeights: number[] = await measurePage.evaluate(
+      (blocks: string[], contentW: number) => {
+        const heights: number[] = [];
+        for (const html of blocks) {
+          const probe = document.createElement('div');
+          probe.className = 'contract-block probe';
+          probe.style.position = 'absolute';
+          probe.style.visibility = 'hidden';
+          probe.style.width = contentW + 'px';
+          probe.innerHTML = html;
+          document.body.appendChild(probe);
+          heights.push(probe.offsetHeight);
+          document.body.removeChild(probe);
+        }
+        return heights;
+      },
+      rawBlocks, CONTENT_W
+    );
+    await measurePage.close();
+
+    // ── Fase 2: distribuir blocos em páginas ───────────────────────────────────
+    const pages: string[][] = [];
+    let currentPage: string[] = [];
+    let currentHeight = 0;
+
+    for (let i = 0; i < rawBlocks.length; i++) {
+      const bh = blockHeights[i] || 0;
+      if (currentHeight + bh > CONTENT_H && currentPage.length > 0) {
+        pages.push(currentPage);
+        currentPage = [];
+        currentHeight = 0;
+      }
+      // Se um bloco sozinho for maior que a área útil, adiciona mesmo assim
+      currentPage.push(rawBlocks[i]);
+      currentHeight += bh;
+    }
+    if (currentPage.length > 0) pages.push(currentPage);
+
+    // ── Fase 3: montar HTML final com .page independentes ─────────────────────
+    const buildPageHtml = (content: string) => `
+<div class="page">
+  <img class="header" src="${mascaraUri}" alt="" />
+  <div class="content contract-block">${content}</div>
+  <img class="footer" src="${mascaraUri}" alt="" />
+</div>`;
+
+    const allPagesHtml = pages.map(p => buildPageHtml(p.join('\n'))).join('\n');
+
+    const fullHtml = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<style>
+  ${CONTENT_CSS}
+  @page {
+    size: A4;
+    margin: 0;
+  }
+  html, body {
+    margin: 0;
+    padding: 0;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    font-family: Arial, sans-serif;
+  }
+  .page {
+    position: relative;
+    width: 210mm;
+    height: 297mm;
+    page-break-after: always;
+    overflow: hidden;
+    background: white;
+  }
+  .page:last-child {
+    page-break-after: avoid;
+  }
+  .header {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 45mm;
+    display: block;
+    object-fit: fill;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .footer {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 70mm;
+    display: block;
+    object-fit: fill;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .content {
+    position: absolute;
+    top: 47mm;
+    left: 14mm;
+    right: 14mm;
+    bottom: 72mm;
+    overflow: hidden;
+    font-size: 9.5pt;
+    line-height: 1.45;
+  }
+</style>
+</head>
+<body>
+${allPagesHtml}
+</body>
+</html>`;
+
+    // ── Fase 4: renderizar PDF ─────────────────────────────────────────────────
+    const pdfPage = await browser.newPage();
+    await pdfPage.setViewport({ width: PAGE_W, height: PAGE_H });
+    await pdfPage.setContent(fullHtml, { waitUntil: 'networkidle0', timeout: 60000 });
+    const pdfBuffer = await pdfPage.pdf({
       format: 'A4',
       printBackground: true,
-      displayHeaderFooter: true,
-      headerTemplate,
-      footerTemplate,
+      displayHeaderFooter: false,
       margin: { top: '0', bottom: '0', left: '0', right: '0' },
     });
     return Buffer.from(pdfBuffer);
