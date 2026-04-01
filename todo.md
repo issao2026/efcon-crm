@@ -511,3 +511,9 @@
 - [x] background-position: top left (header) e bottom left (footer)
 - [x] Verificado visualmente: páginas 1, 2 e 3 sem texto invadindo cabeçalho ou rodapé
 - [x] 16 testes passando
+
+## Phase 55 — Ajuste de Margens: Texto para a 7cm da Base e 4cm do Topo
+
+- [x] Aumentar bottom para 8.5cm e top para 4.5cm (heights dos templates iguais)
+- [x] Gerar PDF de teste com contrato longo (4 páginas) e verificar visualmente
+- [x] Confirmado: nenhum texto invade as faixas escuras em nenhuma página
