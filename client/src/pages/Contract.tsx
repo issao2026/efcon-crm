@@ -1155,6 +1155,18 @@ export default function Contract() {
       const result = await generateMutation.mutateAsync({ fields });
       setGeneratedPdfUrl(result.contractUrl);
       toast.success("Contrato gerado com sucesso!");
+      // Auto-download PDF with descriptive filename
+      const nomeV = (form.vendedores[0]?.nome || 'vendedor').replace(/\s+/g, '_').toLowerCase();
+      const nomeC = (form.compradores[0]?.nome || 'comprador').replace(/\s+/g, '_').toLowerCase();
+      const dataHoje = new Date().toISOString().slice(0, 10);
+      const fileName = `contrato_${nomeV}_${nomeC}_${dataHoje}.pdf`;
+      const dlLink = document.createElement('a');
+      dlLink.href = result.contractUrl;
+      dlLink.download = fileName;
+      dlLink.target = '_blank';
+      document.body.appendChild(dlLink);
+      dlLink.click();
+      document.body.removeChild(dlLink);
       // Auto-open distribution modal after PDF is ready
       setShowWhatsApp(true);
     } catch (error: any) {

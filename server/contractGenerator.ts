@@ -327,11 +327,11 @@ export async function generateContractPdf(fields: ContractFields): Promise<Buffe
 <head>
 <meta charset="utf-8">
 <style>
+  @page { size: A4; margin: 4.5cm 2.2cm 7.5cm 2.2cm; }
   * { box-sizing: border-box; }
   body {
     margin: 0;
     padding: 0;
-    box-sizing: border-box;
     font-family: Arial, Helvetica, sans-serif;
     font-size: 9.5pt;
     color: #111;
@@ -382,7 +382,7 @@ ${bodyHtml}
       displayHeaderFooter: true,
       headerTemplate,
       footerTemplate,
-      margin: { top: '4.5cm', bottom: '7.5cm', left: '0', right: '0' },
+      margin: { top: '0', bottom: '0', left: '0', right: '0' },
     });
     return Buffer.from(pdfBuffer);
   } finally {
