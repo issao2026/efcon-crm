@@ -352,10 +352,10 @@ export async function generateContractPdf(fields: ContractFields): Promise<Buffe
 <meta charset="utf-8">
 <style>
   * { box-sizing: border-box; }
-  @page { size: A4; }
-  html, body {
+  body {
     margin: 0;
     padding: 0;
+    box-sizing: border-box;
     font-family: Arial, Helvetica, sans-serif;
     font-size: 9.5pt;
     color: #111;
@@ -383,42 +383,14 @@ export async function generateContractPdf(fields: ContractFields): Promise<Buffe
 </style>
 </head>
 <body>
-<div style="padding: 0 2.2cm;">
 ${bodyHtml}
-</div>
 </body>
 </html>`;
 
-  // Header: mostra a parte superior da máscara (height = margin.top = 3.3cm)
-  // background-size: 21cm 29.7cm cobre a página A4 inteira
-  // background-position: top left alinha o topo da imagem ao topo do header
-  const headerTemplate = `<div style="
-    width: 100%;
-    height: 3.3cm;
-    margin: 0;
-    padding: 0;
-    background-image: url('${mascaraUri}');
-    background-size: 21cm 29.7cm;
-    background-repeat: no-repeat;
-    background-position: top left;
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
-  "></div>`;
-
-  // Footer: mostra a parte inferior da máscara (height = margin.bottom = 5.6cm)
-  // background-position: bottom left alinha o rodapé da imagem ao rodapé do footer
-  const footerTemplate = `<div style="
-    width: 100%;
-    height: 5.6cm;
-    margin: 0;
-    padding: 0;
-    background-image: url('${mascaraUri}');
-    background-size: 21cm 29.7cm;
-    background-repeat: no-repeat;
-    background-position: bottom left;
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
-  "></div>`;
+  // Header: mostra a parte superior da máscara (height = margin.top = 4.5cm)
+  const headerTemplate = `<div style="width:100%;height:4.5cm;background-image:url('${mascaraUri}');background-size:21cm 29.7cm;background-position:top left;background-repeat:no-repeat;-webkit-print-color-adjust:exact;"></div>`;
+  // Footer: mostra a parte inferior da máscara (height = margin.bottom = 7.5cm)
+  const footerTemplate = `<div style="width:100%;height:7.5cm;background-image:url('${mascaraUri}');background-size:21cm 29.7cm;background-position:bottom left;background-repeat:no-repeat;-webkit-print-color-adjust:exact;"></div>`;;
 
   const browser = await puppeteer.launch({
     executablePath: findChromium(),
@@ -435,12 +407,7 @@ ${bodyHtml}
       displayHeaderFooter: true,
       headerTemplate,
       footerTemplate,
-      margin: {
-        top: '3.3cm',
-        right: '2.2cm',
-        bottom: '5.6cm',
-        left: '2.2cm',
-      },
+      margin: { top: '4.5cm', bottom: '7.5cm', left: '0', right: '0' },
     });
     return Buffer.from(pdfBuffer);
   } finally {

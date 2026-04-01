@@ -526,3 +526,10 @@
 - [x] Ajustado generateContractPdf: margens top:3.3cm, bottom:5.6cm, heights dos templates iguais
 - [x] Verificado visualmente: páginas 1, 2 e 3 sem texto invadindo faixas escuras
 - [x] 16 testes passando
+
+## Phase 57 — Puppeteer em Produção (sem fallback HTML)
+
+- [ ] Investigar por que o Puppeteer falha em produção (erro exato nos logs)
+- [ ] Corrigir o Puppeteer para funcionar em produção (Chromium bundled ou executablePath correto)
+- [ ] Remover o fallback HTML (window.print()) — Puppeteer deve ser o único caminho
+- [ ] Testar geração do PDF em produção e verificar visualmente
