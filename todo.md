@@ -533,3 +533,10 @@
 - [ ] Corrigir o Puppeteer para funcionar em produção (Chromium bundled ou executablePath correto)
 - [ ] Remover o fallback HTML (window.print()) — Puppeteer deve ser o único caminho
 - [ ] Testar geração do PDF em produção e verificar visualmente
+
+## Phase 58 — Corrigir generateContractHtml (Fallback Real)
+
+- [ ] Confirmar que o PDF do usuário é gerado pelo fallback HTML (window.print), não pelo Puppeteer
+- [ ] Localizar a função generateContractHtml no contractGenerator.ts e corrigir o CSS
+- [ ] Adicionar padding correto no body/page-content que chega ao browser
+- [ ] Verificar o HTML gerado inspecionando o source diretamente

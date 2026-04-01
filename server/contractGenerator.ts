@@ -5,14 +5,13 @@
  * 1. Download contratopadrao.docx from CDN (cached locally)
  * 2. Fill {{placeholders}} with docxtemplater
  * 3. Convert filled .docx → HTML with mammoth
- * 4. Render with puppeteer-core + Chromium
+ * 4. Render with puppeteer (bundled Chromium)
  */
 
 import PizZip from 'pizzip';
 import Docxtemplater from 'docxtemplater';
 import mammoth from 'mammoth';
-import puppeteer from 'puppeteer-core';
-import { execSync } from 'child_process';
+import puppeteer from 'puppeteer';
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -319,29 +318,6 @@ async function prepareContractHtml(fields: ContractFields): Promise<{ bodyHtml: 
   return { bodyHtml, mascaraUri };
 }
 
-const CHROMIUM_PATHS = [
-  '/usr/bin/chromium-browser',
-  '/usr/bin/chromium',
-  '/usr/bin/google-chrome',
-  '/usr/bin/google-chrome-stable',
-  '/snap/bin/chromium',
-];
-
-function findChromium(): string {
-  for (const p of CHROMIUM_PATHS) {
-    try {
-      execSync(`test -x "${p}"`, { stdio: 'pipe' });
-      return p;
-    } catch {}
-  }
-  try {
-    const found = execSync('which chromium-browser chromium google-chrome 2>/dev/null | head -1', { stdio: 'pipe' })
-      .toString().trim();
-    if (found) return found;
-  } catch {}
-  throw new Error('Chromium not found. Install chromium-browser.');
-}
-
 export async function generateContractPdf(fields: ContractFields): Promise<Buffer> {
   const { bodyHtml, mascaraUri } = await prepareContractHtml(fields);
 
@@ -393,7 +369,6 @@ ${bodyHtml}
   const footerTemplate = `<div style="width:100%;height:7.5cm;background-image:url('${mascaraUri}');background-size:21cm 29.7cm;background-position:bottom left;background-repeat:no-repeat;-webkit-print-color-adjust:exact;"></div>`;;
 
   const browser = await puppeteer.launch({
-    executablePath: findChromium(),
     args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'],
     headless: true,
   });
@@ -456,7 +431,7 @@ export async function generateContractHtml(fields: ContractFields): Promise<stri
   .page-content {
     position: relative;
     z-index: 1;
-    padding: 3.3cm 2.2cm 5.6cm 2.2cm;
+    padding: 4.5cm 2.2cm 7.5cm 2.2cm;
     min-height: 297mm;
   }
   h1, h2, h3 {
