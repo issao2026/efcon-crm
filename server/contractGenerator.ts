@@ -12,13 +12,11 @@ import PizZip from 'pizzip';
 import Docxtemplater from 'docxtemplater';
 import mammoth from 'mammoth';
 import puppeteer from 'puppeteer-core';
-import { execSync, spawn } from 'child_process';
-import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, unlinkSync, rmdirSync } from 'fs';
+import { execSync } from 'child_process';
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { tmpdir } from 'os';
-import sharp from 'sharp';
-import PDFDocument from 'pdfkit';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -345,56 +343,43 @@ function findChromium(): string {
 }
 
 export async function generateContractPdf(fields: ContractFields): Promise<Buffer> {
-  const { bodyHtml } = await prepareContractHtml(fields);
+  const { bodyHtml, mascaraUri } = await prepareContractHtml(fields);
 
-  // ── Pass 1: Puppeteer renders text-only PDF with correct margins ──────────
-  const textHtml = `<!DOCTYPE html>
+  // Build content HTML (sem background — a máscara vai nos templates header/footer)
+  const fullHtml = `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
 <style>
-  /* Reset completo — sem @page para não conflitar com o Puppeteer */
-  html, body, div, p, h1, h2, h3, table, th, td, ul, li {
-    box-sizing: border-box;
+  * { box-sizing: border-box; }
+  @page { size: A4; }
+  html, body {
     margin: 0;
     padding: 0;
-  }
-
-  body {
-    background: white;
     font-family: Arial, Helvetica, sans-serif;
     font-size: 9.5pt;
     color: #111;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
-
   h1, h2, h3 {
     font-size: 9.5pt;
     font-weight: bold;
     margin: 0.8em 0 0.3em;
   }
-
   p {
     margin: 0.35em 0;
     line-height: 1.55;
     text-align: justify;
   }
-
   strong { font-weight: bold; }
-
   table {
     width: 100%;
     border-collapse: collapse;
     margin: 0.5em 0;
     font-size: 9pt;
   }
-
   td, th { border: 1px solid #ccc; padding: 4px 6px; }
-
-  /* Protege apenas títulos e tabelas — parágrafos podem ser cortados */
-  h1, h2, h3, table, tr { page-break-inside: avoid; }
-  h1, h2, h3 { page-break-after: avoid; }
 </style>
 </head>
 <body>
@@ -402,117 +387,62 @@ ${bodyHtml}
 </body>
 </html>`;
 
+  // Header: mostra a parte superior da máscara (3.2cm de altura)
+  // background-position: top left alinha o topo da imagem ao topo do header
+  const headerTemplate = `<div style="
+    width: 100%;
+    height: 3.2cm;
+    margin: 0;
+    padding: 0;
+    background-image: url('${mascaraUri}');
+    background-size: 100% auto;
+    background-repeat: no-repeat;
+    background-position: top left;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  "></div>`;
+
+  // Footer: mostra a parte inferior da máscara (5.5cm de altura)
+  // background-position: bottom left alinha o rodapé da imagem ao rodapé do footer
+  const footerTemplate = `<div style="
+    width: 100%;
+    height: 5.5cm;
+    margin: 0;
+    padding: 0;
+    background-image: url('${mascaraUri}');
+    background-size: 100% auto;
+    background-repeat: no-repeat;
+    background-position: bottom left;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  "></div>`;
+
   const browser = await puppeteer.launch({
     executablePath: findChromium(),
     args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'],
     headless: true,
   });
 
-  let textPdfBuffer: Buffer;
   try {
     const page = await browser.newPage();
-    await page.setViewport({ width: 794, height: 1123 });
-    await page.setContent(textHtml, { waitUntil: 'networkidle0', timeout: 30000 });
-    const raw = await page.pdf({
+    await page.setContent(fullHtml, { waitUntil: 'networkidle0', timeout: 30000 });
+    const pdfBuffer = await page.pdf({
       format: 'A4',
-      printBackground: false,
-      // Falso cabeçalho/rodapé: força o Chromium a criar barreira física
-      // nas margens — o texto NUNCA consegue cruzar os 82mm do rodapé
+      printBackground: true,
       displayHeaderFooter: true,
-      headerTemplate: '<span></span>',
-      footerTemplate: '<span></span>',
-      margin: { top: '52mm', right: '20mm', bottom: '82mm', left: '20mm' },
+      headerTemplate,
+      footerTemplate,
+      margin: {
+        top: '4.2cm',
+        right: '2.2cm',
+        bottom: '6.5cm',
+        left: '2.2cm',
+      },
     });
-    textPdfBuffer = Buffer.from(raw);
+    return Buffer.from(pdfBuffer);
   } finally {
     await browser.close();
   }
-
-  // ── Pass 2: Compose mascara onto every page using sharp + pdftoppm + PDFKit ─
-  const workDir = join(tmpdir(), `efcon-compose-${Date.now()}`);
-  mkdirSync(workDir, { recursive: true });
-
-  // Write text PDF to temp file
-  const textPdfPath = join(workDir, 'text.pdf');
-  writeFileSync(textPdfPath, textPdfBuffer);
-
-  // Resolve mascara PNG path
-  const mascaraPaths = [
-    join(__dirname, 'mascara_bg.png'),
-    join(process.cwd(), 'server/mascara_bg.png'),
-    '/home/ubuntu/efcon-crm/server/mascara_bg.png',
-    '/home/ubuntu/webdev-static-assets/mascara_bg.png',
-  ];
-  let mascaraPath = '';
-  for (const p of mascaraPaths) {
-    if (existsSync(p)) { mascaraPath = p; break; }
-  }
-  if (!mascaraPath) throw new Error('mascara_bg.png not found');
-
-  // Convert PDF pages to PNG using pdftoppm
-  const pagePrefix = join(workDir, 'page');
-  await new Promise<void>((resolve, reject) => {
-    const proc = spawn('pdftoppm', ['-r', '150', '-png', textPdfPath, pagePrefix]);
-    proc.on('close', (code, signal) => {
-      if (code !== 0) reject(new Error(`pdftoppm exit ${code} signal ${signal}`));
-      else resolve();
-    });
-    proc.on('error', reject);
-  });
-
-  // Find generated page files
-  const pageFiles = readdirSync(workDir)
-    .filter(f => f.startsWith('page') && f.endsWith('.png'))
-    .sort()
-    .map(f => join(workDir, f));
-
-  if (pageFiles.length === 0) throw new Error('pdftoppm produced no pages');
-
-  // Compose mascara onto each page using sharp multiply blend
-  const composedFiles: string[] = [];
-  for (const pageFile of pageFiles) {
-    const pageMeta = await sharp(pageFile).metadata();
-    const w = pageMeta.width!;
-    const h = pageMeta.height!;
-
-    const mascaraResized = await sharp(mascaraPath)
-      .resize(w, h, { fit: 'fill' })
-      .toBuffer();
-
-    const composedFile = pageFile.replace('.png', '_c.png');
-    await sharp(pageFile)
-      .composite([{ input: mascaraResized, blend: 'multiply' }])
-      .png()
-      .toFile(composedFile);
-
-    composedFiles.push(composedFile);
-  }
-
-  // Build final PDF from composed PNGs using PDFKit (A4 = 595.28 x 841.89 pt)
-  const A4_W = 595.28;
-  const A4_H = 841.89;
-
-  const finalPdfBuffer = await new Promise<Buffer>((resolve, reject) => {
-    const doc = new PDFDocument({ autoFirstPage: false, margin: 0 });
-    const chunks: Buffer[] = [];
-    doc.on('data', (chunk: Buffer) => chunks.push(chunk));
-    doc.on('end', () => resolve(Buffer.concat(chunks)));
-    doc.on('error', reject);
-
-    for (const composedFile of composedFiles) {
-      doc.addPage({ size: [A4_W, A4_H], margin: 0 });
-      doc.image(composedFile, 0, 0, { width: A4_W, height: A4_H });
-    }
-    doc.end();
-  });
-
-  // Cleanup temp files
-  try {
-    for (const f of readdirSync(workDir)) unlinkSync(join(workDir, f));
-    rmdirSync(workDir);
-  } catch {}
-
-  return finalPdfBuffer;
 }
 
 export async function generateContractHtml(fields: ContractFields): Promise<string> {

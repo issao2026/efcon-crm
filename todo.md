@@ -488,9 +488,17 @@
 - [ ] Passo 2: pdf-lib abre o PDF, lê a imagem da máscara e a desenha em cada página (z-index abaixo do texto)
 - [ ] Verificar todas as páginas sem sobreposição
 
-## Phase 52 — Correção Definitiva: Two-Pass PDF + Remoção Borda Diagnóstico
+## Phase 52 — Correção Definitiva: Two-Pass PDF + Remoção Borda Diagnóstico (REVERTIDO)
 
 - [x] Abordagem two-pass: Pass 1 (Puppeteer gera PDF de texto com margin top:52mm, bottom:82mm, displayHeaderFooter:true), Pass 2 (sharp + pdftoppm + PDFKit compõe a máscara em cada página)
 - [x] Remover borda vermelha de diagnóstico do CSS do Pass 1
 - [x] Adicionar suporte a vendedores_adicionais e compradores_adicionais no ContractFields e generateLocacaoBodyHtml
 - [x] Todos os 16 testes passando
+
+## Phase 53 — Restaurar Abordagem Original do PDF (headerTemplate/footerTemplate)
+
+- [x] Analisar commit 198cb64: abordagem original usava headerTemplate (3.2cm, background-position: top left) + footerTemplate (5.5cm, background-position: bottom left) com margens top:4.2cm, bottom:6.5cm
+- [x] Reverter generateContractPdf para abordagem de uma única passagem (sem two-pass, sem sharp/pdftoppm/PDFKit)
+- [x] Remover importações desnecessárias (spawn, readdirSync, unlinkSync, rmdirSync, sharp, PDFDocument)
+- [x] Verificado visualmente: 4 páginas com cabeçalho e rodapé Marcello & Oliveira corretos, sem texto invadindo as faixas escuras
+- [x] 16 testes passando
