@@ -324,36 +324,38 @@ const CONTENT_CSS = `
   html, body {
     margin: 0;
     padding: 0;
-    background: white;
+    background: #fff;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
+    font-family: Arial, sans-serif;
   }
-  .contract-block {
-    font-family: Arial, Helvetica, sans-serif;
-    font-size: 9.5pt;
+  .page-body {
+    font-family: Arial, sans-serif;
+    font-size: 11pt;
+    line-height: 1.45;
     color: #111;
   }
-  .contract-block h1,
-  .contract-block h2,
-  .contract-block h3 {
-    font-size: 9.5pt;
+  .page-body h1,
+  .page-body h2,
+  .page-body h3 {
+    font-size: 11pt;
     font-weight: bold;
     margin: 0.8em 0 0.3em;
   }
-  .contract-block p {
+  .page-body p {
     margin: 0.35em 0;
-    line-height: 1.55;
+    line-height: 1.45;
     text-align: justify;
   }
-  .contract-block strong { font-weight: bold; }
-  .contract-block table {
+  .page-body strong { font-weight: bold; }
+  .page-body table {
     width: 100%;
     border-collapse: collapse;
     margin: 0.5em 0;
-    font-size: 9pt;
+    font-size: 10pt;
   }
-  .contract-block td,
-  .contract-block th { border: 1px solid #ccc; padding: 4px 6px; }
+  .page-body td,
+  .page-body th { border: 1px solid #ccc; padding: 4px 6px; }
 `;
 
 /**
@@ -398,8 +400,8 @@ export async function generateContractPdf(fields: ContractFields): Promise<Buffe
   const FOOTER_H = Math.round(70  * MM); // 265 px
   const MARGIN_X = Math.round(14  * MM); // 53 px
   const CONTENT_W = PAGE_W - MARGIN_X * 2; // 688 px
-  // Área útil com 2mm de folga extra para segurança
-  const CONTENT_H = PAGE_H - HEADER_H - FOOTER_H - Math.round(4 * MM);
+  // Área útil exata: 297 - 45 - 70 = 182mm, sem folga extra (overflow:hidden garante)
+  const CONTENT_H = Math.round(182 * MM); // 688 px
 
   // Detectar Chromium disponível no sistema ou no pacote puppeteer
   const CHROMIUM_CANDIDATES = [
@@ -437,7 +439,6 @@ export async function generateContractPdf(fields: ContractFields): Promise<Buffe
       `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
         ${CONTENT_CSS}
         body { margin: 0; padding: 0; width: ${CONTENT_W}px; }
-        .probe { position: absolute; visibility: hidden; width: ${CONTENT_W}px; }
       </style></head><body></body></html>`,
       { waitUntil: 'domcontentloaded' }
     );
@@ -448,11 +449,18 @@ export async function generateContractPdf(fields: ContractFields): Promise<Buffe
       (blocks: string[], contentW: number) => {
         const heights: number[] = [];
         for (const html of blocks) {
+          // measureBlockHeight conforme especificação
           const probe = document.createElement('div');
-          probe.className = 'contract-block probe';
+          probe.className = 'page-body';
           probe.style.position = 'absolute';
           probe.style.visibility = 'hidden';
+          probe.style.pointerEvents = 'none';
+          probe.style.left = '-99999px';
+          probe.style.top = '0';
           probe.style.width = contentW + 'px';
+          probe.style.fontFamily = 'Arial, sans-serif';
+          probe.style.fontSize = '11pt';
+          probe.style.lineHeight = '1.45';
           probe.innerHTML = html;
           document.body.appendChild(probe);
           heights.push(probe.offsetHeight);
@@ -482,13 +490,13 @@ export async function generateContractPdf(fields: ContractFields): Promise<Buffe
     }
     if (currentPage.length > 0) pages.push(currentPage);
 
-    // ── Fase 3: montar HTML final com .page independentes ─────────────────────
+    // ── Fase 3: montar HTML final com section.page independentes ─────────────────
     const buildPageHtml = (content: string) => `
-<div class="page">
-  <img class="header" src="${mascaraUri}" alt="" />
-  <div class="content contract-block">${content}</div>
-  <img class="footer" src="${mascaraUri}" alt="" />
-</div>`;
+<section class="page">
+  <div class="page-header"></div>
+  <div class="page-body">${content}</div>
+  <div class="page-footer"></div>
+</section>`;
 
     const allPagesHtml = pages.map(p => buildPageHtml(p.join('\n'))).join('\n');
 
@@ -505,57 +513,73 @@ export async function generateContractPdf(fields: ContractFields): Promise<Buffe
   html, body {
     margin: 0;
     padding: 0;
+    background: #fff;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
     font-family: Arial, sans-serif;
+  }
+  #contract-print-root {
+    width: 210mm;
+    margin: 0 auto;
   }
   .page {
     position: relative;
     width: 210mm;
     height: 297mm;
-    page-break-after: always;
     overflow: hidden;
+    page-break-after: always;
+    break-after: page;
     background: white;
   }
   .page:last-child {
-    page-break-after: avoid;
+    page-break-after: auto;
+    break-after: auto;
   }
-  .header {
+  .page-header {
     position: absolute;
     top: 0;
     left: 0;
     width: 100%;
     height: 45mm;
-    display: block;
-    object-fit: fill;
+    overflow: hidden;
+    background-image: url('${mascaraUri}');
+    background-size: 210mm 297mm;
+    background-position: top left;
+    background-repeat: no-repeat;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
-  .footer {
+  .page-body {
     position: absolute;
-    bottom: 0;
-    left: 0;
-    width: 100%;
-    height: 70mm;
-    display: block;
-    object-fit: fill;
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
-  }
-  .content {
-    position: absolute;
-    top: 47mm;
+    top: 45mm;
     left: 14mm;
     right: 14mm;
-    bottom: 72mm;
+    height: 182mm;
     overflow: hidden;
-    font-size: 9.5pt;
+    font-size: 11pt;
     line-height: 1.45;
+    color: #111;
+  }
+  .page-footer {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    width: 100%;
+    height: 70mm;
+    overflow: hidden;
+    background-image: url('${mascaraUri}');
+    background-size: 210mm 297mm;
+    background-position: bottom left;
+    background-repeat: no-repeat;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
 </style>
 </head>
 <body>
+<div id="contract-print-root">
 ${allPagesHtml}
+</div>
 </body>
 </html>`;
 
