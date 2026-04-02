@@ -138,12 +138,14 @@ export function paginateTextBlocks(bodyHtml: string): TextBlock[] {
 
 /**
  * Quebra um texto longo em linhas que cabem na largura disponível.
+ * Fatores calibrados para Helvetica (pdf-lib StandardFonts):
+ *   Regular: 0.52 × fontSize  (média de caracteres mistos)
+ *   Bold:    0.58 × fontSize  (negrito é ~10% mais largo)
  */
 function wrapText(
   text: string,
   maxWidth: number,
   fontSize: number,
-  // Approximate: 1 char ≈ fontSize * 0.5 for Arial
   charWidth = 0
 ): string[] {
   const avgCharW = charWidth || fontSize * 0.52;
@@ -241,7 +243,9 @@ export async function drawContractBody(
       cursorY -= 4;
     }
 
-    const wrappedLines = wrapText(block.text, textWidth, fontSize);
+    // Negrito usa fator 0.58 (mais largo que regular 0.52)
+    const charWidthFactor = block.isBold ? fontSize * 0.58 : 0;
+    const wrappedLines = wrapText(block.text, textWidth, fontSize, charWidthFactor);
 
     for (const line of wrappedLines) {
       // Verificar se cabe na página atual
