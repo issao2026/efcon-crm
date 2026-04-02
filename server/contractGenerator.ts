@@ -12,6 +12,7 @@ import PizZip from 'pizzip';
 import Docxtemplater from 'docxtemplater';
 import mammoth from 'mammoth';
 import puppeteer from 'puppeteer-core';
+import chromium from '@sparticuz/chromium';
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -406,32 +407,15 @@ export async function generateContractPdf(fields: ContractFields): Promise<Buffe
   // SAFETY_MARGIN: margem de segurança obrigatória para evitar invasão do rodapé
   const SAFETY_MARGIN = 8; // pixels
 
-  // Detectar Chromium disponível no sistema ou no pacote puppeteer
-  const CHROMIUM_CANDIDATES = [
-    '/usr/bin/chromium-browser',
-    '/usr/bin/chromium',
-    '/usr/bin/google-chrome',
-    '/usr/bin/google-chrome-stable',
-    '/snap/bin/chromium',
-  ];
-  let executablePath: string | undefined;
-  for (const p of CHROMIUM_CANDIDATES) {
-    if (existsSync(p)) { executablePath = p; break; }
-  }
-  if (!executablePath) {
-    // Fallback: puppeteer bundled chromium (se disponível)
-    try {
-      const { execSync: _exec } = await import('child_process');
-      const found = _exec('which chromium-browser chromium google-chrome 2>/dev/null | head -1', { stdio: 'pipe' }).toString().trim();
-      if (found) executablePath = found;
-    } catch {}
-  }
-  if (!executablePath) throw new Error('Chromium not found. Install chromium-browser.');
-
+  // Usar @sparticuz/chromium para compatibilidade com ambientes serverless
+  // A versão 143+ não expõe defaultViewport/headless como propriedades — usar valores explícitos
+  const executablePath = await chromium.executablePath();
+  console.log('[contracts] chromium path:', executablePath);
   const browser = await puppeteer.launch({
+    args: chromium.args,
     executablePath,
-    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'],
     headless: true,
+    defaultViewport: { width: 794, height: 1122 },
   });
 
   try {

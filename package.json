@@ -71,7 +71,7 @@
     "pdf-lib": "^1.17.1",
     "pdfkit": "^0.18.0",
     "pizzip": "^3.2.0",
-    "puppeteer": "^24.40.0",
+    "puppeteer-core": "^24.40.0",
     "react": "^19.2.1",
     "react-day-picker": "^9.11.1",
     "react-dom": "^19.2.1",
