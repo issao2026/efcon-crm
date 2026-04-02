@@ -177,71 +177,40 @@ describe("contracts.generate", () => {
 });
 
 // ─── Contract generateHtml (print fallback) tests ─────────────────────────────
+// contracts.generateHtml está DESATIVADO em produção.
+// Os testes verificam que o endpoint lança erro explícito quando chamado sem a flag de debug.
 describe("contracts.generateHtml", () => {
-  it("returns a print-ready HTML string with mascara background", async () => {
+  it("throws explicit error when called in production (legacy fallback disabled)", async () => {
     const { ctx } = createAuthContext();
     const caller = appRouter.createCaller(ctx);
 
-    const result = await caller.contracts.generateHtml({
-      fields: {
-        nome_vendedor: "João Silva",
-        cpf_cnpj_vendedor: "123.456.789-00",
-        nome_comprador: "Maria Santos",
-        cpf_cnpj_comprador: "987.654.321-00",
-        descricao_imovel: "Apartamento 3 quartos",
-        valor_total_contrato: "R$ 485.000",
-        modalidade_pagamento: "À vista",
-        data_assinatura: "18/03/2026",
-        cidade_assinatura: "Jundiaí, SP",
-      },
-    });
+    await expect(
+      caller.contracts.generateHtml({
+        fields: {
+          nome_vendedor: "João Silva",
+          nome_comprador: "Maria Santos",
+          descricao_imovel: "Apartamento 3 quartos",
+          valor_total_contrato: "R$ 485.000",
+        },
+      })
+    ).rejects.toThrow("generateContractHtml() está desativado em produção");
+  }, 10000);
 
-    // Should return an HTML string
-    expect(result).toHaveProperty("html");
-    expect(typeof result.html).toBe("string");
-    // HTML should contain the mascara-bg element with an <img> tag (fixed-position letterhead)
-    expect(result.html).toContain("mascara-bg");
-    expect(result.html).toContain("<img src=");
-    // HTML should contain the contract content
-    expect(result.html).toContain("João Silva");
-    // HTML should contain the print button
-    expect(result.html).toContain("window.print()");
-    // HTML should be a valid HTML document
-    expect(result.html).toContain("<!DOCTYPE html>");
-    expect(result.html).toContain("</html>");
-  }, 60000);
-
-  it("generateHtml includes locação fields when tipo_contrato is LOCAÇÃO", async () => {
+  it("throws for locação contracts too (no legacy fallback)", async () => {
     const { ctx } = createAuthContext();
     const caller = appRouter.createCaller(ctx);
 
-    const result = await caller.contracts.generateHtml({
-      fields: {
-        nome_vendedor: "Locador Teste",
-        nome_comprador: "Locatário Teste",
-        descricao_imovel: "Casa residencial",
-        valor_total_contrato: "R$ 2.500",
-        tipo_contrato: "LOCAÇÃO",
-        prazo_locacao: "30 meses",
-        dia_vencimento_aluguel: "10",
-        tipo_garantia: "caução",
-      },
-    });
-
-    expect(result.html).toContain("Locador Teste");
-    expect(result.html).toContain("<!DOCTYPE html>");
-    // Verify locação uses correct labels (not compra e venda labels)
-    expect(result.html).toContain("LOCADOR(A)");
-    expect(result.html).toContain("LOCAT\u00c1RIO(A)");
-    expect(result.html).not.toContain("VENDEDOR(A)");
-    expect(result.html).not.toContain("COMPRADOR(A)");
-    // Verify locação-specific clauses are present
-    expect(result.html).toContain("CONTRATO DE LOCAÇÃO");
-    // The prazo_locacao value should appear in the HTML
-    expect(result.html).toContain("30 meses");
-    // Locatário name should appear
-    expect(result.html).toContain("Locatário Teste");
-  }, 60000);
+    await expect(
+      caller.contracts.generateHtml({
+        fields: {
+          nome_vendedor: "Locador Teste",
+          nome_comprador: "Locatário Teste",
+          tipo_contrato: "LOCAÇÃO",
+          valor_total_contrato: "R$ 2.500",
+        },
+      })
+    ).rejects.toThrow("generateContractHtml() está desativado em produção");
+  }, 10000);
 });
 
 // ─── Contract suggestFields tests ─────────────────────────────────────────────
@@ -279,56 +248,39 @@ describe("documents.list", () => {
 
 // ─── Multi-party contract tests ─────────────────────────────────────────────
 describe("contracts.multiParty", () => {
-  it("generates locação HTML with multiple locadores", async () => {
+  // generateHtml está DESATIVADO em produção — esses testes verificam o bloqueio.
+  // O caminho correto para contratos multi-parte é generateContractPdf().
+  it("blocks locação multi-parte via legacy HTML fallback", async () => {
     const { ctx } = createAuthContext();
     const caller = appRouter.createCaller(ctx);
-
-    const result = await caller.contracts.generateHtml({
-      fields: {
-        nome_vendedor: "Locador Principal",
-        cpf_cnpj_vendedor: "111.222.333-44",
-        vendedores_adicionais: "Segundo Locador, brasileiro(a), casado(a), CPF 555.666.777-88",
-        nome_comprador: "Locatário Teste",
-        cpf_cnpj_comprador: "999.888.777-66",
-        descricao_imovel: "Apartamento 2 quartos",
-        valor_total_contrato: "R$ 3.000",
-        tipo_contrato: "LOCAÇÃO",
-        prazo_locacao: "24 meses",
-        dia_vencimento_aluguel: "5",
-      },
-    });
-
-    expect(result.html).toContain("Locador Principal");
-    expect(result.html).toContain("Locatário Teste");
-    expect(result.html).toContain("LOCADOR(A)");
-    expect(result.html).toContain("LOCATÁRIO(A)");
-    // Additional locadores should appear in the HTML
-    expect(result.html).toContain("Segundo Locador");
-  }, 30000);
-
-  it("generates compra e venda HTML with multiple compradores", async () => {
+    await expect(
+      caller.contracts.generateHtml({
+        fields: {
+          nome_vendedor: "Locador Principal",
+          vendedores_adicionais: "Segundo Locador, CPF 555.666.777-88",
+          nome_comprador: "Locatário Teste",
+          tipo_contrato: "LOCAÇÃO",
+          valor_total_contrato: "R$ 3.000",
+        },
+      })
+    ).rejects.toThrow("generateContractHtml() está desativado em produção");
+  }, 10000);
+  it("blocks compra e venda multi-parte via legacy HTML fallback", async () => {
     const { ctx } = createAuthContext();
     const caller = appRouter.createCaller(ctx);
-
-    const result = await caller.contracts.generateHtml({
-      fields: {
-        nome_vendedor: "Vendedor Único",
-        cpf_cnpj_vendedor: "111.222.333-44",
-        nome_comprador: "Comprador Principal",
-        cpf_cnpj_comprador: "999.888.777-66",
-        compradores_adicionais: "Cônjuge Comprador, brasileiro(a), casado(a), CPF 444.555.666-77",
-        descricao_imovel: "Casa 3 quartos",
-        valor_total_contrato: "R$ 600.000",
-        tipo_contrato: "COMPRA E VENDA",
-        modalidade_pagamento: "Financiamento bancário",
-      },
-    });
-
-    expect(result.html).toContain("Vendedor Único");
-    expect(result.html).toContain("Comprador Principal");
-    expect(result.html).toContain("<!DOCTYPE html>");
-  }, 30000);
-});
+    await expect(
+      caller.contracts.generateHtml({
+        fields: {
+          nome_vendedor: "Vendedor Único",
+          nome_comprador: "Comprador Principal",
+          compradores_adicionais: "Cônjuge Comprador, CPF 444.555.666-77",
+          tipo_contrato: "COMPRA E VENDA",
+          valor_total_contrato: "R$ 600.000",
+        },
+      })
+    ).rejects.toThrow("generateContractHtml() está desativado em produção");
+  }, 10000);
+});;
 
 // ─── Deals CRUD tests ─────────────────────────────────────────────────────────
 describe("deals", () => {

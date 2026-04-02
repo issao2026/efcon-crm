@@ -319,6 +319,9 @@ async function prepareContractHtml(fields: ContractFields): Promise<{ bodyHtml: 
 }
 
 // ─── CSS compartilhado para o conteúdo do contrato ──────────────────────────
+// CSS único e oficial para o conteúdo do contrato.
+// Usado tanto na página de medição quanto no render final.
+// NÃO alterar font-size ou line-height sem atualizar o probe de medição correspondente.
 const CONTENT_CSS = `
   * { box-sizing: border-box; }
   html, body {
@@ -329,22 +332,23 @@ const CONTENT_CSS = `
     print-color-adjust: exact;
     font-family: Arial, sans-serif;
   }
+  /* Valores oficiais: 10.8pt / 1.38 — idênticos ao probe de medição */
   .page-body {
     font-family: Arial, sans-serif;
-    font-size: 11pt;
-    line-height: 1.45;
+    font-size: 10.8pt;
+    line-height: 1.38;
     color: #111;
   }
   .page-body h1,
   .page-body h2,
   .page-body h3 {
-    font-size: 11pt;
+    font-size: 10.8pt;
     font-weight: bold;
     margin: 0.8em 0 0.3em;
   }
   .page-body p {
     margin: 0.35em 0;
-    line-height: 1.45;
+    line-height: 1.38;
     text-align: justify;
   }
   .page-body strong { font-weight: bold; }
@@ -389,6 +393,7 @@ function splitIntoBlocks(bodyHtml: string): string[] {
 }
 
 export async function generateContractPdf(fields: ContractFields): Promise<Buffer> {
+  console.log('[contracts] using PDF engine: generateContractPdf');
   const { bodyHtml, mascaraUri } = await prepareContractHtml(fields);
 
   // ── Dimensões da página em pixels (96 dpi) ─────────────────────────────────
@@ -671,8 +676,23 @@ ${allPagesHtml}
   }
 }
 
-export async function generateContractHtml(fields: ContractFields): Promise<string> {
-  const { bodyHtml, mascaraUri } = await prepareContractHtml(fields);
+/**
+ * @deprecated DESATIVADO EM PRODUÇÃO.
+ * Use exclusivamente generateContractPdf().
+ * Este caminho usa CSS legado (position:fixed, font-size:9.5pt) e não respeita
+ * a arquitetura de paginação real por section.page.
+ */
+export async function generateContractHtml(_fields: ContractFields): Promise<string> {
+  console.warn('[contracts] legacy HTML fallback invoked — BLOQUEADO');
+  if (process.env.ALLOW_LEGACY_HTML_FALLBACK !== 'true') {
+    throw new Error(
+      'generateContractHtml() está desativado em produção. ' +
+      'Use exclusivamente generateContractPdf(). ' +
+      'Para debug interno, defina ALLOW_LEGACY_HTML_FALLBACK=true.'
+    );
+  }
+  // ── código legado mantido apenas para debug interno ─────────────────────
+  const { bodyHtml, mascaraUri } = await prepareContractHtml(_fields);
 
   return `<!DOCTYPE html>
 <html lang="pt-BR">

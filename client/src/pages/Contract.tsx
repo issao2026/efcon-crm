@@ -1152,10 +1152,12 @@ export default function Contract() {
     setIsGenerating(true);
     const fields = buildFields();
     try {
+      console.log('[contracts] iniciando caminho principal: generateContractPdf');
       const result = await generateMutation.mutateAsync({ fields });
+      console.log('[contracts] PDF gerado com caminho principal:', result.contractUrl);
       setGeneratedPdfUrl(result.contractUrl);
       toast.success("Contrato gerado com sucesso!");
-      // Auto-download PDF with descriptive filename
+      // Download automático com nome descritivo
       const nomeV = (form.vendedores[0]?.nome || 'vendedor').replace(/\s+/g, '_').toLowerCase();
       const nomeC = (form.compradores[0]?.nome || 'comprador').replace(/\s+/g, '_').toLowerCase();
       const dataHoje = new Date().toISOString().slice(0, 10);
@@ -1167,44 +1169,17 @@ export default function Contract() {
       document.body.appendChild(dlLink);
       dlLink.click();
       document.body.removeChild(dlLink);
-      // Auto-open distribution modal after PDF is ready
+      // Abrir modal de distribuição automaticamente
       setShowWhatsApp(true);
     } catch (error: any) {
-      const errMsg = (error?.message || "").toLowerCase();
-      const isPdfEngineError = errMsg.includes("chromium") || errMsg.includes("weasyprint") ||
-        errMsg.includes("browser") || errMsg.includes("failed to launch") ||
-        errMsg.includes("libnss") || errMsg.includes("shared object") ||
-        errMsg.includes("internal server error");
-      if (isPdfEngineError) {
-        toast.info("Gerando contrato para impressão...");
-        try {
-          const htmlResult = await generateHtmlMutation.mutateAsync({ fields });
-          const printWindow = window.open('', '_blank');
-          if (printWindow) {
-            printWindow.document.open();
-            printWindow.document.write(htmlResult.html);
-            printWindow.document.close();
-          } else {
-            toast.error("Popup bloqueado. Permita popups para este site e tente novamente.");
-          }
-        } catch (_htmlErr) {
-          toast.warning("Abrindo contrato sem papel timbrado (fallback)...");
-          const previewEl = document.getElementById('contract-preview-content');
-          if (previewEl) {
-            const printWindow = window.open('', '_blank');
-            if (printWindow) {
-              printWindow.document.write(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><title>Contrato</title><style>body{font-family:Georgia,serif;font-size:11pt;line-height:1.6;margin:2.5cm;color:#111}h2{text-align:center;font-size:14pt;text-transform:uppercase;letter-spacing:1px}strong{font-weight:700}p{margin-bottom:0.8em;text-align:justify}.pl-4{padding-left:1em}@media print{body{margin:2cm}}</style></head><body>${previewEl.innerHTML}</body></html>`);
-              printWindow.document.close();
-              printWindow.focus();
-              setTimeout(() => { printWindow.print(); }, 500);
-            }
-          } else {
-            window.print();
-          }
-        }
-      } else {
-        toast.error(error.message || "Erro ao gerar contrato");
-      }
+      // Fallback legado DESATIVADO intencionalmente.
+      // O sistema não deve nunca gerar contratos pelo caminho HTML legado.
+      // Se o Puppeteer falhar, o usuário deve ver o erro real.
+      console.error('[contracts] Falha no caminho principal PDF:', error);
+      const errDetail = error?.message || 'Erro desconhecido no servidor';
+      toast.error(
+        `Erro ao gerar contrato: ${errDetail}. Tente novamente ou contate o suporte técnico.`
+      );
     } finally {
       setIsGenerating(false);
     }
