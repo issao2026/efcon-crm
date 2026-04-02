@@ -396,12 +396,10 @@ export async function generateContractPdf(fields: ContractFields): Promise<Buffe
   const MM = 3.7795;
   const PAGE_W   = Math.round(210 * MM); // 794 px
   const PAGE_H   = Math.round(297 * MM); // 1122 px
-  const HEADER_H = Math.round(45  * MM); // 170 px
-  const FOOTER_H = Math.round(70  * MM); // 265 px
   const MARGIN_X = Math.round(14  * MM); // 53 px
   const CONTENT_W = PAGE_W - MARGIN_X * 2; // 688 px
-  // Área útil exata: 297 - 45 - 70 = 182mm, sem folga extra (overflow:hidden garante)
-  const CONTENT_H = Math.round(182 * MM); // 688 px
+  // SAFETY_MARGIN: margem de segurança obrigatória para evitar invasão do rodapé
+  const SAFETY_MARGIN = 8; // pixels
 
   // Detectar Chromium disponível no sistema ou no pacote puppeteer
   const CHROMIUM_CANDIDATES = [
@@ -432,61 +430,135 @@ export async function generateContractPdf(fields: ContractFields): Promise<Buffe
   });
 
   try {
-    // ── Fase 1: medir altura de cada bloco ─────────────────────────────────────
+    // ── Fase 1: medir altura de cada bloco via getBoundingClientRect ──────────
+    // A página de medição usa o MESMO CSS do layout final para máxima precisão
     const measurePage = await browser.newPage();
-    await measurePage.setViewport({ width: PAGE_W, height: PAGE_H });
+    await measurePage.setViewport({ width: PAGE_W, height: PAGE_H * 10 }); // altura grande para evitar scroll
     await measurePage.setContent(
       `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
         ${CONTENT_CSS}
-        body { margin: 0; padding: 0; width: ${CONTENT_W}px; }
+        body { margin: 0; padding: 0; }
+        /* Classes idênticas ao layout final para medição precisa */
+        .page {
+          position: relative;
+          width: 210mm;
+          height: 297mm;
+          overflow: hidden;
+          background: white;
+        }
+        .page-header {
+          position: absolute;
+          top: 0; left: 0;
+          width: 100%; height: 45mm;
+        }
+        .page-body {
+          position: absolute;
+          top: 45mm; left: 14mm;
+          width: 182mm; height: 182mm;
+          overflow: hidden;
+          font-size: 10.8pt;
+          line-height: 1.38;
+          color: #111;
+        }
+        .page-footer {
+          position: absolute;
+          left: 0; bottom: 0;
+          width: 100%; height: 70mm;
+        }
       </style></head><body></body></html>`,
       { waitUntil: 'domcontentloaded' }
     );
 
     const rawBlocks = splitIntoBlocks(bodyHtml);
 
-    const blockHeights: number[] = await measurePage.evaluate(
-      (blocks: string[], contentW: number) => {
-        const heights: number[] = [];
-        for (const html of blocks) {
-          // measureBlockHeight conforme especificação
-          const probe = document.createElement('div');
-          probe.className = 'page-body';
+    // Mede: (1) altura real da área útil via getPageBodyHeightPx,
+    //        (2) cada bloco via getBoundingClientRect (Math.ceil para arredondar para cima)
+    // Usar addScriptTag + evaluate para evitar que o tsx injete __name no código serializado
+    await measurePage.addScriptTag({ content: `
+      window._efconMeasure = function(blocks) {
+        var getPageBodyHeightPx = function() {
+          var tempPage = document.createElement('div');
+          tempPage.className = 'page';
+          tempPage.style.visibility = 'hidden';
+          tempPage.style.position = 'absolute';
+          tempPage.style.left = '-99999px';
+          var header = document.createElement('div');
+          header.className = 'page-header';
+          var body = document.createElement('div');
+          body.className = 'page-body';
+          var footer = document.createElement('div');
+          footer.className = 'page-footer';
+          tempPage.appendChild(header);
+          tempPage.appendChild(body);
+          tempPage.appendChild(footer);
+          document.body.appendChild(tempPage);
+          var height = body.getBoundingClientRect().height;
+          document.body.removeChild(tempPage);
+          return height;
+        };
+        var createMeasureRoot = function() {
+          var probe = document.createElement('div');
           probe.style.position = 'absolute';
           probe.style.visibility = 'hidden';
           probe.style.pointerEvents = 'none';
           probe.style.left = '-99999px';
           probe.style.top = '0';
-          probe.style.width = contentW + 'px';
+          probe.style.width = '182mm';
           probe.style.fontFamily = 'Arial, sans-serif';
-          probe.style.fontSize = '11pt';
-          probe.style.lineHeight = '1.45';
-          probe.innerHTML = html;
+          probe.style.fontSize = '10.8pt';
+          probe.style.lineHeight = '1.38';
           document.body.appendChild(probe);
-          heights.push(probe.offsetHeight);
-          document.body.removeChild(probe);
+          return probe;
+        };
+        var measureBlockHeight = function(html, measureRoot) {
+          measureRoot.innerHTML = html;
+          var rect = measureRoot.getBoundingClientRect();
+          return Math.ceil(rect.height);
+        };
+        var maxH = getPageBodyHeightPx();
+        var measureRoot = createMeasureRoot();
+        var heights = [];
+        for (var i = 0; i < blocks.length; i++) {
+          heights.push(measureBlockHeight(blocks[i], measureRoot));
         }
-        return heights;
-      },
-      rawBlocks, CONTENT_W
+        document.body.removeChild(measureRoot);
+        return { maxHeight: maxH, blockHeights: heights };
+      };
+    ` });
+    const { maxHeight, blockHeights } = await measurePage.evaluate(
+      (blocks) => (window as any)._efconMeasure(blocks),
+      rawBlocks
     );
     await measurePage.close();
 
-    // ── Fase 2: distribuir blocos em páginas ───────────────────────────────────
+    // ── Fase 2: distribuir blocos em páginas com SAFETY_MARGIN ────────────────
     const pages: string[][] = [];
     let currentPage: string[] = [];
     let currentHeight = 0;
 
     for (let i = 0; i < rawBlocks.length; i++) {
       const bh = blockHeights[i] || 0;
-      if (currentHeight + bh > CONTENT_H && currentPage.length > 0) {
-        pages.push(currentPage);
-        currentPage = [];
-        currentHeight = 0;
+
+      // Bloco maior que a área útil: página própria
+      if (bh > maxHeight) {
+        if (currentPage.length > 0) {
+          pages.push(currentPage);
+          currentPage = [];
+          currentHeight = 0;
+        }
+        pages.push([rawBlocks[i]]);
+        continue;
       }
-      // Se um bloco sozinho for maior que a área útil, adiciona mesmo assim
-      currentPage.push(rawBlocks[i]);
-      currentHeight += bh;
+
+      // Não cabe na página atual (com margem de segurança): nova página
+      if (currentHeight + bh > maxHeight - SAFETY_MARGIN) {
+        if (currentPage.length > 0) pages.push(currentPage);
+        currentPage = [rawBlocks[i]];
+        currentHeight = bh;
+      } else {
+        currentPage.push(rawBlocks[i]);
+        currentHeight += bh;
+      }
     }
     if (currentPage.length > 0) pages.push(currentPage);
 
@@ -553,11 +625,11 @@ export async function generateContractPdf(fields: ContractFields): Promise<Buffe
     position: absolute;
     top: 45mm;
     left: 14mm;
-    right: 14mm;
+    width: 182mm;
     height: 182mm;
     overflow: hidden;
-    font-size: 11pt;
-    line-height: 1.45;
+    font-size: 10.8pt;
+    line-height: 1.38;
     color: #111;
   }
   .page-footer {
