@@ -9,7 +9,8 @@
  * 5. Retorna Buffer do PDF
  */
 
-import { PDFDocument, PDFPage, rgb, StandardFonts } from 'pdf-lib';
+import { PDFDocument, PDFPage, rgb } from 'pdf-lib';
+import fontkit from '@pdf-lib/fontkit';
 import { parse as parseHtml } from 'node-html-parser';
 import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
@@ -40,6 +41,19 @@ const LINE_HEIGHT = FONT_SIZE * 1.45;
 const HEADING_SIZE = 10;
 const HEADING_LINE_H = HEADING_SIZE * 1.5;
 const PARA_SPACING = 4; // espaço extra entre parágrafos
+
+// ─── Carrega fontes Roboto (TTF puro com suporte a UTF-8/português) ──────────
+function getFontBytes(filename: string): Uint8Array {
+  const candidates = [
+    join(process.cwd(), `server/fonts/${filename}`),
+    `/home/ubuntu/efcon-crm/server/fonts/${filename}`,
+    join(process.cwd(), `fonts/${filename}`),
+  ];
+  for (const p of candidates) {
+    if (existsSync(p)) return readFileSync(p);
+  }
+  throw new Error(`Fonte não encontrada: ${filename}`);
+}
 
 // ─── Carrega a máscara PNG ────────────────────────────────────────────────────
 function getMascaraBytes(): Uint8Array {
@@ -138,9 +152,10 @@ export function paginateTextBlocks(bodyHtml: string): TextBlock[] {
 
 /**
  * Quebra um texto longo em linhas que cabem na largura disponível.
- * Fatores calibrados para Helvetica (pdf-lib StandardFonts):
- *   Regular: 0.52 × fontSize  (média de caracteres mistos)
- *   Bold:    0.58 × fontSize  (negrito é ~10% mais largo)
+ * Usa widthOfTextAtSize da fonte real quando disponível (Roboto).
+ * Fallback: estimativa por caractere.
+ *   Regular: 0.52 × fontSize
+ *   Bold:    0.58 × fontSize
  */
 function wrapText(
   text: string,
@@ -180,6 +195,45 @@ function wrapText(
 }
 
 /**
+ * Quebra texto usando a largura real da fonte (widthOfTextAtSize).
+ * Muito mais preciso que estimativa por caractere.
+ */
+function wrapTextWithFont(
+  text: string,
+  maxWidth: number,
+  fontSize: number,
+  font: { widthOfTextAtSize: (t: string, s: number) => number }
+): string[] {
+  const words = text.split(' ');
+  const lines: string[] = [];
+  let current = '';
+
+  for (const word of words) {
+    const test = current ? `${current} ${word}` : word;
+    if (font.widthOfTextAtSize(test, fontSize) <= maxWidth) {
+      current = test;
+    } else {
+      if (current) lines.push(current);
+      // Se a palavra sozinha é maior que a linha, quebra forçada
+      if (font.widthOfTextAtSize(word, fontSize) > maxWidth) {
+        let remaining = word;
+        while (font.widthOfTextAtSize(remaining, fontSize) > maxWidth) {
+          let cut = remaining.length - 1;
+          while (cut > 0 && font.widthOfTextAtSize(remaining.slice(0, cut), fontSize) > maxWidth) cut--;
+          lines.push(remaining.slice(0, cut));
+          remaining = remaining.slice(cut);
+        }
+        current = remaining;
+      } else {
+        current = word;
+      }
+    }
+  }
+  if (current) lines.push(current);
+  return lines.length ? lines : [text];
+}
+
+/**
  * Desenha o header (parte superior da máscara) em uma página.
  */
 export async function drawHeader(page: PDFPage, mascaraImage: Awaited<ReturnType<PDFDocument['embedPng']>>) {
@@ -214,8 +268,24 @@ export async function drawContractBody(
   blocks: TextBlock[],
   mascaraImage: Awaited<ReturnType<PDFDocument['embedPng']>>
 ): Promise<void> {
-  const regularFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
-  const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+  // Registrar fontkit para suporte a fontes customizadas (UTF-8/português)
+  pdfDoc.registerFontkit(fontkit);
+
+  // Embutir Roboto Regular e Bold (TTF puro) — suporte completo a ç, ã, é, ô, etc.
+  let regularFont: Awaited<ReturnType<typeof pdfDoc.embedFont>>;
+  let boldFont: Awaited<ReturnType<typeof pdfDoc.embedFont>>;
+  try {
+    const regularBytes = getFontBytes('Roboto-Regular.ttf');
+    const boldBytes = getFontBytes('Roboto-Bold.ttf');
+    regularFont = await pdfDoc.embedFont(regularBytes);
+    boldFont = await pdfDoc.embedFont(boldBytes);
+    console.log('[contracts] usando fonte Roboto (UTF-8 completo)');
+  } catch (e) {
+    console.warn('[contracts] Roboto não encontrada, usando Helvetica (sem acentos):', (e as Error).message);
+    const { StandardFonts } = await import('pdf-lib');
+    regularFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
+    boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+  }
 
   let page = pdfDoc.addPage([A4_W, A4_H]);
   await drawHeader(page, mascaraImage);
@@ -243,9 +313,8 @@ export async function drawContractBody(
       cursorY -= 4;
     }
 
-    // Negrito usa fator 0.58 (mais largo que regular 0.52)
-    const charWidthFactor = block.isBold ? fontSize * 0.58 : 0;
-    const wrappedLines = wrapText(block.text, textWidth, fontSize, charWidthFactor);
+    // Usar widthOfTextAtSize da fonte real para quebra precisa de linha
+    const wrappedLines = wrapTextWithFont(block.text, textWidth, fontSize, font);
 
     for (const line of wrappedLines) {
       // Verificar se cabe na página atual
